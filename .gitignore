@@ -1,0 +1,22 @@
+# Binaries
+bin/
+
+# Development environment
+.idea/
+.vscode/
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Build output
+dist/
+build/
+
+# OS-specific
+.DS_Store
+Thumbs.db
