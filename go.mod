@@ -3,6 +3,7 @@ module github.com/sjm1327605995/tenon
 go 1.24.0
 
 require (
+	github.com/dhconnelly/rtreego v1.2.0
 	github.com/hajimehoshi/ebiten/v2 v2.8.8
 	github.com/millken/yoga v0.0.0-20250914114415-021d5b7d6822
 )

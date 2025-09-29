@@ -20,11 +20,11 @@ package main
 
 import (
 	"fmt"
-	"image/color"
-	"log"
-
+	"github.com/dhconnelly/rtreego"
 	"github.com/sjm1327605995/tenon/node"
 	"github.com/sjm1327605995/tenon/renderer"
+	"image/color"
+	"log"
 
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/millken/yoga"
@@ -41,6 +41,7 @@ type Game struct {
 // NewGame creates a new game instance
 func NewGame() *Game {
 	image, _, _ := ebitenutil.NewImageFromFile("gopher.png")
+
 	return &Game{
 		root: node.NewView().
 			SetGap(yoga.GutterAll, 10).
@@ -53,8 +54,15 @@ func NewGame() *Game {
 					SetWidth(100).
 					SetHeight(100).
 					SetRadius(node.RadiusAll, 20).
-					SetWidthPercent(80).
-					SetBackgroundColor(color.RGBA{R: 186, G: 85, B: 211, A: 255}),
+					SetBackgroundColor(color.RGBA{R: 186, G: 85, B: 211, A: 255}).
+					SetOnClick(func(v *node.View) {
+						w := v.StyleGetWidth()
+						w += 5
+						if w > 500 {
+							w = 100
+						}
+						v.SetWidth(w)
+					}),
 				node.NewView().
 					SetBorder(yoga.EdgeAll, 20).
 					SetPadding(yoga.EdgeAll, 10).
@@ -72,8 +80,14 @@ func NewGame() *Game {
 
 // Update handles game logic updates
 func (g *Game) Update() error {
+
 	g.root.Measure()
+	x, y := ebiten.CursorPosition()
+	if x > 0 && y > 0 {
+		node.NearestNeighbor(rtreego.Point{float64(x), float64(y)})
+	}
 	g.root.OnLayout()
+
 	return nil
 }
 
