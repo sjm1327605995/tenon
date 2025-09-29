@@ -1,10 +1,35 @@
 package node
 
 import (
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"image/color"
 
+	"github.com/dhconnelly/rtreego"
 	"github.com/millken/yoga"
 )
+
+var rtree = rtreego.NewTree(2, 25, 50)
+
+type SearchPoint struct {
+	rtreego.Rect
+}
+
+func NearestNeighbor(point rtreego.Point) {
+	rect, _ := rtreego.NewRect(point, []float64{1, 1})
+	p := rtree.SearchIntersect(rect)
+	if p == nil {
+		return
+	}
+	for _, v := range p {
+		if inode, ok := v.(INode); ok {
+			inode.OnHover()
+			if inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft) > 0 {
+				inode.OnClick()
+			}
+		}
+	}
+}
 
 type View struct {
 	Node
@@ -21,6 +46,7 @@ type Radius struct {
 }
 
 func (v *View) OnLayout() {
+
 	yoga.CalculateLayout(v.Yoga(), yoga.Undefined, yoga.Undefined, v.direction)
 }
 
@@ -60,6 +86,7 @@ func (v *View) SetAlignItems(alignItems yoga.Align) *View {
 	v.Node.Node.StyleSetAlignItems(alignItems)
 	return v
 }
+
 func (v *View) SetBorder(edge yoga.Edge, border float32) *View {
 	v.Node.Node.StyleSetBorder(edge, border)
 	return v
@@ -238,5 +265,12 @@ func (v *View) AddChild(children ...INode) *View {
 	for i := range children {
 		v.Node.Node.InsertChild(children[i].Yoga(), uint32(i))
 	}
+	return v
+}
+func (v *View) SetOnClick(onClick func(v *View)) *View {
+	v.Node.Click = func() {
+		onClick(v)
+	}
+	v.IsRtreeNode = 1
 	return v
 }
