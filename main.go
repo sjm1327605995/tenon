@@ -21,7 +21,6 @@ package main
 import (
 	"fmt"
 	"github.com/sjm1327605995/tenon/core/context/node"
-	"github.com/sjm1327605995/tenon/renderer"
 	"image/color"
 	"log"
 
@@ -33,8 +32,7 @@ import (
 
 // Game represents the main game structure
 type Game struct {
-	renderer *renderer.Ebiten
-	root     *node.Context
+	root *node.Context
 }
 
 // NewGame creates a new game instance
@@ -42,7 +40,6 @@ func NewGame() *Game {
 	image, _, _ := ebitenutil.NewImageFromFile("gopher.png")
 
 	return &Game{
-		renderer: renderer.NewEbitenRenderer(),
 		root: node.NewContext().View(func(v *node.View) {
 			v.SetGap(yoga.GutterAll, 10).
 				SetPadding(yoga.EdgeAll, 10).
@@ -53,13 +50,14 @@ func NewGame() *Game {
 					SetHeight(100).
 					SetRadius(node.RadiusAll, 20).
 					SetBackgroundColor(color.RGBA{R: 186, G: 85, B: 211, A: 255}).
+					SetOnHover(func(v *node.View) {
+						v.SetBackgroundColor(color.RGBA{R: 176, G: 75, B: 201, A: 255})
+					}).
 					SetOnClick(func(v *node.View) {
-						w := v.StyleGetWidth()
-						w += 5
-						if w > 500 {
-							w = 100
-						}
-						v.SetWidth(w)
+						v.SetBackgroundColor(color.RGBA{R: 206, G: 105, B: 231, A: 255})
+					}).
+					SetMouseover(func(v *node.View) {
+						v.SetBackgroundColor(color.RGBA{R: 186, G: 85, B: 211, A: 255})
 					}),
 				node.NewView().
 					SetBorder(yoga.EdgeAll, 20).
@@ -78,10 +76,7 @@ func NewGame() *Game {
 
 } // Update handles game logic updates
 func (g *Game) Update() error {
-	x, y := ebiten.CursorPosition()
-	if x > 0 && y > 0 {
-		g.root.ListenMouse(float32(x), float32(y))
-	}
+
 	g.root.Update()
 
 	return nil
@@ -89,14 +84,14 @@ func (g *Game) Update() error {
 
 // Draw renders the game screen
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.renderer.SetScreen(screen)
-	g.root.Render(g.renderer)
+
+	g.root.Render(screen)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("FPS: %0.2f, TPS: %0.2f", ebiten.ActualFPS(), ebiten.ActualTPS()), 0, 0)
 }
 
 // Layout returns the game's screen dimensions
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	g.renderer.UpdateScaleFactor(float32(ebiten.Monitor().DeviceScaleFactor()))
+
 	g.root.SetLayout(float32(outsideWidth), float32(outsideHeight))
 	return outsideWidth, outsideHeight
 }

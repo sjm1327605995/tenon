@@ -1,10 +1,13 @@
 package node
 
 import (
-	"image/color"
-
+	"cmp"
 	"github.com/dhconnelly/rtreego"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/millken/yoga"
+	"image/color"
+	"slices"
 )
 
 type SearchPoint struct {
@@ -30,12 +33,12 @@ func (v *View) OnLayout() {
 	yoga.CalculateLayout(v.Yoga(), yoga.Undefined, yoga.Undefined, v.direction)
 }
 
-func (v *View) OnDraw(r Renderer, rtree *rtreego.Rtree) {
+func (v *View) OnDraw(screen *ebiten.Image, rtree *rtreego.Rtree) {
 
 	//绘制本身
-	_ = r.Rectangle(v.Node.X, v.Node.Y, v.Node.Node, v.radius, v.backgroundColor)
+	_ = DrawRectangle(screen, v.Node.X, v.Node.Y, v.Node.Node, v.radius, v.backgroundColor)
 	//先画子节点
-	v.Node.OnDraw(r, rtree)
+	v.Node.OnDraw(screen, rtree)
 }
 
 func NewView() *View {
@@ -247,10 +250,41 @@ func (v *View) AddChild(children ...INode) *View {
 	}
 	return v
 }
-func (v *View) SetOnClick(onClick func(v *View)) *View {
-	v.Node.Click = func() {
-		onClick(v)
-	}
+func (v *View) SetOnHover(onHover func(v *View)) *View {
+	v.Node.Event = append(v.Node.Event)
 	v.IsRtreeNode = 1
+	v.Node.Event = append(v.Node.Event, &OnClickEvent{f: func() {
+		onHover(v)
+	}})
+	slices.SortStableFunc(v.Node.Event, func(a, b EventHandler) int {
+		return cmp.Compare(a.Order(), b.Order())
+	})
+	return v
+}
+func (v *View) SetMouseover(mouseOver func(v *View)) *View {
+	v.Node.Event = append(v.Node.Event)
+	v.IsRtreeNode = 1
+	v.Node.Event = append(v.Node.Event, &OnMouseOverEvent{f: func() {
+		if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+			mouseOver(v)
+		}
+	}})
+	slices.SortStableFunc(v.Node.Event, func(a, b EventHandler) int {
+		return cmp.Compare(a.Order(), b.Order())
+	})
+	return v
+}
+
+func (v *View) SetOnClick(onClick func(v *View)) *View {
+	v.Node.Event = append(v.Node.Event)
+	v.IsRtreeNode = 1
+	v.Node.Event = append(v.Node.Event, &OnClickEvent{f: func() {
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			onClick(v)
+		}
+	}})
+	slices.SortStableFunc(v.Node.Event, func(a, b EventHandler) int {
+		return cmp.Compare(a.Order(), b.Order())
+	})
 	return v
 }
