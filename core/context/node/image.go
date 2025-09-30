@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/dhconnelly/rtreego"
+	"github.com/hajimehoshi/ebiten/v2"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -32,9 +33,9 @@ func (i *Image) Measure() {
 	}
 }
 
-func (i *Image) OnDraw(r Renderer, rtree *rtreego.Rtree) {
-	_ = r.Image(i.X, i.Y, i.Node.Node, i.Src)
-	i.Node.OnDraw(r, rtree)
+func (i *Image) OnDraw(screen *ebiten.Image, rtree *rtreego.Rtree) {
+	_ = DrawImage(screen, i.X, i.Y, i.Node.Node, i.Src)
+	i.Node.OnDraw(screen, rtree)
 }
 func NewImage(image image.Image) *Image {
 	return &Image{

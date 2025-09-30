@@ -3,7 +3,7 @@ package node
 import (
 	"github.com/dhconnelly/rtreego"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/millken/yoga"
 )
 
 type Context struct {
@@ -26,14 +26,15 @@ func (c *Context) nearestNeighbor(point rtreego.Point) {
 	}
 	for _, v := range p {
 		if inode, ok := v.(INode); ok {
-			inode.OnHover()
-			if inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft) > 0 {
-				inode.OnClick()
-			}
+			inode.OnEvent()
 		}
 	}
 }
 func (c *Context) Update() {
+	x, y := ebiten.CursorPosition()
+	if x > 0 && y > 0 {
+		c.ListenMouse(float32(x), float32(y))
+	}
 	c.root.Measure()
 	c.root.OnLayout()
 
@@ -41,13 +42,17 @@ func (c *Context) Update() {
 func (c *Context) SetLayout(outsideWidth, outsideHeight float32) {
 	c.root.SetWidth(outsideWidth)
 	c.root.SetHeight(outsideHeight)
+	c.root.SetDirtiedFunc(func(node *yoga.Node) {
+		c.root.SetRtreeRect(c.Rtree)
+	})
+
 }
 func (c *Context) View(f func(v *View)) *Context {
 	f(c.root)
 	return c
 }
-func (c *Context) Render(renderer Renderer) {
-	c.root.OnDraw(renderer, c.Rtree)
+func (c *Context) Render(screen *ebiten.Image) {
+	c.root.OnDraw(screen, c.Rtree)
 }
 func (c *Context) ListenMouse(x, y float32) {
 	c.nearestNeighbor(rtreego.Point{float64(x), float64(y)})

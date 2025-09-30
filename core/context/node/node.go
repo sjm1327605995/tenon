@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/dhconnelly/rtreego"
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/millken/yoga"
 )
 
@@ -13,12 +14,47 @@ type Rect struct {
 type INode interface {
 	Measure()
 	OnLayout()
-	OnDraw(r Renderer, rtree *rtreego.Rtree)
+	OnDraw(r *ebiten.Image, rtree *rtreego.Rtree)
 	Yoga() *yoga.Node
 	SetPositon(x, y float32)
 	GetPositon() (x, y float32)
-	OnHover()
-	OnClick()
+	OnEvent()
+}
+type EventHandler interface {
+	Order() int
+	Handle()
+}
+type OnHoverEvent struct {
+	f func()
+}
+
+func (o *OnHoverEvent) Order() int {
+	return 1
+}
+func (o *OnHoverEvent) Handle() {
+	o.f()
+}
+
+type OnClickEvent struct {
+	f func()
+}
+
+func (o *OnClickEvent) Order() int {
+	return 2
+}
+func (o *OnClickEvent) Handle() {
+	o.f()
+}
+
+type OnMouseOverEvent struct {
+	f func()
+}
+
+func (o *OnMouseOverEvent) Order() int {
+	return 3
+}
+func (o *OnMouseOverEvent) Handle() {
+	o.f()
 }
 
 type Node struct {
@@ -28,10 +64,16 @@ type Node struct {
 	children    []INode
 	X           float32
 	Y           float32
-	Hover       func()
-	Click       func()
+	Event       []EventHandler
 }
 
+func (n *Node) OnEvent() {
+	if len(n.Event) > 0 {
+		for i := range n.Event {
+			n.Event[i].Handle()
+		}
+	}
+}
 func (n *Node) SetRtreeRect(rtree *rtreego.Rtree) {
 
 	if n.IsRtreeNode == 2 {
@@ -48,22 +90,13 @@ func (n *Node) Bounds() rtreego.Rect {
 func (n *Node) OnLayout() {
 	yoga.CalculateLayout(n.Node, yoga.Undefined, yoga.Undefined, yoga.DirectionLTR)
 }
-func (n *Node) OnHover() {
-	if n.Hover != nil {
-		n.Hover()
-	}
-}
-func (n *Node) OnClick() {
-	if n.Click != nil {
-		n.Click()
-	}
-}
+
 func (n *Node) Measure() {
 	for i := range n.children {
 		n.children[i].Measure()
 	}
 }
-func (n *Node) OnDraw(r Renderer, rtree *rtreego.Rtree) {
+func (n *Node) OnDraw(r *ebiten.Image, rtree *rtreego.Rtree) {
 	for i := range n.children {
 		yogaNode := n.children[i].Yoga()
 		x, y := yogaNode.LayoutLeft(), yogaNode.LayoutTop()
