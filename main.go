@@ -20,8 +20,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/dhconnelly/rtreego"
-	"github.com/sjm1327605995/tenon/node"
+	"github.com/sjm1327605995/tenon/core/context/node"
 	"github.com/sjm1327605995/tenon/renderer"
 	"image/color"
 	"log"
@@ -35,7 +34,7 @@ import (
 // Game represents the main game structure
 type Game struct {
 	renderer *renderer.Ebiten
-	root     *node.View
+	root     *node.Context
 }
 
 // NewGame creates a new game instance
@@ -43,15 +42,14 @@ func NewGame() *Game {
 	image, _, _ := ebitenutil.NewImageFromFile("gopher.png")
 
 	return &Game{
-		root: node.NewView().
-			SetGap(yoga.GutterAll, 10).
-			SetPadding(yoga.EdgeAll, 10).
-			SetAlignItems(yoga.AlignCenter).
-			SetJustifyContent(yoga.JustifyCenter).
-			SetBackgroundColor(color.RGBA{R: 255, G: 255, B: 255, A: 255}).
-			AddChild(
-				node.NewView().
-					SetWidth(100).
+		renderer: renderer.NewEbitenRenderer(),
+		root: node.NewContext().View(func(v *node.View) {
+			v.SetGap(yoga.GutterAll, 10).
+				SetPadding(yoga.EdgeAll, 10).
+				SetAlignItems(yoga.AlignCenter).
+				SetJustifyContent(yoga.JustifyCenter).
+				SetBackgroundColor(color.RGBA{R: 255, G: 255, B: 255, A: 255}).AddChild(
+				node.NewView().SetWidth(100).
 					SetHeight(100).
 					SetRadius(node.RadiusAll, 20).
 					SetBackgroundColor(color.RGBA{R: 186, G: 85, B: 211, A: 255}).
@@ -73,20 +71,18 @@ func NewGame() *Game {
 					SetRadius(node.RadiusBottomLeft, 100).
 					SetBackgroundColor(color.RGBA{R: 100, G: 149, B: 237, A: 255}).
 					AddChild(node.NewImage(image)),
-			),
-		renderer: renderer.NewEbitenRenderer(),
+			)
+
+		}),
 	}
-}
 
-// Update handles game logic updates
+} // Update handles game logic updates
 func (g *Game) Update() error {
-
-	g.root.Measure()
 	x, y := ebiten.CursorPosition()
 	if x > 0 && y > 0 {
-		node.NearestNeighbor(rtreego.Point{float64(x), float64(y)})
+		g.root.ListenMouse(float32(x), float32(y))
 	}
-	g.root.OnLayout()
+	g.root.Update()
 
 	return nil
 }
@@ -94,14 +90,14 @@ func (g *Game) Update() error {
 // Draw renders the game screen
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.renderer.SetScreen(screen)
-	g.root.OnDraw(g.renderer)
+	g.root.Render(g.renderer)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("FPS: %0.2f, TPS: %0.2f", ebiten.ActualFPS(), ebiten.ActualTPS()), 0, 0)
 }
 
 // Layout returns the game's screen dimensions
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	g.renderer.UpdateScaleFactor(float32(ebiten.Monitor().DeviceScaleFactor()))
-	g.root.SetWidth(float32(outsideWidth)).SetHeight(float32(outsideHeight))
+	g.root.SetLayout(float32(outsideWidth), float32(outsideHeight))
 	return outsideWidth, outsideHeight
 }
 

@@ -1,34 +1,14 @@
 package node
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"image/color"
 
 	"github.com/dhconnelly/rtreego"
 	"github.com/millken/yoga"
 )
 
-var rtree = rtreego.NewTree(2, 25, 50)
-
 type SearchPoint struct {
 	rtreego.Rect
-}
-
-func NearestNeighbor(point rtreego.Point) {
-	rect, _ := rtreego.NewRect(point, []float64{1, 1})
-	p := rtree.SearchIntersect(rect)
-	if p == nil {
-		return
-	}
-	for _, v := range p {
-		if inode, ok := v.(INode); ok {
-			inode.OnHover()
-			if inpututil.MouseButtonPressDuration(ebiten.MouseButtonLeft) > 0 {
-				inode.OnClick()
-			}
-		}
-	}
 }
 
 type View struct {
@@ -50,12 +30,12 @@ func (v *View) OnLayout() {
 	yoga.CalculateLayout(v.Yoga(), yoga.Undefined, yoga.Undefined, v.direction)
 }
 
-func (v *View) OnDraw(r Renderer) {
+func (v *View) OnDraw(r Renderer, rtree *rtreego.Rtree) {
 
 	//绘制本身
 	_ = r.Rectangle(v.Node.X, v.Node.Y, v.Node.Node, v.radius, v.backgroundColor)
 	//先画子节点
-	v.Node.OnDraw(r)
+	v.Node.OnDraw(r, rtree)
 }
 
 func NewView() *View {

@@ -1,11 +1,10 @@
 package renderer
 
 import (
+	"github.com/sjm1327605995/tenon/core/context/node"
 	"image"
 	"image/color"
 	"math"
-
-	"github.com/sjm1327605995/tenon/node"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
