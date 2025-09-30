@@ -13,7 +13,7 @@ type Rect struct {
 type INode interface {
 	Measure()
 	OnLayout()
-	OnDraw(r Renderer)
+	OnDraw(r Renderer, rtree *rtreego.Rtree)
 	Yoga() *yoga.Node
 	SetPositon(x, y float32)
 	GetPositon() (x, y float32)
@@ -32,7 +32,7 @@ type Node struct {
 	Click       func()
 }
 
-func (n *Node) SetRtreeRect() {
+func (n *Node) SetRtreeRect(rtree *rtreego.Rtree) {
 
 	if n.IsRtreeNode == 2 {
 		rtree.Delete(n)
@@ -63,18 +63,18 @@ func (n *Node) Measure() {
 		n.children[i].Measure()
 	}
 }
-func (n *Node) OnDraw(r Renderer) {
+func (n *Node) OnDraw(r Renderer, rtree *rtreego.Rtree) {
 	for i := range n.children {
 		yogaNode := n.children[i].Yoga()
 		x, y := yogaNode.LayoutLeft(), yogaNode.LayoutTop()
 		n.children[i].SetPositon(n.X+x, n.Y+y)
-		n.children[i].OnDraw(r)
+		n.children[i].OnDraw(r, rtree)
 	}
 	if n.IsRtreeNode == 1 {
 		n.SetDirtiedFunc(func(node *yoga.Node) {
-			n.SetRtreeRect()
+			n.SetRtreeRect(rtree)
 		})
-		n.SetRtreeRect()
+		n.SetRtreeRect(rtree)
 	}
 }
 func (n *Node) SetPositon(x, y float32) {

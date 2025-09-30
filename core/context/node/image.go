@@ -1,6 +1,7 @@
 package node
 
 import (
+	"github.com/dhconnelly/rtreego"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -31,9 +32,9 @@ func (i *Image) Measure() {
 	}
 }
 
-func (i *Image) OnDraw(r Renderer) {
+func (i *Image) OnDraw(r Renderer, rtree *rtreego.Rtree) {
 	_ = r.Image(i.X, i.Y, i.Node.Node, i.Src)
-	i.Node.OnDraw(r)
+	i.Node.OnDraw(r, rtree)
 }
 func NewImage(image image.Image) *Image {
 	return &Image{
