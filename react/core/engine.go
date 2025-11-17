@@ -2,6 +2,7 @@ package core
 
 import (
 	"gioui.org/app"
+	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
@@ -13,6 +14,7 @@ type Engine struct {
 	currentRoute *Route
 	currentPage  Component
 	currentNode  Node
+	updateChan   chan func() // Channel for pending updates
 }
 
 // NewEngine creates a new engine instance
@@ -20,6 +22,7 @@ func NewEngine() *Engine {
 	return &Engine{
 		routes:      make([]Route, 0),
 		currentNode: newEmptyNode(),
+		updateChan:  make(chan func()),
 	}
 }
 
@@ -63,25 +66,117 @@ func (e *Engine) Run() error {
 	}
 	var ops op.Ops
 	for {
-		switch evt := e.window.Event().(type) {
-		case app.DestroyEvent:
-			return evt.Err
-		case app.FrameEvent:
-			// This graphics context is used for managing the rendering state.
-			gtx := app.NewContext(&ops, evt)
+		select {
+		// Handle window events
 
-			// Generate drawing commands by laying out the current node
-			if e.currentNode != nil {
-				e.currentNode.Yoga().CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
-				e.currentNode.Update(gtx)
-				e.currentNode.Gio().Layout(gtx)
+		// Handle pending updates
+		case updateFn := <-e.updateChan:
+			// Execute the update function
+			updateFn()
+			// Request a new frame to render the changes
+			e.window.Invalidate()
+		default:
+			switch evt := e.window.Event().(type) {
+			case app.DestroyEvent:
+				return evt.Err
+			case app.FrameEvent:
+				// This graphics context is used for managing the rendering state.
+				gtx := app.NewContext(&ops, evt)
+
+				// Generate drawing commands by laying out the current node
+				if e.currentNode != nil {
+					e.currentNode.Yoga().CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
+					e.Refresh(gtx, e.currentNode)
+					// Check if Gio() returns a non-nil value before calling Layout
+					if gio := e.currentNode.Gio(); gio != nil {
+						gio.Layout(gtx)
+					}
+				}
+
+				// Render the frame
+				evt.Frame(gtx.Ops)
 			}
-
-			// Render the frame
-			evt.Frame(gtx.Ops)
 		}
 	}
 }
 func (e *Engine) AddRoute(r Route) {
 	e.routes = append(e.routes, r)
+	// Set the current page to the first route added
+	if e.currentPage == nil {
+		e.currentPage = r.ComponentFn()
+	}
+}
+func (e *Engine) Refresh(gtx layout.Context, n Node) {
+	n.Update(gtx)
+	children := n.Children()
+	for i := range children {
+		e.Refresh(gtx, children[i])
+	}
+}
+
+// Update enqueues an update to be processed in the main event loop
+func (e *Engine) Update(updateFn func()) {
+	// Wrap the update function to ensure re-rendering after update
+	wrappedUpdate := func() {
+		// Execute the provided update function
+		updateFn()
+		// Re-render the current page to get the new node tree
+		newNode := e.currentPage.Render()
+		// Reconcile the new node with the old one
+		e.currentNode = e.reconcile(e.currentNode, newNode)
+	}
+	// Enqueue the wrapped update function
+	e.updateChan <- wrappedUpdate
+}
+
+// reconcile compares the old and new nodes and returns the reconciled node
+func (e *Engine) reconcile(oldNode, newNode Node) Node {
+	// If either node is nil, return the non-nil one
+	if oldNode == nil {
+		return newNode
+	}
+	if newNode == nil {
+		return oldNode
+	}
+
+	// For now, we'll do a simple comparison and replace if different
+	// In a more complete implementation, we'd compare node types and properties
+	// This is a basic version - in React, this would be more sophisticated
+
+	// Recursively reconcile children
+	oldChildren := oldNode.Children()
+	newChildren := newNode.Children()
+	maxLen := len(oldChildren)
+	if len(newChildren) > maxLen {
+		maxLen = len(newChildren)
+	}
+
+	var reconciledChildren []Node
+	for i := 0; i < maxLen; i++ {
+		var oldChild, newChild Node
+		if i < len(oldChildren) {
+			oldChild = oldChildren[i]
+		}
+		if i < len(newChildren) {
+			newChild = newChildren[i]
+		}
+
+		reconciledChild := e.reconcile(oldChild, newChild)
+		if reconciledChild != nil {
+			reconciledChildren = append(reconciledChildren, reconciledChild)
+		}
+	}
+
+	// Check if the current component's shouldComponentUpdate method exists and returns true
+	// If it does, we should use the new node
+	if e.currentPage != nil {
+		if e.currentPage.ShouldComponentUpdate() {
+			// Use the new node since component should update
+			return newNode
+		}
+	}
+
+	// For now, always return the new node
+	// In a real implementation, we'd compare and update instead of replacing
+	return newNode
 }

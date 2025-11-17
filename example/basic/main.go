@@ -20,8 +20,9 @@ func (h *HomePage) Constructor() {
 func (h *HomePage) GetDerivedStateFromProps(props, state any) {
 }
 
-func (h *HomePage) ShouldComponentUpdate() {
-
+func (h *HomePage) ShouldComponentUpdate() bool {
+	// Default implementation returns true to always update
+	return true
 }
 
 // Render returns the UI tree for the component
@@ -45,7 +46,7 @@ func (h *HomePage) Render() core.Node {
 		HeightPercent(100).
 		JustifyContent(yoga.JustifyCenter).
 		AlignItems(yoga.AlignCenter).
-		Background(color.NRGBA{R: 0xff, A: 0xff})
+		Background(color.NRGBA{R: 0xff, A: 0xff}).Body(comp.NewView().Width(100).Height(100).Background(color.NRGBA{B: 0xff, A: 0xff}))
 }
 
 // GetSnapshotBeforeUpdate is called before updating the DOM
