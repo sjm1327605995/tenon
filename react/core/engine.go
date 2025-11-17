@@ -40,9 +40,8 @@ func (e *Engine) Navigate(path string) bool {
 			e.currentPage.Constructor()
 			// Note: GetDerivedStateFromProps, ShouldComponentUpdate would be called here in a real React implementation
 
-			// Render the component and store the root node
-			componentNode := e.currentPage.Render()
-			e.currentNode = componentNode
+			// Render the component to get DOM node
+			e.currentNode = e.currentPage.Render()
 
 			//// Calculate layout on the component's root node
 			//componentNode.Yoga().CalculateLayout(0, 0, yoga.DirectionLTR)
@@ -73,9 +72,9 @@ func (e *Engine) Run() error {
 
 			// Generate drawing commands by laying out the current node
 			if e.currentNode != nil {
-
 				e.currentNode.Yoga().CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
-				e.currentNode.Layout(gtx)
+				e.currentNode.Update(gtx)
+				e.currentNode.Gio().Layout(gtx)
 			}
 
 			// Render the frame

@@ -81,8 +81,49 @@ func (v *View) Background(color color.NRGBA) *View {
 	v.background = color
 	return v
 }
+func (v *View) Update(ctx layout.Context) {
+	w := int(v.Node.StyleGetWidth())
+	h := int(v.Node.StyleGetHeight())
+	viewGio := &ViewGio{
+		W:        w,
+		H:        h,
+		radiusSE: ctx.Dp(v.radius.SE),
+		radiusSW: ctx.Dp(v.radius.SW),
+		radiusNW: ctx.Dp(v.radius.NW),
+		radiusNE: ctx.Dp(v.radius.NE),
+	}
+	if v.setBackground {
+		viewGio.Layouts = append(viewGio.Layouts, func(gtx layout.Context) {
+			paint.ColorOp{Color: v.background}.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+		})
+	}
+	children := v.Node.GetChildren()
 
-func (v *View) Layout(gtx layout.Context) layout.Dimensions {
+	for i := range children {
+		offsetX, offsetY := children[i].LayoutLeft(), children[i].LayoutTop()
+		n := children[i].GetContext().(core.Node)
+		viewGio.Layouts = append(viewGio.Layouts, func(gtx layout.Context) {
+			off := op.Offset(image.Pt(int(offsetX+float32(v.borderWidth)), int(offsetY+float32(v.borderWidth)))).Push(gtx.Ops)
+			n.Gio().Layout(gtx)
+			off.Pop()
+		})
+
+	}
+	v.gio = viewGio
+}
+
+type ViewGio struct {
+	W        int
+	H        int
+	radiusSE int
+	radiusSW int
+	radiusNW int
+	radiusNE int
+	Layouts  []func(gtx layout.Context)
+}
+
+func (v *ViewGio) Layout(gtx layout.Context) layout.Dimensions {
 	//if v.borderWidth > 0 {
 	//	return widget.Border{
 	//		Color:        v.borderColor,
@@ -92,37 +133,24 @@ func (v *View) Layout(gtx layout.Context) layout.Dimensions {
 	//}
 	return v.layout(gtx)
 }
-func (v *View) layout(gtx layout.Context) layout.Dimensions {
+func (v *ViewGio) layout(gtx layout.Context) layout.Dimensions {
 
-	w := v.Node.StyleGetWidth()
-	h := v.Node.StyleGetHeight()
 	//border := v.Node.StyleGetBorder(yoga.EdgeAll)
 	//w -= float32(v.borderWidth)
 	//h -= float32(v.borderWidth)
 
-	size := image.Pt(int(w), int(h))
+	size := image.Pt(v.W, v.H)
 
 	defer clip.RRect{Rect: image.Rectangle{
 		Max: size,
 	},
-		SE: gtx.Dp(v.radius.SE),
-		SW: gtx.Dp(v.radius.SW),
-		NW: gtx.Dp(v.radius.NW),
-		NE: gtx.Dp(v.radius.NE),
+		SE: v.radiusSE,
+		SW: v.radiusSW,
+		NW: v.radiusNW,
+		NE: v.radiusNE,
 	}.Push(gtx.Ops).Pop()
-	if v.setBackground {
-		paint.ColorOp{Color: v.background}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
+	for i := range v.Layouts {
+		v.Layouts[i](gtx)
 	}
-	children := v.Node.GetChildren()
-
-	for i := range children {
-		offsetX, offsetY := children[i].LayoutLeft(), children[i].LayoutTop()
-		n := children[i].GetContext().(core.Node)
-		off := op.Offset(image.Pt(int(offsetX+float32(v.borderWidth)), int(offsetY+float32(v.borderWidth)))).Push(gtx.Ops)
-		n.Layout(gtx)
-		off.Pop()
-
-	}
-	return layout.Dimensions{Size: image.Pt(int(w), int(h))}
+	return layout.Dimensions{Size: size}
 }

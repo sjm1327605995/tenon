@@ -9,7 +9,6 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op/clip"
-	"gioui.org/op/paint"
 )
 
 type Base[T any] struct {
@@ -17,20 +16,32 @@ type Base[T any] struct {
 	Idx             uint32
 	This            *T
 	BackgroundColor color.NRGBA
+	gio             core.Gio
+}
+type RectGio struct {
+	W int
+	H int
 }
 
 func (b *Base[T]) Yoga() *yoga.Node {
 	return b.Node
 }
-
-func (b *Base[T]) Layout(gtx layout.Context) layout.Dimensions {
-	w := b.Node.StyleGetWidth()
-	h := b.Node.StyleGetHeight()
-	size := image.Pt(int(w), int(h))
+func (b *Base[T]) Gio() core.Gio {
+	return b.gio
+}
+func (b *Base[T]) Update(gtx layout.Context) {
+	w := int(b.Node.StyleGetWidth())
+	h := int(b.Node.StyleGetHeight())
+	rectGio := &RectGio{
+		W: w,
+		H: h,
+	}
+	b.gio = rectGio
+}
+func (r *RectGio) Layout(gtx layout.Context) layout.Dimensions {
+	size := image.Pt(r.W, r.H)
 	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
-	paint.ColorOp{Color: b.BackgroundColor}.Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
-	return layout.Dimensions{Size: image.Pt(int(w), int(h))}
+	return layout.Dimensions{Size: size}
 }
 
 func NewBase[T any](this *T) Base[T] {
@@ -202,6 +213,18 @@ func (b *Base[T]) BorderAll(border float32) *T {
 func (b *Base[T]) Gap(gutter yoga.Gutter, gapLength float32) *T {
 	b.Node.StyleSetGap(gutter, gapLength)
 	return b.This
+}
+
+// Children returns all child nodes
+func (b *Base[T]) Children() []core.Node {
+	children := make([]core.Node, 0)
+	yogaChildren := b.Node.GetChildren()
+	for _, yChild := range yogaChildren {
+		if n, ok := yChild.GetContext().(core.Node); ok {
+			children = append(children, n)
+		}
+	}
+	return children
 }
 
 func (b *Base[T]) MinWidth(minWidth float32) *T {
