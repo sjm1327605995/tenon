@@ -8,6 +8,7 @@ import (
 
 type Node interface {
 	Yoga() *yoga.Node
+
 	Layout(gtx layout.Context) layout.Dimensions
 }
 type emptyNode struct {

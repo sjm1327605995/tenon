@@ -1,17 +1,17 @@
 package component
 
 import (
-	"github.com/sjm1327605995/tenon/react/core"
-	"github.com/sjm1327605995/tenon/react/yoga"
-	"image"
-	"image/color"
-
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
-	"gioui.org/widget"
+	"github.com/sjm1327605995/tenon/react/core"
+	"github.com/sjm1327605995/tenon/react/yoga"
+	"image"
+	"image/color"
+	_ "image/jpeg"
+	_ "image/png"
 )
 
 type View struct {
@@ -19,8 +19,11 @@ type View struct {
 	background    color.NRGBA
 	setBackground bool
 	borderColor   color.NRGBA
-	cornerRadius  unit.Dp
+	radius        Radius
 	borderWidth   unit.Dp
+}
+type Radius struct {
+	SE, SW, NW, NE unit.Dp
 }
 
 func NewView() *View {
@@ -42,8 +45,30 @@ func (v *View) BorderWidth(borderWidth unit.Dp) *View {
 	return v
 }
 
-func (v *View) BorderRadius(cornerRadius unit.Dp) *View {
-	v.cornerRadius = cornerRadius
+func (v *View) Radius(cornerRadius ...unit.Dp) *View {
+	if len(cornerRadius) == 0 {
+		return v
+	}
+	if len(cornerRadius) == 1 {
+		v.radius.NE = cornerRadius[3]
+		v.radius.NW = cornerRadius[2]
+		v.radius.SW = cornerRadius[1]
+		v.radius.SE = cornerRadius[0]
+		return v
+	}
+	switch len(cornerRadius) {
+	case 4:
+		v.radius.NE = cornerRadius[3]
+		fallthrough
+	case 3:
+		v.radius.NW = cornerRadius[2]
+		fallthrough
+	case 2:
+		v.radius.SW = cornerRadius[1]
+		fallthrough
+	case 1:
+		v.radius.SE = cornerRadius[0]
+	}
 	return v
 }
 
@@ -58,13 +83,13 @@ func (v *View) Background(color color.NRGBA) *View {
 }
 
 func (v *View) Layout(gtx layout.Context) layout.Dimensions {
-	if v.borderWidth > 0 {
-		return widget.Border{
-			Color:        v.borderColor,
-			CornerRadius: v.cornerRadius,
-			Width:        v.borderWidth,
-		}.Layout(gtx, v.layout)
-	}
+	//if v.borderWidth > 0 {
+	//	return widget.Border{
+	//		Color:        v.borderColor,
+	//		CornerRadius: v.cornerRadius,
+	//		Width:        v.borderWidth,
+	//	}.Layout(gtx, v.layout)
+	//}
 	return v.layout(gtx)
 }
 func (v *View) layout(gtx layout.Context) layout.Dimensions {
@@ -72,10 +97,19 @@ func (v *View) layout(gtx layout.Context) layout.Dimensions {
 	w := v.Node.StyleGetWidth()
 	h := v.Node.StyleGetHeight()
 	//border := v.Node.StyleGetBorder(yoga.EdgeAll)
-	w -= float32(v.borderWidth)
-	h -= float32(v.borderWidth)
+	//w -= float32(v.borderWidth)
+	//h -= float32(v.borderWidth)
+
 	size := image.Pt(int(w), int(h))
-	defer clip.Rect{Max: size}.Push(gtx.Ops).Pop()
+
+	defer clip.RRect{Rect: image.Rectangle{
+		Max: size,
+	},
+		SE: gtx.Dp(v.radius.SE),
+		SW: gtx.Dp(v.radius.SW),
+		NW: gtx.Dp(v.radius.NW),
+		NE: gtx.Dp(v.radius.NE),
+	}.Push(gtx.Ops).Pop()
 	if v.setBackground {
 		paint.ColorOp{Color: v.background}.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
