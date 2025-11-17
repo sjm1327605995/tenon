@@ -2,7 +2,6 @@ package component
 
 import (
 	"bytes"
-	"github.com/tdewolff/canvas/renderers/rasterizer"
 	"io"
 	"os"
 
@@ -10,6 +9,7 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/widget"
 	"github.com/tdewolff/canvas"
+	"github.com/tdewolff/canvas/renderers/rasterizer"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"

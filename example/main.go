@@ -3,7 +3,7 @@ package main
 import (
 	"image/color"
 
-	"github.com/sjm1327605995/tenon/react/component"
+	comp "github.com/sjm1327605995/tenon/react/component"
 	"github.com/sjm1327605995/tenon/react/core"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
@@ -26,20 +26,26 @@ func (h *HomePage) ShouldComponentUpdate() {
 
 // Render returns the UI tree for the component
 func (h *HomePage) Render() core.Node {
+	// Create Image component
+	//imageComponent := comp.NewImage().
+	//	Src("react.svg")
+	//
+	//// Create inner View component
+	//innerView := comp.NewView().
+	//	WidthPercent(80).
+	//	HeightPercent(80).
+	//	JustifyContent(yoga.JustifyCenter).
+	//	AlignItems(yoga.AlignCenter).
+	//	Background(color.NRGBA{R: 189, G: 193, B: 193, A: 0xff}).
+	//	Body(imageComponent)
 
-	return component.NewView().
+	// Create outer View component and return it
+	return comp.NewView().
 		WidthPercent(100).
 		HeightPercent(100).
-		Background(color.NRGBA{R: 0xff, A: 0xff}).
 		JustifyContent(yoga.JustifyCenter).
 		AlignItems(yoga.AlignCenter).
-		Body(component.NewView().
-			WidthPercent(80).
-			HeightPercent(80).
-			JustifyContent(yoga.JustifyCenter).
-			AlignItems(yoga.AlignCenter).
-			Background(color.NRGBA{R: 189, G: 193, B: 193, A: 0xff}).
-			Body(component.NewImage().Src("react.svg")))
+		Background(color.NRGBA{R: 0xff, A: 0xff})
 }
 
 // GetSnapshotBeforeUpdate is called before updating the DOM
