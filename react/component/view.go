@@ -1,6 +1,11 @@
 package component
 
 import (
+	"image"
+	"image/color"
+	_ "image/jpeg"
+	_ "image/png"
+
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -8,10 +13,6 @@ import (
 	"gioui.org/unit"
 	"github.com/sjm1327605995/tenon/react/core"
 	"github.com/sjm1327605995/tenon/react/yoga"
-	"image"
-	"image/color"
-	_ "image/jpeg"
-	_ "image/png"
 )
 
 type View struct {

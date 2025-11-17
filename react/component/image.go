@@ -2,6 +2,10 @@ package component
 
 import (
 	"bytes"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"os"
 
@@ -10,25 +14,22 @@ import (
 	"gioui.org/widget"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
-	"image"
-	_ "image/gif"
-	_ "image/jpeg"
-	_ "image/png"
 )
 
 type Image struct {
 	src string
 	Base[Image]
-	load  bool
-	image widget.Image
+	fit      widget.Fit
+	position layout.Direction
+	scale    float32
 }
 
 func (e *Image) Position(pos layout.Direction) *Image {
-	e.image.Position = pos
+	e.position = pos
 	return e
 }
 func (e *Image) Scale(scale float32) *Image {
-	e.image.Scale = scale
+	e.scale = scale
 	return e
 }
 
@@ -37,7 +38,7 @@ func (e *Image) Src(src string) *Image {
 	return e
 }
 func (e *Image) Fit(fit widget.Fit) *Image {
-	e.image.Fit = fit
+	e.fit = fit
 	return e
 }
 
@@ -46,6 +47,15 @@ func NewImage() *Image {
 	img.Base = NewBase[Image](img)
 	return img
 }
+
+type imageGio struct {
+	widget.Image
+}
+
+func (i *imageGio) Layout(gtx layout.Context) layout.Dimensions {
+	return i.Image.Layout(gtx)
+}
+
 func init() {
 	// Register SVG format with image package to handle both XML declaration and direct SVG tag cases
 	image.RegisterFormat("svg", "<svg", svgDecode, svgDecodeConfig)
@@ -71,28 +81,26 @@ func svgDecodeConfig(r io.Reader) (image.Config, error) {
 		Height: int(h*canvas.DPMM(10.0).DPMM() + 0.5),
 	}, nil
 }
-
-func (e *Image) Layout(gtx layout.Context) layout.Dimensions {
-	if !e.load {
-		var img image.Image
-		var err error
-		data, err := os.ReadFile(e.src)
-		if err != nil {
-			return layout.Dimensions{Size: gtx.Constraints.Min}
-		}
-		// Decode image (SVG is now supported through RegisterFormat)
-		img, _, err = image.Decode(bytes.NewReader(data))
-		if err != nil {
-			return layout.Dimensions{Size: gtx.Constraints.Min}
-		}
-		if img != nil {
-			e.image.Src = paint.NewImageOp(img)
-		}
-		//e.Node.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
-		//
-		//})
-		// Prevent reloading on every frame
-		e.load = true
+func (e *Image) Update(gtx layout.Context) {
+	var img image.Image
+	var err error
+	data, err := os.ReadFile(e.src)
+	if err != nil {
+		e.gio = &RectGio{}
+		return
 	}
-	return e.image.Layout(gtx)
+	// Decode image (SVG is now supported through RegisterFormat)
+	img, _, err = image.Decode(bytes.NewReader(data))
+	if err != nil {
+		e.gio = &RectGio{}
+		return
+	}
+	e.gio = &imageGio{
+		Image: widget.Image{
+			Src:      paint.NewImageOp(img),
+			Fit:      e.fit,
+			Scale:    e.scale,
+			Position: e.position,
+		},
+	}
 }

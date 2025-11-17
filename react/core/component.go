@@ -6,7 +6,7 @@ type Component interface {
 
 	GetDerivedStateFromProps(props, state any)
 
-	ShouldComponentUpdate()
+	ShouldComponentUpdate() bool
 	Render() Node
 	GetSnapshotBeforeUpdate()
 	ComponentDidMount()
