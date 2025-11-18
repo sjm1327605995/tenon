@@ -44,9 +44,14 @@ func (h *HomePage) Render() core.Node {
 	return comp.NewView().
 		WidthPercent(100).
 		HeightPercent(100).
+		BorderWidth(10, 10, 10, 10).BorderColor(color.NRGBA{
+		G: 0xff,
+		B: 0,
+		A: 0xff,
+	}).
 		JustifyContent(yoga.JustifyCenter).
 		AlignItems(yoga.AlignCenter).
-		Background(color.NRGBA{R: 0xff, A: 0xff}).Body(comp.NewView().Width(100).Height(100).Background(color.NRGBA{B: 0xff, A: 0xff}))
+		Background(color.NRGBA{R: 0xff, A: 0xff}).Body(comp.NewImage().Width(100).Height(100).Src("react.svg"))
 }
 
 // GetSnapshotBeforeUpdate is called before updating the DOM

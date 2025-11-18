@@ -5,16 +5,19 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"github.com/sjm1327605995/tenon/react/yoga"
+	"image"
 )
 
 // Engine manages the application routing and rendering
 type Engine struct {
+	Size         image.Point
+	refreshAll   bool
 	window       *app.Window
 	routes       []Route
 	currentRoute *Route
 	currentPage  Component
 	currentNode  Node
-	updateChan   chan func() // Channel for pending updates
+	updateChan   chan func(ctx layout.Context) // Channel for pending updates
 }
 
 // NewEngine creates a new engine instance
@@ -22,7 +25,7 @@ func NewEngine() *Engine {
 	return &Engine{
 		routes:      make([]Route, 0),
 		currentNode: newEmptyNode(),
-		updateChan:  make(chan func()),
+		updateChan:  make(chan func(ctx layout.Context), 1),
 	}
 }
 
@@ -64,39 +67,46 @@ func (e *Engine) Run() error {
 	if e.window == nil {
 		e.window = new(app.Window)
 	}
+
 	var ops op.Ops
 	for {
-		select {
-		// Handle window events
 
-		// Handle pending updates
-		case updateFn := <-e.updateChan:
-			// Execute the update function
-			updateFn()
-			// Request a new frame to render the changes
-			e.window.Invalidate()
-		default:
-			switch evt := e.window.Event().(type) {
-			case app.DestroyEvent:
-				return evt.Err
-			case app.FrameEvent:
-				// This graphics context is used for managing the rendering state.
-				gtx := app.NewContext(&ops, evt)
+		switch evt := e.window.Event().(type) {
 
-				// Generate drawing commands by laying out the current node
-				if e.currentNode != nil {
-					e.currentNode.Yoga().CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
+		case app.DestroyEvent:
+			return evt.Err
+		case app.ConfigEvent:
+			e.refreshAll = !evt.Config.Size.Eq(e.Size)
+
+		case app.FrameEvent:
+
+			// This graphics context is used for managing the rendering state.
+			gtx := app.NewContext(&ops, evt)
+
+			select {
+			// Handle window events
+
+			// Handle pending updates
+			case updateFn := <-e.updateChan:
+				// Execute the update function
+				updateFn(gtx)
+				// Request a new frame to render the changes
+				e.window.Invalidate()
+			default:
+				if e.refreshAll {
 					e.Refresh(gtx, e.currentNode)
-					// Check if Gio() returns a non-nil value before calling Layout
-					if gio := e.currentNode.Gio(); gio != nil {
-						gio.Layout(gtx)
-					}
+					e.currentNode.Yoga().
+						CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
 				}
-
-				// Render the frame
-				evt.Frame(gtx.Ops)
+				if gio := e.currentNode.Gio(); gio != nil {
+					gio.Layout(gtx)
+				}
 			}
+
+			// Render the frame
+			evt.Frame(gtx.Ops)
 		}
+
 	}
 }
 func (e *Engine) AddRoute(r Route) {
@@ -117,7 +127,7 @@ func (e *Engine) Refresh(gtx layout.Context, n Node) {
 // Update enqueues an update to be processed in the main event loop
 func (e *Engine) Update(updateFn func()) {
 	// Wrap the update function to ensure re-rendering after update
-	wrappedUpdate := func() {
+	wrappedUpdate := func(ctx layout.Context) {
 		// Execute the provided update function
 		updateFn()
 		// Re-render the current page to get the new node tree
