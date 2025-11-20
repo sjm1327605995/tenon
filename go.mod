@@ -3,6 +3,7 @@ module github.com/sjm1327605995/tenon
 go 1.25.1
 
 require (
+	eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d
 	gioui.org v0.9.0
 	github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7
 )

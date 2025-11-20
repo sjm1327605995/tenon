@@ -75,6 +75,7 @@ func svgDecode(r io.Reader) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	img := rasterizer.Draw(fc, canvas.DPMM(SvgDPMM), canvas.DefaultColorSpace)
 	return cropTransparent(img), nil
 }
