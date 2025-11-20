@@ -1,11 +1,8 @@
 package main
 
 import (
-	"image/color"
-
 	comp "github.com/sjm1327605995/tenon/react/component"
 	"github.com/sjm1327605995/tenon/react/core"
-	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
 // HomePage is a simple page component that uses the View component
@@ -41,17 +38,22 @@ func (h *HomePage) Render() core.Node {
 	//	Body(imageComponent)
 
 	// Create outer View component and return it
-	return comp.NewView().
-		WidthPercent(100).
-		HeightPercent(100).
-		BorderWidth(10, 10, 10, 10).BorderColor(color.NRGBA{
-		G: 0xff,
-		B: 0,
-		A: 0xff,
-	}).
-		JustifyContent(yoga.JustifyCenter).
-		AlignItems(yoga.AlignCenter).
-		Background(color.NRGBA{R: 0xff, A: 0xff}).Body(comp.NewImage().Width(100).Height(100).Src("react.svg"))
+	//return comp.NewView().
+	//	WidthPercent(50).
+	//	HeightPercent(50).
+	//	BorderWidth(10).
+	//	BorderColor(color.NRGBA{
+	//		G: 0xff,
+	//		B: 0,
+	//		A: 0xff,
+	//	}).
+	//	JustifyContent(yoga.JustifyCenter).
+	//	AlignItems(yoga.AlignCenter).
+	//	Background(color.NRGBA{R: 0xff, A: 0xff}).
+	//	Body(comp.NewImage().
+	//		Width(100).Height(100).Src("react.svg"), comp.NewText("test"))
+	return comp.NewText("test")
+
 }
 
 // GetSnapshotBeforeUpdate is called before updating the DOM

@@ -5,6 +5,7 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+
 	"gioui.org/unit"
 	"github.com/sjm1327605995/tenon/react/core"
 	"github.com/sjm1327605995/tenon/react/yoga"
@@ -12,16 +13,15 @@ import (
 	"image/color"
 	_ "image/jpeg"
 	_ "image/png"
-	"math"
 )
 
 type View struct {
 	Base[View]
-	background    color.NRGBA
-	setBackground bool
-	borderColor   color.NRGBA
-	radius        Radius
-	border        Border
+	background color.NRGBA
+
+	borderColor color.NRGBA
+	radius      Radius
+	borderWidth unit.Dp
 }
 type Radius struct {
 	SE, SW, NW, NE unit.Dp
@@ -40,42 +40,8 @@ func NewView() *View {
 	return view
 }
 
-func (v *View) BorderWidth(borderWidth ...unit.Dp) *View {
-	switch len(borderWidth) {
-	case 0:
-		return v
-	case 1:
-		// All four sides
-		w := borderWidth[0]
-		v.border.TopWidth = w
-		v.border.RightWidth = w
-		v.border.BottomWidth = w
-		v.border.LeftWidth = w
-	case 2:
-		// Top/Bottom, Left/Right
-		v.border.TopWidth = borderWidth[0]
-		v.border.BottomWidth = borderWidth[0]
-		v.border.LeftWidth = borderWidth[1]
-		v.border.RightWidth = borderWidth[1]
-	case 3:
-		// Top, Left/Right, Bottom
-		v.border.TopWidth = borderWidth[0]
-		v.border.LeftWidth = borderWidth[1]
-		v.border.RightWidth = borderWidth[1]
-		v.border.BottomWidth = borderWidth[2]
-	case 4:
-		// Top, Right, Bottom, Left (clockwise from top)
-		v.border.TopWidth = borderWidth[0]
-		v.border.RightWidth = borderWidth[1]
-		v.border.BottomWidth = borderWidth[2]
-		v.border.LeftWidth = borderWidth[3]
-	default:
-		// More than 4 values, use first 4
-		v.border.TopWidth = borderWidth[0]
-		v.border.RightWidth = borderWidth[1]
-		v.border.BottomWidth = borderWidth[2]
-		v.border.LeftWidth = borderWidth[3]
-	}
+func (v *View) BorderWidth(borderWidth unit.Dp) *View {
+	v.borderWidth = borderWidth
 	return v
 }
 
@@ -125,7 +91,6 @@ func (v *View) BorderColor(color color.NRGBA) *View {
 	return v
 }
 func (v *View) Background(color color.NRGBA) *View {
-	v.setBackground = true
 	v.background = color
 	return v
 }
@@ -133,27 +98,17 @@ func (v *View) Update(ctx layout.Context) {
 	w := int(v.Node.StyleGetWidth())
 	h := int(v.Node.StyleGetHeight())
 	viewGio := &ViewGio{
-		W:           w,
-		H:           h,
+		Size:        image.Pt(w, h),
 		radiusSE:    ctx.Dp(v.radius.SE),
 		radiusSW:    ctx.Dp(v.radius.SW),
 		radiusNW:    ctx.Dp(v.radius.NW),
 		radiusNE:    ctx.Dp(v.radius.NE),
-		Border:      v.border,
+		BorderWidth: v.borderWidth,
 		BorderColor: v.borderColor,
 	}
-	v.Node.StyleSetBorder(yoga.EdgeLeft, float32(ctx.Dp(v.border.LeftWidth)))
-	v.Node.StyleSetBorder(yoga.EdgeTop, float32(ctx.Dp(v.border.TopWidth)))
-	v.Node.StyleSetBorder(yoga.EdgeBottom, float32(ctx.Dp(v.border.BottomWidth)))
-	v.Node.StyleSetBorder(yoga.EdgeRight, float32(ctx.Dp(v.border.RightWidth)))
-	if v.setBackground {
-		viewGio.Layouts = append(viewGio.Layouts, func(gtx layout.Context) {
-			paint.ColorOp{Color: v.background}.Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-		})
-	}
+	v.Node.StyleSetBorder(yoga.EdgeAll, float32(ctx.Dp(v.borderWidth)))
 	children := v.Node.GetChildren()
-
+	viewGio.BackgroundColor = v.background
 	for i := range children {
 		offsetX, offsetY := children[i].LayoutLeft(), children[i].LayoutTop()
 		n := children[i].GetContext().(core.Node)
@@ -167,116 +122,60 @@ func (v *View) Update(ctx layout.Context) {
 }
 
 type ViewGio struct {
-	W        int
-	H        int
-	radiusSE int
-	radiusSW int
-	radiusNW int
-	radiusNE int
-	Layouts  []func(gtx layout.Context)
-	Border
-	BorderColor color.NRGBA
-}
-type Border struct {
-	LeftWidth   unit.Dp
-	RightWidth  unit.Dp
-	BottomWidth unit.Dp
-	TopWidth    unit.Dp
+	Size            image.Point
+	radiusSE        int
+	radiusSW        int
+	radiusNW        int
+	radiusNE        int
+	Layouts         []func(gtx layout.Context)
+	BorderWidth     unit.Dp
+	BorderColor     color.NRGBA
+	BackgroundColor color.NRGBA
 }
 
 func (v *ViewGio) Layout(gtx layout.Context) layout.Dimensions {
+	gtx.Constraints.Min = v.Size
+	gtx.Constraints.Max = v.Size
 	return v.layout(gtx)
 }
+
 func (v *ViewGio) layout(gtx layout.Context) layout.Dimensions {
-	size := image.Pt(v.W, v.H)
 
-	defer clip.RRect{Rect: image.Rectangle{
-		Max: size,
-	},
-		SE: v.radiusSE,
-		SW: v.radiusSW,
-		NW: v.radiusNW,
-		NE: v.radiusNE,
-	}.Push(gtx.Ops).Pop()
-
-	// Draw inner border
-	leftWidthPx := gtx.Dp(v.Border.LeftWidth)
-	rightWidthPx := gtx.Dp(v.Border.RightWidth)
-	topWidthPx := gtx.Dp(v.Border.TopWidth)
-	bottomWidthPx := gtx.Dp(v.Border.BottomWidth)
-
-	// Only draw border if any width is non-zero
-	if leftWidthPx > 0 || rightWidthPx > 0 || topWidthPx > 0 || bottomWidthPx > 0 {
-		// Calculate the minimum border width to use for all sides
-		// This ensures consistent border width around the view
-		minBorderWidth := leftWidthPx
-		if rightWidthPx < minBorderWidth {
-			minBorderWidth = rightWidthPx
-		}
-		if topWidthPx < minBorderWidth {
-			minBorderWidth = topWidthPx
-		}
-		if bottomWidthPx < minBorderWidth {
-			minBorderWidth = bottomWidthPx
-		}
-
-		// Ensure we have at least a 1px border
-		if minBorderWidth < 1 {
-			minBorderWidth = 1
-		}
-
-		// Create outer RRect with the view's full size
-		outerRRect := clip.RRect{
-			Rect: image.Rect(0, 0, v.W, v.H),
-			SE:   v.radiusSE,
-			SW:   v.radiusSW,
-			NW:   v.radiusNW,
-			NE:   v.radiusNE,
-		}
-
-		// Create inner RRect with border width subtracted from all sides
-		innerLeft := minBorderWidth
-		innerTop := minBorderWidth
-		innerRight := v.W - minBorderWidth
-		innerBottom := v.H - minBorderWidth
-
-		// Ensure inner rectangle is valid
-		if innerLeft >= innerRight {
-			innerRight = innerLeft + 1
-		}
-		if innerTop >= innerBottom {
-			innerBottom = innerTop + 1
-		}
-
-		// Calculate inner radii (outer radii minus border width)
-		innerRadius := max(int(math.Max(float64(v.radiusSE-minBorderWidth), 0.0)), 0)
-
-		innerRRect := clip.RRect{
-			Rect: image.Rect(innerLeft, innerTop, innerRight, innerBottom),
-			SE:   innerRadius,
-			SW:   innerRadius,
-			NW:   innerRadius,
-			NE:   innerRadius,
-		}
-
-		// Draw outer RRect with border color
-		outerClip := outerRRect.Push(gtx.Ops)
-		paint.ColorOp{Color: v.BorderColor}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		outerClip.Pop()
-
-		// Draw inner RRect with background color (this creates the border effect)
-		// Note: We're assuming the background color is solid here
-		// In a real implementation, we would need to get the actual background color
-		innerClip := innerRRect.Push(gtx.Ops)
-		bgColor := color.NRGBA{255, 255, 255, 255} // Default to white background
-		paint.ColorOp{Color: bgColor}.Add(gtx.Ops)
-		paint.PaintOp{}.Add(gtx.Ops)
-		innerClip.Pop()
+	if v.Size.X == 0 && v.Size.Y == 0 {
+		return layout.Dimensions{Size: v.Size}
 	}
-
+	width := gtx.Dp(v.BorderWidth)
+	whalf := (width + 1) / 2
+	if v.BackgroundColor.A > 0 {
+		bodySize := v.Size
+		if v.BorderWidth > 0 {
+			bodySize.X -= whalf
+			bodySize.Y -= whalf
+		}
+		paint.FillShape(gtx.Ops, v.BackgroundColor, clip.Outline{
+			Path: clip.RRect{
+				Rect: image.Rectangle{Min: image.Pt(whalf, whalf), Max: bodySize},
+				SE:   v.radiusSE,
+				SW:   v.radiusSW,
+				NW:   v.radiusNW,
+				NE:   v.radiusNE,
+			}.Path(gtx.Ops),
+		}.Op())
+	}
+	paint.FillShape(gtx.Ops, v.BorderColor,
+		clip.Stroke{
+			Path: clip.RRect{
+				Rect: image.Rect(whalf, whalf, v.Size.X-whalf, v.Size.Y-whalf),
+				SE:   v.radiusSE,
+				SW:   v.radiusSW,
+				NW:   v.radiusNW,
+				NE:   v.radiusNE,
+			}.Path(gtx.Ops),
+			Width: float32(width),
+		}.Op(),
+	)
 	for i := range v.Layouts {
 		v.Layouts[i](gtx)
 	}
-	return layout.Dimensions{Size: size}
+	return layout.Dimensions{Size: v.Size}
 }
