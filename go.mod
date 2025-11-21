@@ -6,6 +6,7 @@ require (
 	eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d
 	gioui.org v0.9.0
 	github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7
+	golang.org/x/image v0.32.0
 )
 
 require (
@@ -29,7 +30,6 @@ require (
 	github.com/tdewolff/parse/v2 v2.8.4 // indirect
 	github.com/yuin/goldmark v1.7.13 // indirect
 	golang.org/x/exp/shiny v0.0.0-20251009144603-d2f985daa21b // indirect
-	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect

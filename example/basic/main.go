@@ -3,6 +3,8 @@ package main
 import (
 	comp "github.com/sjm1327605995/tenon/react/component"
 	"github.com/sjm1327605995/tenon/react/core"
+	"github.com/sjm1327605995/tenon/react/yoga"
+	"image/color"
 )
 
 // HomePage is a simple page component that uses the View component
@@ -24,35 +26,22 @@ func (h *HomePage) ShouldComponentUpdate() bool {
 
 // Render returns the UI tree for the component
 func (h *HomePage) Render() core.Node {
-	// Create Image component
-	//imageComponent := comp.NewImage().
-	//	Src("react.svg")
-	//
-	//// Create inner View component
-	//innerView := comp.NewView().
-	//	WidthPercent(80).
-	//	HeightPercent(80).
-	//	JustifyContent(yoga.JustifyCenter).
-	//	AlignItems(yoga.AlignCenter).
-	//	Background(color.NRGBA{R: 189, G: 193, B: 193, A: 0xff}).
-	//	Body(imageComponent)
 
 	// Create outer View component and return it
-	//return comp.NewView().
-	//	WidthPercent(50).
-	//	HeightPercent(50).
-	//	BorderWidth(10).
-	//	BorderColor(color.NRGBA{
-	//		G: 0xff,
-	//		B: 0,
-	//		A: 0xff,
-	//	}).
-	//	JustifyContent(yoga.JustifyCenter).
-	//	AlignItems(yoga.AlignCenter).
-	//	Background(color.NRGBA{R: 0xff, A: 0xff}).
-	//	Body(comp.NewImage().
-	//		Width(100).Height(100).Src("react.svg"), comp.NewText("test"))
-	return comp.NewText("test")
+	return comp.NewView().
+		WidthPercent(100).
+		HeightPercent(100).
+		BorderWidth(10).
+		BorderColor(color.NRGBA{
+			G: 0xff,
+			B: 0,
+			A: 0xff,
+		}).
+		JustifyContent(yoga.JustifyCenter).
+		AlignItems(yoga.AlignCenter).
+		Background(color.NRGBA{R: 0xff, A: 0xff}).
+		Body(comp.NewImage().
+			Width(100).Height(100).Src("react.svg"), comp.NewText("test"))
 
 }
 

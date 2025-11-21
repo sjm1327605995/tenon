@@ -75,9 +75,6 @@ func (e *Engine) Run() error {
 
 		case app.DestroyEvent:
 			return evt.Err
-		case app.ConfigEvent:
-			e.refreshAll = !evt.Config.Size.Eq(e.Size)
-
 		case app.FrameEvent:
 
 			// This graphics context is used for managing the rendering state.
@@ -93,11 +90,12 @@ func (e *Engine) Run() error {
 				// Request a new frame to render the changes
 				e.window.Invalidate()
 			default:
-				if e.refreshAll {
-					e.Refresh(gtx, e.currentNode)
-					e.currentNode.Yoga().
-						CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
-				}
+				//if !e.Size.Eq(evt.Size) {
+				e.Refresh(gtx, e.currentNode)
+				e.currentNode.Yoga().
+					CalculateLayout(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y), yoga.DirectionInherit)
+				e.Size = evt.Size
+				//}
 				if gio := e.currentNode.Gio(); gio != nil {
 					gio.Layout(gtx)
 				}
