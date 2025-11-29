@@ -32,10 +32,8 @@ func (v *View) GetChildAt(index int) common.Element {
 func (v *View) Render() common.Node {
 	return v
 }
-func (v *View) Style(option ...style.Option) *View {
-	for i := range option {
-		option[i].Apply(v)
-	}
+func (v *View) Style(option *style.Style) *View {
+	option.Apply(v)
 	return v
 }
 func (v *View) Child(nodes ...common.Component) *View {
@@ -48,6 +46,20 @@ func (v *View) Child(nodes ...common.Component) *View {
 }
 func (v *View) GetChildren() []common.Element {
 	return v.Children
+}
+
+// GetView 返回内部的component.View实例，用于样式系统设置属性
+func (v *View) GetView() *component.View {
+	return v.View
+}
+
+func (v *View) SetExtendedStyle(extendedStyle common.IExtendedStyle) {
+	switch e := extendedStyle.(type) {
+	case style.BackgroundColor:
+		v.View.Background = e.Color
+	case style.BorderColor:
+		v.View.BorderColor = e.Color
+	}
 }
 
 func NewView() *View {

@@ -17,7 +17,7 @@ type ReactDOM struct {
 
 func (h *ReactDOM) Render(children ...common.Component) error {
 	element := core.NewView().
-		Style(style.Width(h.width), style.Height(h.height)).
+		Style(style.NewStyle().Width(800).Height(600)).
 		Child(children...)
 	h.root = element
 	h.root.Render()
