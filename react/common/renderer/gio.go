@@ -1,41 +1,70 @@
 package renderer
 
 import (
+	"image"
+
 	"gioui.org/app"
+	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"github.com/sjm1327605995/tenon/react/common"
 	"github.com/sjm1327605995/tenon/react/common/component"
 	"github.com/sjm1327605995/tenon/react/yoga"
-	"image"
-	"image/color"
 )
 
 type Gio struct {
 	window  *app.Window
 	element common.Element
+	ctx     layout.Context
 	size    image.Point
-	Ops     *op.Ops
 }
 
 func (g *Gio) DrawView(view *component.View) {
 	node := view.Yoga()
-	x, y := int(node.LayoutLeft()), int(node.LayoutTop())
+	//x, y := int(node.LayoutLeft()), int(node.LayoutTop())
+
 	w, h := int(node.LayoutWidth()), int(node.LayoutHeight())
-	defer op.Offset(image.Pt(x, y)).Push(g.Ops).Pop()
-	drawRedRect(g.Ops, image.Pt(w, h))
+	size := image.Pt(w, h)
 
+	//TODO 现在所有边框大小一致
+	borderWidth := node.LayoutBorder(yoga.EdgeLeft)
+
+	whalf := (int(borderWidth) + 1) / 2
+	if view.Background.A > 0 {
+		bodySize := size
+		if borderWidth > 0 {
+			bodySize.X -= whalf
+			bodySize.Y -= whalf
+		}
+		paint.FillShape(g.ctx.Ops, view.Background, clip.Outline{
+			Path: clip.RRect{
+				Rect: image.Rectangle{Min: image.Pt(whalf, whalf), Max: bodySize},
+				//SE:   b.radiusSE,
+				//SW:   b.radiusSW,
+				//NW:   v.radiusNW,
+				//NE:   v.radiusNE,
+			}.Path(g.ctx.Ops),
+		}.Op())
+	}
+	if borderWidth > 0 {
+		paint.FillShape(g.ctx.Ops, view.BorderColor,
+			clip.Stroke{
+				Path: clip.RRect{
+					Rect: image.Rect(whalf, whalf, size.X-whalf, size.Y-whalf),
+					//SE:   v.radiusSE,
+					//SW:   v.radiusSW,
+					//NW:   v.radiusNW,
+					//NE:   v.radiusNE,
+				}.Path(g.ctx.Ops),
+				Width: borderWidth,
+			}.Op(),
+		)
+	}
 }
 
-func drawRedRect(ops *op.Ops, point image.Point) {
-	defer clip.Rect{Max: point}.Push(ops).Pop()
-	paint.ColorOp{Color: color.NRGBA{R: 0x80, A: 0xFF}}.Add(ops)
-	paint.PaintOp{}.Add(ops)
-}
 func NewGio() *Gio {
 	return &Gio{
-		Ops:    &op.Ops{},
 		window: new(app.Window),
 	}
 }
@@ -43,7 +72,7 @@ func (g *Gio) SetElement(element common.Element) {
 	g.element = element
 }
 func (g *Gio) Run() error {
-
+	var ops = new(op.Ops)
 	for {
 		switch e := g.window.Event().(type) {
 		case app.DestroyEvent:
@@ -55,18 +84,26 @@ func (g *Gio) Run() error {
 
 		case app.FrameEvent:
 			// This graphics context is used for managing the rendering state.
-			gtx := app.NewContext(g.Ops, e)
+			g.ctx = app.NewContext(ops, e)
 			g.element.Yoga().CalculateLayout(yoga.Undefined, yoga.Undefined, yoga.DirectionInherit)
-			g.Draw(g.element)
+			g.Draw(g.ctx, g.element)
 			// Pass the drawing operations to the GPU.
-			e.Frame(gtx.Ops)
+			e.Frame(g.ctx.Ops)
 		}
 	}
 }
-func (g *Gio) Draw(element common.Element) {
+func (g *Gio) Draw(ctx layout.Context, element common.Element) layout.Dimensions {
+	node := element.Yoga()
+	x, y := int(node.LayoutLeft()), int(node.LayoutTop())
+	size := image.Pt(x, y)
+	defer op.Offset(image.Pt(x, y)).Push(ctx.Ops).Pop()
+	w, h := int(node.LayoutWidth()), int(node.LayoutHeight())
+	ctx.Constraints.Max = image.Pt(w, h)
 	element.Rendering(g)
 	children := element.GetChildren()
 	for _, child := range children {
-		g.Draw(child)
+		g.Draw(ctx, child)
+
 	}
+	return layout.Dimensions{Size: size}
 }
