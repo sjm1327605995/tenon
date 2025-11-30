@@ -5,8 +5,8 @@ import (
 
 	"github.com/sjm1327605995/tenon/react"
 	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/elements"
-	"github.com/sjm1327605995/tenon/react/styles"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
