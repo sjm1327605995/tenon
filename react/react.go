@@ -3,9 +3,9 @@ package react
 import (
 	"github.com/sjm1327605995/tenon/react/api"
 	"github.com/sjm1327605995/tenon/react/api/renderer"
+	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/elements"
 	"github.com/sjm1327605995/tenon/react/event"
-	"github.com/sjm1327605995/tenon/react/styles"
 )
 
 type ReactDOM struct {

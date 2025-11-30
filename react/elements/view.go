@@ -2,13 +2,17 @@ package elements
 
 import (
 	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/components"
-	"github.com/sjm1327605995/tenon/react/styles"
 )
 
 type View struct {
 	*components.View
 	Children []api.Element
+}
+
+func (v *View) SetStyle(style *styles.Style) {
+	style.Apply(v)
 }
 
 // Rendering 实现渲染功能，使用api.Renderer接口
@@ -33,7 +37,7 @@ func (v *View) Render() api.Node {
 	return v
 }
 func (v *View) Style(option *styles.Style) *View {
-	option.Apply(v)
+	v.SetStyle(option)
 	return v
 }
 func (v *View) Child(nodes ...api.Component) *View {
@@ -53,7 +57,7 @@ func (v *View) GetView() *components.View {
 	return v.View
 }
 
-func (v *View) SetExtendedStyle(extendedStyle api.IExtendedStyle) {
+func (v *View) SetExtendedStyle(extendedStyle styles.IExtendedStyle) {
 	switch e := extendedStyle.(type) {
 	case styles.BackgroundColor:
 		v.View.Background = e.Color

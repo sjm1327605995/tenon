@@ -9,6 +9,7 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/components"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
@@ -79,7 +80,8 @@ func (g *Gio) Run() error {
 			return e.Err
 		case app.ConfigEvent:
 			if !e.Config.Size.Eq(g.size) && e.Config.Size.X > 0 {
-
+				g.element.SetStyle(styles.NewStyle().
+					Width(float32(e.Config.Size.X)).Height(float32(e.Config.Size.Y)))
 			}
 
 		case app.FrameEvent:
