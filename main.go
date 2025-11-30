@@ -4,9 +4,9 @@ import (
 	"image/color"
 
 	"github.com/sjm1327605995/tenon/react"
-	"github.com/sjm1327605995/tenon/react/common"
-	"github.com/sjm1327605995/tenon/react/core"
-	"github.com/sjm1327605995/tenon/react/style"
+	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/elements"
+	"github.com/sjm1327605995/tenon/react/styles"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
@@ -17,17 +17,21 @@ func NewHello() *Hello {
 	return &Hello{}
 }
 
-func (h *Hello) Render() common.Node {
-	return core.NewView().
-		Style(style.NewStyle().
-			BackgroundColor(color.NRGBA{R: 255, A: 255}).
-			Direction(yoga.DirectionInherit).WidthPercent(50).HeightPercent(50))
+func (h *Hello) Render() api.Node {
+	return elements.NewView().Style(
+		styles.NewStyle().BackgroundColor(color.NRGBA{G: 255, A: 255}).HeightPercent(100).WidthPercent(100).
+			JustifyContent(yoga.JustifyCenter).AlignItem(yoga.AlignCenter)).
+		Child(elements.NewView().
+			Style(
+				styles.NewStyle().BackgroundColor(color.NRGBA{R: 255, A: 255}).
+					Direction(yoga.DirectionInherit).WidthPercent(50).HeightPercent(50)))
 
 }
 
 func main() {
-	err := react.NewReactDOM().
-		Render(NewHello())
+	dom := react.NewReactDOM()
+	// 渲染组件
+	err := dom.Render(NewHello())
 	if err != nil {
 		panic(err)
 	}

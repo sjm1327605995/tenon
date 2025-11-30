@@ -8,19 +8,19 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"github.com/sjm1327605995/tenon/react/common"
-	"github.com/sjm1327605995/tenon/react/common/component"
+	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/components"
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
 type Gio struct {
 	window  *app.Window
-	element common.Element
+	element api.Element
 	ctx     layout.Context
 	size    image.Point
 }
 
-func (g *Gio) DrawView(view *component.View) {
+func (g *Gio) DrawView(view *components.View) {
 	node := view.Yoga()
 	//x, y := int(node.LayoutLeft()), int(node.LayoutTop())
 
@@ -68,7 +68,7 @@ func NewGio() *Gio {
 		window: new(app.Window),
 	}
 }
-func (g *Gio) SetElement(element common.Element) {
+func (g *Gio) SetElement(element api.Element) {
 	g.element = element
 }
 func (g *Gio) Run() error {
@@ -92,7 +92,7 @@ func (g *Gio) Run() error {
 		}
 	}
 }
-func (g *Gio) Draw(ctx layout.Context, element common.Element) layout.Dimensions {
+func (g *Gio) Draw(ctx layout.Context, element api.Element) layout.Dimensions {
 	node := element.Yoga()
 	x, y := int(node.LayoutLeft()), int(node.LayoutTop())
 	size := image.Pt(x, y)
