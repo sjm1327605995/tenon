@@ -1,3 +1,5 @@
+// Package styles provides the style system implementation for the React framework.
+// This package contains all style-related interfaces, types, and methods, supporting Flexbox layout and custom style properties.
 package styles
 
 import (
@@ -6,29 +8,51 @@ import (
 	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
+// IExtendedStyle is a marker interface for extended styles.
+// Any custom style type should implement this interface to be accepted by StyleElement.
 type IExtendedStyle interface {
+	// ExtendedStyle is the marker method for the interface, used to identify extended style types.
 	ExtendedStyle()
 }
+
+// StyleElement is the interface for elements that can have styles applied to them.
+// Elements implementing this interface can accept and apply styles defined by Style objects.
 type StyleElement interface {
+	// Yoga returns the Yoga layout node associated with the element.
+	// It is used to access and modify Flexbox layout properties.
 	Yoga() *yoga.Node
+	// SetExtendedStyle sets the extended style for the element.
+	// The style parameter is a custom style object implementing the IExtendedStyle interface.
 	SetExtendedStyle(style IExtendedStyle)
 }
+
+// Style represents a collection of styles for an element, supporting chained calls to set multiple style properties.
+// It uses function chains to delay style application for improved performance.
 type Style struct {
-	handleChains []func(element StyleElement)
-	styleCache   map[string]int
+	handleChains []func(element StyleElement) // Style processing function chain
+	styleCache   map[string]int               // Style cache for optimizing repeated style applications
 }
 
+// NewStyle creates and returns a new Style instance.
+// It initializes the style processing chain and style cache.
 func NewStyle() *Style {
 	return &Style{
 		styleCache: make(map[string]int),
 	}
 }
+
+// Apply applies the style to the specified StyleElement.
+// It executes all style processing functions added to handleChains in sequence.
+// The element parameter is the target element to apply styles to.
 func (s *Style) Apply(element StyleElement) {
 	for i := range s.handleChains {
 		s.handleChains[i](element)
 	}
 }
 
+// Direction sets the layout direction of the element.
+// The direction parameter specifies the flow direction of the element's content, such as left-to-right, right-to-left, etc.
+// It returns the Style instance to support method chaining.
 func (s *Style) Direction(direction yoga.Direction) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
 		element.Yoga().StyleSetDirection(direction)
@@ -36,6 +60,9 @@ func (s *Style) Direction(direction yoga.Direction) *Style {
 	return s
 }
 
+// FlexDirection sets the main axis direction of the Flex container.
+// The flexDirection parameter determines the arrangement direction of child elements, such as horizontal (row) or vertical (column).
+// It returns the Style instance to support method chaining.
 func (s *Style) FlexDirection(flexDirection yoga.FlexDirection) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
 		element.Yoga().StyleSetFlexDirection(flexDirection)
@@ -308,6 +335,10 @@ func (s *Style) AspectRatio(aspectRatio float32) *Style {
 	return s
 }
 
+// BackgroundColor sets the background color of the element.
+// The backgroundColor parameter is an NRGBA color value containing red, green, blue, and alpha channels.
+// This method uses the extended style mechanism to set the background color, as it is not a standard Flexbox property.
+// It returns the Style instance to support method chaining.
 func (s *Style) BackgroundColor(backgroundColor color.NRGBA) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
 		element.SetExtendedStyle(BackgroundColor{
