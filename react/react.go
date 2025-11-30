@@ -1,23 +1,23 @@
 package react
 
 import (
-	"github.com/sjm1327605995/tenon/react/common"
-	"github.com/sjm1327605995/tenon/react/common/renderer"
-	"github.com/sjm1327605995/tenon/react/core"
-	"github.com/sjm1327605995/tenon/react/style"
-	"github.com/sjm1327605995/tenon/react/style/unit"
+	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/api/renderer"
+	"github.com/sjm1327605995/tenon/react/elements"
+	"github.com/sjm1327605995/tenon/react/event"
+	"github.com/sjm1327605995/tenon/react/styles"
 )
 
 type ReactDOM struct {
-	root     common.Component
-	width    unit.Unit
-	height   unit.Unit
-	renderer common.Renderer
+	root     api.Component
+	renderer api.Renderer
+	style    *styles.Style
+	event    chan event.Event
 }
 
-func (h *ReactDOM) Render(children ...common.Component) error {
-	element := core.NewView().
-		Style(style.NewStyle().Width(800).Height(600)).
+func (h *ReactDOM) Render(children ...api.Component) error {
+	element := elements.NewView().
+		Style(h.style).
 		Child(children...)
 	h.root = element
 	h.root.Render()
@@ -26,8 +26,8 @@ func (h *ReactDOM) Render(children ...common.Component) error {
 }
 func NewReactDOM() *ReactDOM {
 	return &ReactDOM{
-		width:    unit.Pt(800),
-		height:   unit.Pt(600),
 		renderer: renderer.NewGio(),
+		style:    styles.NewStyle().Width(800).Height(600),
+		event:    make(chan event.Event, 10),
 	}
 }

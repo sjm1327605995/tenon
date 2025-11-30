@@ -1,18 +1,18 @@
-package core
+package elements
 
 import (
-	"github.com/sjm1327605995/tenon/react/common"
-	"github.com/sjm1327605995/tenon/react/common/component"
-	"github.com/sjm1327605995/tenon/react/style"
+	"github.com/sjm1327605995/tenon/react/api"
+	"github.com/sjm1327605995/tenon/react/components"
+	"github.com/sjm1327605995/tenon/react/styles"
 )
 
 type View struct {
-	*component.View
-	Children []common.Element
+	*components.View
+	Children []api.Element
 }
 
-// Rendering 实现渲染功能，使用common.Renderer接口
-func (v *View) Rendering(renderer common.Renderer) {
+// Rendering 实现渲染功能，使用api.Renderer接口
+func (v *View) Rendering(renderer api.Renderer) {
 	renderer.DrawView(v.View)
 }
 
@@ -22,21 +22,21 @@ func (v *View) GetChildrenCount() int {
 }
 
 // GetChildAt 返回指定索引的子元素
-func (v *View) GetChildAt(index int) common.Element {
+func (v *View) GetChildAt(index int) api.Element {
 	if index < 0 || index >= len(v.Children) {
 		return nil
 	}
 	return v.Children[index]
 }
 
-func (v *View) Render() common.Node {
+func (v *View) Render() api.Node {
 	return v
 }
-func (v *View) Style(option *style.Style) *View {
+func (v *View) Style(option *styles.Style) *View {
 	option.Apply(v)
 	return v
 }
-func (v *View) Child(nodes ...common.Component) *View {
+func (v *View) Child(nodes ...api.Component) *View {
 	for i := range nodes {
 		element := nodes[i].Render()
 		v.Yoga().InsertChild(element.Yoga(), uint32(i))
@@ -44,26 +44,26 @@ func (v *View) Child(nodes ...common.Component) *View {
 	}
 	return v
 }
-func (v *View) GetChildren() []common.Element {
+func (v *View) GetChildren() []api.Element {
 	return v.Children
 }
 
 // GetView 返回内部的component.View实例，用于样式系统设置属性
-func (v *View) GetView() *component.View {
+func (v *View) GetView() *components.View {
 	return v.View
 }
 
-func (v *View) SetExtendedStyle(extendedStyle common.IExtendedStyle) {
+func (v *View) SetExtendedStyle(extendedStyle api.IExtendedStyle) {
 	switch e := extendedStyle.(type) {
-	case style.BackgroundColor:
+	case styles.BackgroundColor:
 		v.View.Background = e.Color
-	case style.BorderColor:
+	case styles.BorderColor:
 		v.View.BorderColor = e.Color
 	}
 }
 
 func NewView() *View {
 	return &View{
-		View: component.NewView(),
+		View: components.NewView(),
 	}
 }

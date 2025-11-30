@@ -1,6 +1,8 @@
-package style
+package styles
 
-import "image/color"
+import (
+	"image/color"
+)
 
 // BackgroundColor 背景色样式结构体
 type BackgroundColor struct {
