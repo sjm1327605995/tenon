@@ -2,21 +2,29 @@ package elements
 
 import (
 	"bytes"
+	"image"
+	"image/draw"
+	"io"
+	"os"
+
 	"github.com/sjm1327605995/tenon/react/api"
 	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/components"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
-	"image"
-	"image/draw"
-	"io"
-	"os"
 )
 
 type Image struct {
 	*components.Image
 }
 
+func (i *Image) Render() api.Node {
+	return i
+}
+
+func NewImage() *Image {
+	return &Image{Image: components.NewImage()}
+}
 func (i *Image) SetExtendedStyle(style styles.IExtendedStyle) {
 	//TODO implement me
 	panic("implement me")
@@ -26,7 +34,6 @@ func (i *Image) GetChildrenCount() int {
 	return 0
 }
 func (i *Image) Source(path string) *Image {
-	i.Path = path
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return i
@@ -89,6 +96,10 @@ func (i *Image) GetChildren() []api.Element {
 
 func (i *Image) SetStyle(style *styles.Style) {
 	style.Apply(i)
+}
+func (i *Image) Style(option *styles.Style) *Image {
+	i.SetStyle(option)
+	return i
 }
 
 const ( //96.0 / 25.4
