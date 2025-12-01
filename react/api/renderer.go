@@ -13,6 +13,8 @@ type Renderer interface {
 	DrawView(view *components.View)
 
 	DrawImage(image *components.Image)
+
+	DrawText(text *components.Text)
 	// SetElement sets the root element to be rendered.
 	// During rendering, the renderer will traverse the entire component tree starting from this root element.
 	SetElement(element Element)

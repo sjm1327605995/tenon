@@ -21,10 +21,9 @@ func (h *Hello) Render() api.Node {
 	return elements.NewView().Style(
 		styles.NewStyle().BackgroundColor(color.NRGBA{G: 255, A: 255}).HeightPercent(100).WidthPercent(100).
 			JustifyContent(yoga.JustifyCenter).AlignItem(yoga.AlignCenter)).
-		Child(elements.NewView().
-			Style(
-				styles.NewStyle().BackgroundColor(color.NRGBA{R: 255, A: 255}).
-					Direction(yoga.DirectionInherit).WidthPercent(50).HeightPercent(50)))
+		Child(elements.NewImage().
+			Style(styles.NewStyle().WidthPercent(50).HeightPercent(50)).
+			Source("react.svg"))
 
 }
 

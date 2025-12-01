@@ -3,8 +3,9 @@
 package renderer
 
 import (
-	"gioui.org/widget"
 	"image"
+
+	"gioui.org/widget"
 
 	"gioui.org/app"
 	"gioui.org/layout"
@@ -120,6 +121,9 @@ func (g *Gio) Run() error {
 			e.Frame(g.ctx.Ops)
 		}
 	}
+}
+func (g *Gio) DrawText(text *components.Text) {
+
 }
 
 // Draw recursively draws the element and its children.

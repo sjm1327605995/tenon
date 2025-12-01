@@ -1,14 +1,14 @@
 package components
 
 import (
-	"github.com/sjm1327605995/tenon/react/yoga"
 	"image"
+
+	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
 type Image struct {
 	yoga   *yoga.Node
 	Origin image.Image
-	Path   string
 	Scale  float32
 }
 
