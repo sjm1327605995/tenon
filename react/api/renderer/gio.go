@@ -3,6 +3,7 @@
 package renderer
 
 import (
+	"gioui.org/widget"
 	"image"
 
 	"gioui.org/app"
@@ -71,6 +72,12 @@ func (g *Gio) DrawView(view *components.View) {
 			}.Op(),
 		)
 	}
+}
+func (g *Gio) DrawImage(image *components.Image) {
+	widget.Image{
+		Src:   paint.NewImageOp(image.Origin),
+		Scale: image.Scale,
+	}.Layout(g.ctx)
 }
 
 // NewGio creates and returns a new Gio renderer instance.

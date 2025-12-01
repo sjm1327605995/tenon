@@ -11,6 +11,8 @@ type Renderer interface {
 	// DrawView draws the view component to the rendering target.
 	// This method is the core of the rendering process, responsible for actual graphics drawing.
 	DrawView(view *components.View)
+
+	DrawImage(image *components.Image)
 	// SetElement sets the root element to be rendered.
 	// During rendering, the renderer will traverse the entire component tree starting from this root element.
 	SetElement(element Element)
