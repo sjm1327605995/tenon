@@ -3,9 +3,14 @@
 package elements
 
 import (
+	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"github.com/sjm1327605995/tenon/react/api"
 	"github.com/sjm1327605995/tenon/react/api/styles"
-	"github.com/sjm1327605995/tenon/react/components"
+	"github.com/sjm1327605995/tenon/react/yoga"
+	"image"
+	"image/color"
 )
 
 // View represents a container element that can hold child elements and apply styles.
@@ -15,8 +20,54 @@ import (
 //   - View: The underlying component view that handles layout and basic rendering
 //   - Children: The list of child elements contained within this view
 type View struct {
-	*components.View
-	Children []api.Element
+	ElementBase
+	Background  color.NRGBA // Background is the background color with alpha channel
+	BorderColor color.NRGBA // BorderColor is the border color with alpha channel
+}
+
+func (v *View) Paint(ctx layout.Context) {
+
+	//x, y := int(node.LayoutLeft()), int(node.LayoutTop())
+
+	w, h := int(v.Node.LayoutWidth()), int(v.Node.LayoutHeight())
+	size := image.Pt(w, h)
+
+	// TODO: Currently all border sizes are consistent
+	borderWidth := v.Node.LayoutBorder(yoga.EdgeLeft)
+
+	whalf := (int(borderWidth) + 1) / 2
+	// Draw background
+	if v.Background.A > 0 {
+		bodySize := size
+		if borderWidth > 0 {
+			bodySize.X -= whalf
+			bodySize.Y -= whalf
+		}
+		paint.FillShape(ctx.Ops, v.Background, clip.Outline{
+			Path: clip.RRect{
+				Rect: image.Rectangle{Min: image.Pt(whalf, whalf), Max: bodySize},
+				//SE:   b.radiusSE,
+				//SW:   b.radiusSW,
+				//NW:   v.radiusNW,
+				//NE:   v.radiusNE,
+			}.Path(ctx.Ops),
+		}.Op())
+	}
+	// Draw border
+	if borderWidth > 0 {
+		paint.FillShape(ctx.Ops, v.BorderColor,
+			clip.Stroke{
+				Path: clip.RRect{
+					Rect: image.Rect(whalf, whalf, size.X-whalf, size.Y-whalf),
+					//SE:   v.radiusSE,
+					//SW:   v.radiusSW,
+					//NW:   v.radiusNW,
+					//NE:   v.radiusNE,
+				}.Path(ctx.Ops),
+				Width: borderWidth,
+			}.Op(),
+		)
+	}
 }
 
 // SetStyle applies the given style to this view element.
@@ -26,39 +77,6 @@ type View struct {
 //   - style: The style configuration to apply to this view
 func (v *View) SetStyle(style *styles.Style) {
 	style.Apply(v)
-}
-
-// Rendering implements the rendering functionality using the provided renderer.
-// It delegates the actual drawing to the renderer's DrawView method.
-//
-// Parameters:
-//   - renderer: The renderer to use for drawing this view
-func (v *View) Rendering(renderer api.Renderer) {
-	renderer.DrawView(v.View)
-}
-
-// GetChildrenCount returns the number of child elements in this view.
-// This is determined by querying the Yoga layout engine for child nodes.
-//
-// Returns:
-//   - The number of child elements in the view
-func (v *View) GetChildrenCount() int {
-	return len(v.Yoga().GetChildren())
-}
-
-// GetChildAt returns the child element at the specified index.
-// Returns nil if the index is out of bounds.
-//
-// Parameters:
-//   - index: The index of the child element to retrieve
-//
-// Returns:
-//   - The child element at the specified index, or nil if the index is invalid
-func (v *View) GetChildAt(index int) api.Element {
-	if index < 0 || index >= len(v.Children) {
-		return nil
-	}
-	return v.Children[index]
 }
 
 // Render implements the api.Component interface and returns the view itself as a renderable node.
@@ -99,23 +117,6 @@ func (v *View) Child(nodes ...api.Component) *View {
 	return v
 }
 
-// GetChildren returns all child elements of this view.
-//
-// Returns:
-//   - A slice of all child elements contained within this view
-func (v *View) GetChildren() []api.Element {
-	return v.Children
-}
-
-// GetView returns the underlying component.View instance, used by the style system to set properties.
-// This provides access to the core view implementation for systems that need direct access.
-//
-// Returns:
-//   - The underlying component.View instance
-func (v *View) GetView() *components.View {
-	return v.View
-}
-
 // SetExtendedStyle applies extended style properties to this view element.
 // This method handles specialized style types like BackgroundColor and BorderColor.
 //
@@ -124,9 +125,9 @@ func (v *View) GetView() *components.View {
 func (v *View) SetExtendedStyle(extendedStyle styles.IExtendedStyle) {
 	switch e := extendedStyle.(type) {
 	case styles.BackgroundColor:
-		v.View.Background = e.Color
+		v.Background = e.Color
 	case styles.BorderColor:
-		v.View.BorderColor = e.Color
+		v.BorderColor = e.Color
 	}
 }
 
@@ -136,6 +137,8 @@ func (v *View) SetExtendedStyle(extendedStyle styles.IExtendedStyle) {
 //   - A pointer to a newly created View element
 func NewView() *View {
 	return &View{
-		View: components.NewView(),
+		ElementBase: ElementBase{
+			Node: yoga.NewNode(),
+		},
 	}
 }
