@@ -2,6 +2,7 @@
 package api
 
 import (
+	"gioui.org/layout"
 	"github.com/sjm1327605995/tenon/react/api/styles"
 )
 
@@ -14,8 +15,8 @@ type Element interface {
 	// GetChildAt returns the child element at the specified index.
 	// If the index is out of bounds, it may return nil or raise an error.
 	GetChildAt(index int) Element
-	// Rendering performs rendering operations for the element, drawing it to the specified renderer.
-	Rendering(renderer Renderer)
+
+	Paint(ctx layout.Context)
 	// GetChildren returns a list of all child elements of the element.
 	GetChildren() []Element
 	// SetExtendedStyle sets extended styles, with specific logic implemented by each element.

@@ -2,6 +2,11 @@ package elements
 
 import (
 	"bytes"
+	"gioui.org/f32"
+	"gioui.org/layout"
+	"gioui.org/op"
+	"gioui.org/op/paint"
+	"github.com/sjm1327605995/tenon/react/yoga"
 	"image"
 	"image/draw"
 	"io"
@@ -9,13 +14,14 @@ import (
 
 	"github.com/sjm1327605995/tenon/react/api"
 	"github.com/sjm1327605995/tenon/react/api/styles"
-	"github.com/sjm1327605995/tenon/react/components"
 	"github.com/tdewolff/canvas"
 	"github.com/tdewolff/canvas/renderers/rasterizer"
 )
 
 type Image struct {
-	*components.Image
+	ElementBase
+	Scale  float32
+	Origin image.Image
 }
 
 func (i *Image) Render() api.Node {
@@ -23,7 +29,7 @@ func (i *Image) Render() api.Node {
 }
 
 func NewImage() *Image {
-	return &Image{Image: components.NewImage()}
+	return &Image{ElementBase: ElementBase{Node: yoga.NewNode()}}
 }
 func (i *Image) SetExtendedStyle(style styles.IExtendedStyle) {
 	//TODO implement me
@@ -76,9 +82,9 @@ func (i *Image) Source(path string) *Image {
 
 	// 核心：计算缩放率（取宽/高缩放率的最小值，避免图片拉伸）
 	// 缩放率 = 最终显示尺寸 / 原始尺寸
-	scaleX := finalWidth / imgWidth     // 宽度缩放比例
-	scaleY := finalHeight / imgHeight   // 高度缩放比例
-	i.Image.Scale = min(scaleX, scaleY) // 取最小值（保持图片比例，不拉伸）
+	scaleX := finalWidth / imgWidth   // 宽度缩放比例
+	scaleY := finalHeight / imgHeight // 高度缩放比例
+	i.Scale = min(scaleX, scaleY)     // 取最小值（保持图片比例，不拉伸）
 	i.Origin = img
 	return i
 }
@@ -86,8 +92,13 @@ func (i *Image) GetChildAt(index int) api.Element {
 	return nil
 }
 
-func (i *Image) Rendering(renderer api.Renderer) {
-	renderer.DrawImage(i.Image)
+func (i *Image) Paint(ctx layout.Context) {
+	imageOp := paint.NewImageOp(i.Origin)
+	imageOp.Filter = paint.FilterNearest
+	imageOp.Add(ctx.Ops)
+	op.Affine(f32.Affine2D{}).Add(ctx.Ops)
+	paint.PaintOp{}.Add(ctx.Ops)
+
 }
 
 func (i *Image) GetChildren() []api.Element {
