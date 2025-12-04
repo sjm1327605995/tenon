@@ -19,11 +19,28 @@ func NewHello() *Hello {
 func (h *Hello) Render() api.Node {
 	return elements.NewView().Style(
 		styles.NewStyle().
-			BackgroundColor(color.NRGBA{G: 255, A: 255}).HeightPercent(100).WidthPercent(100).
+			//BackgroundColor(color.NRGBA{G: 255, A: 255}).
+			HeightPercent(100).WidthPercent(100).
 			JustifyContent(yoga.JustifyCenter).AlignItem(yoga.AlignCenter)).
-		Child(elements.NewImage().
-			Style(styles.NewStyle().WidthPercent(50).HeightPercent(50)).
-			Source("react.svg"), elements.NewText().Content("hello"))
+		Child(
+			elements.NewView().Style(
+				styles.NewStyle().Width(200).Height(150).
+					Border(yoga.EdgeTop, 10).Border(yoga.EdgeBottom, 20).
+					Border(yoga.EdgeLeft, 20).
+					Border(yoga.EdgeRight, 30).
+					CornerRadius(styles.CornerRadius{
+						TopLeft:     10,
+						TopRight:    20,
+						BottomRight: 30,
+						BottomLeft:  40,
+					}).
+					BackgroundColor(color.NRGBA{R: 255, A: 255}),
+			),
+			elements.NewImage().
+				Style(styles.NewStyle().WidthPercent(50).HeightPercent(50)).
+				Source("react.svg"), elements.NewText().Style(styles.NewStyle().
+				Width(100)).
+				Content("你好世界"))
 
 }
 

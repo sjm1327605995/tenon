@@ -1,7 +1,6 @@
 package elements
 
 import (
-	"fmt"
 	"gioui.org/f32"
 	"gioui.org/layout"
 	"gioui.org/widget/material"
@@ -93,6 +92,13 @@ func (v *Text) SetExtendedStyle(extendedStyle styles.IExtendedStyle) {
 
 func NewText() *Text {
 	th := material.NewTheme()
+	faces, err := opentype.ParseCollection(colEmoji.TTF)
+	if err != nil {
+		panic(err)
+	}
+
+	collection := gofont.Collection()
+	th.Shaper = giotext.NewShaper(giotext.WithCollection(append(collection, faces...)))
 	labelStyle := material.Label(th, 16, "")
 	node := yoga.NewNode()
 	text := &Text{
@@ -100,15 +106,6 @@ func NewText() *Text {
 		LabelStyle:  &labelStyle,
 		ElementBase: ElementBase{Node: node},
 	}
-
-	faces, err := opentype.ParseCollection(colEmoji.TTF)
-	if err != nil {
-		panic(err)
-	}
-
-	collection := gofont.Collection()
-
-	th.Shaper = giotext.NewShaper(giotext.WithCollection(append(collection, faces...)))
 
 	node.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
 		th.Shaper.LayoutString(giotext.Parameters{
@@ -136,7 +133,6 @@ func NewText() *Text {
 				break
 			}
 		}
-		fmt.Println(it.bounds.Max)
 		return yoga.Size{
 			Width:  float32(it.bounds.Max.X),
 			Height: float32(it.bounds.Max.Y),
