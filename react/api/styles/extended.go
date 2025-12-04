@@ -26,3 +26,10 @@ type BorderColor struct {
 // ExtendedStyle 实现IExtendedStyle接口的标记方法。
 func (BorderColor) ExtendedStyle() {
 }
+
+type CornerRadius struct {
+	TopLeft, TopRight, BottomRight, BottomLeft float32
+}
+
+func (CornerRadius) ExtendedStyle() {
+}

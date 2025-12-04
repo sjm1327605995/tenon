@@ -347,3 +347,9 @@ func (s *Style) BackgroundColor(backgroundColor color.NRGBA) *Style {
 	})
 	return s
 }
+func (s *Style) CornerRadius(radius CornerRadius) *Style {
+	s.handleChains = append(s.handleChains, func(element StyleElement) {
+		element.SetExtendedStyle(radius)
+	})
+	return s
+}
