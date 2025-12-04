@@ -9,336 +9,316 @@ import (
 )
 
 // IExtendedStyle is a marker interface for extended styles.
-// Any custom style type should implement this interface to be accepted by StyleElement.
 type IExtendedStyle interface {
-	// ExtendedStyle is the marker method for the interface, used to identify extended style types.
 	ExtendedStyle()
 }
 
 // StyleElement is the interface for elements that can have styles applied to them.
-// Elements implementing this interface can accept and apply styles defined by Style objects.
 type StyleElement interface {
-	// Yoga returns the Yoga layout node associated with the element.
-	// It is used to access and modify Flexbox layout properties.
-	Yoga() *yoga.Node
-	// SetExtendedStyle sets the extended style for the element.
-	// The style parameter is a custom style object implementing the IExtendedStyle interface.
+	GetYogaNode() *yoga.Node
 	SetExtendedStyle(style IExtendedStyle)
 }
 
-// Style represents a collection of styles for an element, supporting chained calls to set multiple style properties.
-// It uses function chains to delay style application for improved performance.
+// Style represents a collection of styles for an element.
 type Style struct {
-	handleChains []func(element StyleElement) // Style processing function chain
-	styleCache   map[string]int               // Style cache for optimizing repeated style applications
+	handleChains []func(element StyleElement)
 }
 
 // NewStyle creates and returns a new Style instance.
-// It initializes the style processing chain and style cache.
 func NewStyle() *Style {
-	return &Style{
-		styleCache: make(map[string]int),
-	}
+	return &Style{}
 }
 
 // Apply applies the style to the specified StyleElement.
-// It executes all style processing functions added to handleChains in sequence.
-// The element parameter is the target element to apply styles to.
 func (s *Style) Apply(element StyleElement) {
-	for i := range s.handleChains {
-		s.handleChains[i](element)
+	for _, f := range s.handleChains {
+		f(element)
 	}
 }
 
-// Direction sets the layout direction of the element.
-// The direction parameter specifies the flow direction of the element's content, such as left-to-right, right-to-left, etc.
-// It returns the Style instance to support method chaining.
+// --- Yoga Style Methods ---
+
 func (s *Style) Direction(direction yoga.Direction) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetDirection(direction)
+		element.GetYogaNode().StyleSetDirection(direction)
 	})
 	return s
 }
 
-// FlexDirection sets the main axis direction of the Flex container.
-// The flexDirection parameter determines the arrangement direction of child elements, such as horizontal (row) or vertical (column).
-// It returns the Style instance to support method chaining.
 func (s *Style) FlexDirection(flexDirection yoga.FlexDirection) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexDirection(flexDirection)
+		element.GetYogaNode().StyleSetFlexDirection(flexDirection)
 	})
 	return s
 }
 
 func (s *Style) JustifyContent(justifyContent yoga.Justify) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetJustifyContent(justifyContent)
+		element.GetYogaNode().StyleSetJustifyContent(justifyContent)
 	})
 	return s
 }
 
 func (s *Style) AlignContent(alignContent yoga.Align) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetAlignContent(alignContent)
+		element.GetYogaNode().StyleSetAlignContent(alignContent)
 	})
 	return s
 }
 
 func (s *Style) AlignItem(alignItems yoga.Align) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetAlignItems(alignItems)
+		element.GetYogaNode().StyleSetAlignItems(alignItems)
 	})
 	return s
 }
 
 func (s *Style) AlignSelf(alignSelf yoga.Align) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetAlignSelf(alignSelf)
+		element.GetYogaNode().StyleSetAlignSelf(alignSelf)
 	})
 	return s
 }
 
 func (s *Style) FlexWrap(flexWrap yoga.Wrap) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexWrap(flexWrap)
+		element.GetYogaNode().StyleSetFlexWrap(flexWrap)
 	})
 	return s
 }
 
 func (s *Style) Overflow(overflow yoga.Overflow) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetOverflow(overflow)
+		element.GetYogaNode().StyleSetOverflow(overflow)
 	})
 	return s
 }
 
 func (s *Style) Display(display yoga.Display) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetDisplay(display)
+		element.GetYogaNode().StyleSetDisplay(display)
 	})
 	return s
 }
 
 func (s *Style) Flex(flex float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlex(flex)
+		element.GetYogaNode().StyleSetFlex(flex)
 	})
 	return s
 }
 
 func (s *Style) FlexGrow(flexGrow float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexGrow(flexGrow)
+		element.GetYogaNode().StyleSetFlexGrow(flexGrow)
 	})
 	return s
 }
 
 func (s *Style) FlexShrink(flexShrink float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexShrink(flexShrink)
+		element.GetYogaNode().StyleSetFlexShrink(flexShrink)
 	})
 	return s
 }
 
 func (s *Style) FlexBasis(flexBasis float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexBasis(flexBasis)
+		element.GetYogaNode().StyleSetFlexBasis(flexBasis)
 	})
 	return s
 }
 
 func (s *Style) FlexBasisPercent(flexBasis float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexBasisPercent(flexBasis)
+		element.GetYogaNode().StyleSetFlexBasisPercent(flexBasis)
 	})
 	return s
 }
 
 func (s *Style) FlexBasisAuto() *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetFlexBasisAuto()
+		element.GetYogaNode().StyleSetFlexBasisAuto()
 	})
 	return s
 }
 
 func (s *Style) Width(points float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetWidth(points)
+		element.GetYogaNode().StyleSetWidth(points)
 	})
 	return s
 }
 
 func (s *Style) WidthPercent(percent float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetWidthPercent(percent)
+		element.GetYogaNode().StyleSetWidthPercent(percent)
 	})
 	return s
 }
 
 func (s *Style) WidthAuto() *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetWidthAuto()
+		element.GetYogaNode().StyleSetWidthAuto()
 	})
 	return s
 }
 
 func (s *Style) Height(height float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetHeight(height)
+		element.GetYogaNode().StyleSetHeight(height)
 	})
 	return s
 }
 
 func (s *Style) HeightPercent(height float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetHeightPercent(height)
+		element.GetYogaNode().StyleSetHeightPercent(height)
 	})
 	return s
 }
 
 func (s *Style) HeightAuto() *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetHeightAuto()
+		element.GetYogaNode().StyleSetHeightAuto()
 	})
 	return s
 }
 
 func (s *Style) PositionType(positionType yoga.PositionType) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPositionType(positionType)
+		element.GetYogaNode().StyleSetPositionType(positionType)
 	})
 	return s
 }
 
 func (s *Style) Position(edge yoga.Edge, position float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPosition(edge, position)
+		element.GetYogaNode().StyleSetPosition(edge, position)
 	})
 	return s
 }
 
 func (s *Style) PositionPercent(edge yoga.Edge, position float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPositionPercent(edge, position)
+		element.GetYogaNode().StyleSetPositionPercent(edge, position)
 	})
 	return s
 }
 
 func (s *Style) Margin(edge yoga.Edge, margin float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPositionPercent(edge, margin)
+		element.GetYogaNode().StyleSetMargin(edge, margin)
 	})
 	return s
 }
 
 func (s *Style) MarginPercent(edge yoga.Edge, margin float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMarginPercent(edge, margin)
+		element.GetYogaNode().StyleSetMarginPercent(edge, margin)
 	})
 	return s
 }
 
 func (s *Style) MarginAuto(edge yoga.Edge) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMarginAuto(edge)
+		element.GetYogaNode().StyleSetMarginAuto(edge)
 	})
 	return s
 }
 
 func (s *Style) Padding(edge yoga.Edge, padding float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPadding(edge, padding)
+		element.GetYogaNode().StyleSetPadding(edge, padding)
 	})
 	return s
 }
 
 func (s *Style) PaddingPercent(edge yoga.Edge, padding float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetPaddingPercent(edge, padding)
+		element.GetYogaNode().StyleSetPaddingPercent(edge, padding)
 	})
 	return s
 }
 
 func (s *Style) Border(edge yoga.Edge, border float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetBorder(edge, border)
+		element.GetYogaNode().StyleSetBorder(edge, border)
 	})
 	return s
 }
 
 func (s *Style) Gap(edge yoga.Gutter, gapLength float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetGap(edge, gapLength)
+		element.GetYogaNode().StyleSetGap(edge, gapLength)
 	})
 	return s
 }
 
 func (s *Style) MinWidth(minWidth float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMinWidth(minWidth)
+		element.GetYogaNode().StyleSetMinWidth(minWidth)
 	})
 	return s
 }
 
 func (s *Style) MinWidthPercent(minWidth float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMaxWidthPercent(minWidth)
+		element.GetYogaNode().StyleSetMinWidthPercent(minWidth)
 	})
 	return s
 }
 func (s *Style) MinHeight(minHeight float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMinHeight(minHeight)
+		element.GetYogaNode().StyleSetMinHeight(minHeight)
 	})
 	return s
 }
 
 func (s *Style) MinHeightPercent(minHeight float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMinHeightPercent(minHeight)
+		element.GetYogaNode().StyleSetMinHeightPercent(minHeight)
 	})
 	return s
 }
 
 func (s *Style) MaxWidth(maxWidth float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMaxWidth(maxWidth)
+		element.GetYogaNode().StyleSetMaxWidth(maxWidth)
 	})
 	return s
 }
 
 func (s *Style) MaxWidthPercent(maxWidth float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMaxWidthPercent(maxWidth)
+		element.GetYogaNode().StyleSetMaxWidthPercent(maxWidth)
 	})
 	return s
 }
 
 func (s *Style) MaxHeight(maxHeight float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMaxHeight(maxHeight)
+		element.GetYogaNode().StyleSetMaxHeight(maxHeight)
 	})
 	return s
 }
 
 func (s *Style) MaxHeightPercent(maxHeight float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetMaxHeightPercent(maxHeight)
+		element.GetYogaNode().StyleSetMaxHeightPercent(maxHeight)
 	})
 	return s
 }
 
 func (s *Style) AspectRatio(aspectRatio float32) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
-		element.Yoga().StyleSetAspectRatio(aspectRatio)
+		element.GetYogaNode().StyleSetAspectRatio(aspectRatio)
 	})
 	return s
 }
 
-// BackgroundColor sets the background color of the element.
-// The backgroundColor parameter is an NRGBA color value containing red, green, blue, and alpha channels.
-// This method uses the extended style mechanism to set the background color, as it is not a standard Flexbox property.
-// It returns the Style instance to support method chaining.
+// --- Extended Style Methods ---
+
 func (s *Style) BackgroundColor(backgroundColor color.NRGBA) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
 		element.SetExtendedStyle(BackgroundColor{
@@ -347,6 +327,16 @@ func (s *Style) BackgroundColor(backgroundColor color.NRGBA) *Style {
 	})
 	return s
 }
+
+func (s *Style) BorderColor(borderColor color.NRGBA) *Style {
+	s.handleChains = append(s.handleChains, func(element StyleElement) {
+		element.SetExtendedStyle(BorderColor{
+			Color: borderColor,
+		})
+	})
+	return s
+}
+
 func (s *Style) CornerRadius(radius CornerRadius) *Style {
 	s.handleChains = append(s.handleChains, func(element StyleElement) {
 		element.SetExtendedStyle(radius)
