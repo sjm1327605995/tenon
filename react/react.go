@@ -1,113 +1,141 @@
-// Package react implements the core React-like UI framework for the Tenon project.
-// This package provides the main functionality for creating, rendering, and managing UI components.
 package react
 
 import (
+	"github.com/sjm1327605995/tenon/react/api"
+	"log"
+	"os"
+
 	"gioui.org/app"
 	"gioui.org/layout"
 	"gioui.org/op"
-	"github.com/sjm1327605995/tenon/react/api"
-	"github.com/sjm1327605995/tenon/react/api/styles"
-	"github.com/sjm1327605995/tenon/react/elements"
-	"github.com/sjm1327605995/tenon/react/event"
+	"gioui.org/op/clip"
+	"gioui.org/unit"
+	"github.com/sjm1327605995/tenon/react/core"
+	"github.com/sjm1327605995/tenon/react/dom"
 	"github.com/sjm1327605995/tenon/react/yoga"
 	"image"
 )
 
-// ReactDOM is the main entry point for rendering React components.
-// It manages the root component, renderer, styling, and event handling.
-//
-// Fields:
-//   - root: The root component of the UI tree
-//   - renderer: The renderer implementation used to draw components
-//   - style: The default style applied to the root element
-//   - event: Channel for handling UI events
-
+// ReactDOM manages the lifecycle of a Tenon application.
 type ReactDOM struct {
-	window  *app.Window
-	root    api.Component
-	style   *styles.Style
-	element api.Element
-	size    image.Point
-	event   chan event.Event
+	window *app.Window
+	root   api.Component
+	vdom   *core.VNode
+	dom    dom.INode
 }
 
-// Render renders the provided components into the ReactDOM.
-// It creates a root view, applies the default style, adds the provided components as children,
-// and starts the rendering process.
-//
-// Parameters:
-//   - children: The components to render as children of the root view
-//
-// Returns:
-//   - An error if there was an issue during rendering
-func (r *ReactDOM) Render(children ...api.Component) error {
-	element := elements.NewView().
-		Style(r.style).
-		Child(children...)
-	r.element = element
-	r.root = element
-	r.root.Render()
-	return r.run()
-}
-
-// NewReactDOM creates a new ReactDOM instance with default settings.
-// It initializes the renderer with a new Gio renderer, sets default dimensions of 800x600,
-// and creates an event channel.
-//
-// Returns:
-//   - A pointer to a newly created ReactDOM instance
+// NewReactDOM creates a new ReactDOM instance.
 func NewReactDOM() *ReactDOM {
-	return &ReactDOM{
-		style: styles.NewStyle().Width(800).Height(600),
-		event: make(chan event.Event, 10),
-	}
+	return &ReactDOM{}
 }
-func (r *ReactDOM) run() error {
-	r.window = new(app.Window)
-	var ops = new(op.Ops)
+
+// Render mounts the root component and starts the application event loop.
+// This function will block until the application window is closed.
+func (r *ReactDOM) Render(root api.Component) {
+	r.root = root
+	r.vdom = r.root.Render()
+	r.dom = mount(r.vdom)
+
+	go func() {
+		r.window = new(app.Window)
+		if err := r.loop(); err != nil {
+			log.Fatal(err)
+		}
+		os.Exit(0)
+	}()
+	app.Main()
+}
+
+// loop is the main event loop for the application.
+func (r *ReactDOM) loop() error {
+	var ops op.Ops
 	for {
-		switch e := r.window.Event().(type) {
+		e := r.window.Event()
+		switch e := e.(type) {
 		case app.DestroyEvent:
 			return e.Err
-		case app.ConfigEvent:
-			// Handle window size change
-			if !e.Config.Size.Eq(r.size) && e.Config.Size.X > 0 {
-				r.element.SetStyle(styles.NewStyle().
-					Width(float32(e.Config.Size.X)).Height(float32(e.Config.Size.Y)))
-				r.size = e.Config.Size
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
+			if dom.Metric != gtx.Metric {
+				dom.Metric = gtx.Metric
 			}
 
-		case app.FrameEvent:
-			if e.Metric != elements.Metric {
-				elements.Metric = e.Metric
-			}
-			// Create new layout context for rendering
-			ctx := app.NewContext(ops, e)
-			// Calculate layout
-			r.element.Yoga().CalculateLayout(float32(e.Size.X), float32(e.Size.Y), yoga.DirectionInherit)
-			// Start rendering
-			r.draw(ctx, r.element)
-			// Pass rendering operations to GPU
-			e.Frame(ctx.Ops)
+			// Set root size in Dp and calculate layout
+			rootNode := r.dom.GetYogaNode()
+			widthDp := gtx.Metric.PxToDp(gtx.Constraints.Max.X)
+			heightDp := gtx.Metric.PxToDp(gtx.Constraints.Max.Y)
+			rootNode.StyleSetWidth(float32(widthDp))
+			rootNode.StyleSetHeight(float32(heightDp))
+			rootNode.CalculateLayout(float32(widthDp), float32(heightDp), yoga.DirectionLTR)
+
+			// Draw the real DOM tree.
+			draw(gtx, r.dom)
+
+			e.Frame(gtx.Ops)
 		}
 	}
 }
-func (r *ReactDOM) draw(ctx layout.Context, element api.Element) layout.Dimensions {
-	node := element.Yoga()
-	x, y := int(node.LayoutLeft()), int(node.LayoutTop())
-	size := image.Pt(x, y)
-	// Set offset
-	defer op.Offset(image.Pt(x, y)).Push(ctx.Ops).Pop()
-	// Set constraints
-	w, h := int(node.LayoutWidth()), int(node.LayoutHeight())
-	ctx.Constraints.Max = image.Pt(w, h)
-	// Call the element's rendering method
-	element.Paint(ctx)
-	// Recursively render child elements
-	children := element.GetChildren()
-	for _, child := range children {
-		r.draw(ctx, child)
+
+// mount recursively transforms a VNode tree into a real DOM tree (INode).
+func mount(vnode *core.VNode) dom.INode {
+	if vnode == nil {
+		return nil
 	}
-	return layout.Dimensions{Size: size}
+
+	var node dom.INode
+	switch vnode.Type {
+	case "View":
+		node = dom.NewView()
+	case "Text":
+		node = dom.NewText()
+	case "Image":
+		node = dom.NewImage()
+	default:
+		panic("unknown VNode type: " + vnode.Type)
+	}
+
+	node.ApplyProps(vnode)
+
+	var children []dom.INode
+	for i, childVNode := range vnode.Children {
+		childNode := mount(childVNode)
+		if childNode != nil {
+			children = append(children, childNode)
+			node.GetYogaNode().InsertChild(childNode.GetYogaNode(), uint32(i))
+		}
+	}
+	node.SetChildren(children)
+
+	return node
+}
+
+// draw recursively paints the real DOM tree.
+func draw(ctx layout.Context, node dom.INode) {
+	if node == nil {
+		return
+	}
+
+	yogaNode := node.GetYogaNode()
+	// Convert Yoga's Dp layout to Px for Gio
+	x := ctx.Metric.Dp(unit.Dp(yogaNode.LayoutLeft()))
+	y := ctx.Metric.Dp(unit.Dp(yogaNode.LayoutTop()))
+	w := ctx.Metric.Dp(unit.Dp(yogaNode.LayoutWidth()))
+	h := ctx.Metric.Dp(unit.Dp(yogaNode.LayoutHeight()))
+
+	offset := image.Pt(x, y)
+	size := image.Pt(w, h)
+
+	t := op.Offset(offset).Push(ctx.Ops)
+
+	// Create a new context for the child with correct constraints and clipping
+	childGtx := ctx
+	childGtx.Constraints = layout.Exact(size)
+	defer clip.Rect(image.Rectangle{Max: size}).Push(childGtx.Ops).Pop()
+
+	node.Paint(childGtx)
+
+	for _, child := range node.GetChildren() {
+		draw(childGtx, child)
+	}
+	t.Pop()
 }

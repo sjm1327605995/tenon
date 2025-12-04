@@ -1,17 +1,15 @@
-// Package api provides core API interfaces and functionality for the React framework.
 package api
 
-// Node interface is the core representation of a React component, inheriting features from both Component and Element interfaces.
-// Node represents a renderable component instance, containing rendering logic and DOM structure information.
-type Node interface {
-	Component
-	Element
+import "github.com/sjm1327605995/tenon/react/core"
+
+// Component is the primary interface for all Tenon components.
+// Any struct that implements this interface can be used as a component.
+type Component interface {
+	// Render returns the Virtual DOM representation of the component.
+	// This method is the core of a component, defining its UI structure.
+	Render() *core.VNode
 }
 
-// Component interface defines the basic behavior of React components.
-// Any type that implements this interface can be used as a React component.
-type Component interface {
-	// Render returns the rendering result of the component, which is a Node instance.
-	// This method is the core of a React component, determining its final UI representation.
-	Render() Node
-}
+// Node is an alias for VNode, representing any node in the virtual DOM tree.
+// It can be a component's output or a simple element.
+type Node = *core.VNode

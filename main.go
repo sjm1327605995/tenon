@@ -1,12 +1,13 @@
 package main
 
 import (
+	"image/color"
+
 	"github.com/sjm1327605995/tenon/react"
-	"github.com/sjm1327605995/tenon/react/api"
 	"github.com/sjm1327605995/tenon/react/api/styles"
+	"github.com/sjm1327605995/tenon/react/core"
 	"github.com/sjm1327605995/tenon/react/elements"
 	"github.com/sjm1327605995/tenon/react/yoga"
-	"image/color"
 )
 
 type Hello struct {
@@ -16,10 +17,9 @@ func NewHello() *Hello {
 	return &Hello{}
 }
 
-func (h *Hello) Render() api.Node {
+func (h *Hello) Render() *core.VNode {
 	return elements.NewView().Style(
 		styles.NewStyle().
-			//BackgroundColor(color.NRGBA{G: 255, A: 255}).
 			HeightPercent(100).WidthPercent(100).
 			JustifyContent(yoga.JustifyCenter).AlignItem(yoga.AlignCenter)).
 		Child(
@@ -38,17 +38,15 @@ func (h *Hello) Render() api.Node {
 			),
 			elements.NewImage().
 				Style(styles.NewStyle().WidthPercent(50).HeightPercent(50)).
-				Source("react.svg"), elements.NewText().Style(styles.NewStyle().
-				Width(100)).
-				Content("你好世界"))
-
+				Source("react.svg"),
+			elements.NewText().
+				Style(styles.NewStyle().Width(100)).
+				Content("你好世界"),
+		).Render()
 }
 
 func main() {
 	dom := react.NewReactDOM()
-	// 渲染组件
-	err := dom.Render(NewHello())
-	if err != nil {
-		panic(err)
-	}
+	// This will block until the window is closed.
+	dom.Render(NewHello())
 }
