@@ -8,6 +8,8 @@ require (
 	github.com/millken/yoga v0.0.0-20250914114415-021d5b7d6822
 	github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7
 )
+replace github.com/millken/yoga v0.0.0-20250914114415-021d5b7d6822 => ./yoga
+
 
 require (
 	codeberg.org/go-pdf/fpdf v0.11.1 // indirect
