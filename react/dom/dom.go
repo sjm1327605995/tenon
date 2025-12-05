@@ -2,25 +2,23 @@ package dom
 
 import (
 	"bytes"
+	"gioui.org/op"
+	"github.com/tdewolff/canvas"
 	"image"
 	"image/color"
+	"math"
 	"os"
 
-	colEmoji "eliasnaur.com/font/noto/emoji/color"
 	"gioui.org/f32"
-	"gioui.org/font/gofont"
-	"gioui.org/font/opentype"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	giotext "gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
-	"gioui.org/widget/material"
-	"github.com/inkeliz/giosvg"
+	"github.com/millken/yoga"
 	"github.com/sjm1327605995/tenon/react/api/styles"
 	"github.com/sjm1327605995/tenon/react/core"
-	"github.com/sjm1327605995/tenon/react/yoga"
+	"github.com/tdewolff/canvas/renderers/gio"
 )
 
 type Widget interface {
@@ -115,7 +113,8 @@ func (v *View) Paint(gtx layout.Context) {
 // Image is a concrete INode for displaying images.
 type Image struct {
 	ElementBase
-	widget Widget
+	DefaultSize image.Point
+	widget      Widget
 }
 
 func NewImage() *Image {
@@ -126,12 +125,105 @@ func NewImage() *Image {
 	return img
 }
 
+type Svg struct {
+	canvas     *canvas.Canvas
+	path       string
+	call       op.CallOp
+	Record     bool
+	dimensions layout.Dimensions
+}
+
+const ptPerMm = 72.0 / 25.4
+
+func (s *Svg) DefaultSize() image.Point {
+	return image.Pt(int(ptPerMm*s.canvas.W), int(ptPerMm*s.canvas.H))
+}
+func (s *Svg) Layout(gtx layout.Context) layout.Dimensions {
+	if !s.Record {
+		ops := gtx.Ops
+		cache := new(op.Ops)
+		gtx.Ops = cache
+		macro := op.Record(gtx.Ops)
+		gtx.Constraints.Min = image.Pt(0, 0)
+		c := gio.NewContain(gtx, s.canvas.W, s.canvas.H)
+		s.canvas.RenderTo(c)
+		s.call = macro.Stop()
+		gtx.Ops = ops
+		s.Record = true
+		s.dimensions = c.Dimensions()
+	}
+	s.call.Add(gtx.Ops)
+	return s.dimensions
+}
+
+func NewSvg(path string) *Svg {
+	f, err := os.Open(path)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	fc, err := canvas.ParseSVG(f)
+	if err != nil {
+		panic(err)
+	}
+	return &Svg{
+		path:   path,
+		canvas: fc,
+	}
+}
 func (i *Image) ApplyProps(vnode *core.VNode) {
 	if style, ok := vnode.Props["style"].(*styles.Style); ok {
 		style.Apply(i)
 	}
 	if source, ok := vnode.Props["source"].(string); ok {
 		i.setSource(source)
+	}
+	w, h := i.Node.StyleGetWidth(), i.Node.StyleGetHeight()
+	if math.IsNaN(float64(w)) {
+		w = 0
+	}
+
+	if math.IsNaN(float64(h)) {
+		h = 0
+	}
+	// 获取图片原始尺寸
+	originalWidth := float32(i.DefaultSize.X)
+	originalHeight := float32(i.DefaultSize.Y)
+
+	// 如果原始尺寸无效，使用默认值或保持用户设置
+	if originalWidth <= 0 || originalHeight <= 0 {
+		// 可以设置一个最小尺寸，或者保持用户设置
+		if w == 0 {
+			i.Node.StyleSetWidth(originalWidth) // 默认宽度
+		}
+		if h == 0 {
+			i.Node.StyleSetHeight(originalHeight) // 默认高度
+		}
+		return
+	}
+
+	// 计算宽高比
+	aspectRatio := originalWidth / originalHeight
+
+	// 处理不同情况
+	if w == 0 && h == 0 {
+		// 两边都没指定，使用原始尺寸
+		i.Node.StyleSetWidth(originalWidth)
+		i.Node.StyleSetHeight(originalHeight)
+	} else if w == 0 && h > 0 {
+		// 只指定了有效高度，宽度按比例缩放
+		calculatedWidth := h * aspectRatio
+		i.Node.StyleSetWidth(calculatedWidth)
+		i.Node.StyleSetHeight(h)
+	} else if w > 0 && h == 0 {
+		// 只指定了有效宽度，高度按比例缩放
+		calculatedHeight := w / aspectRatio
+		i.Node.StyleSetWidth(w)
+		i.Node.StyleSetHeight(calculatedHeight)
+	} else if w <= 0 && h <= 0 {
+		// 两边都指定了但无效，使用原始尺寸
+		i.Node.StyleSetWidth(originalWidth)
+		i.Node.StyleSetHeight(originalHeight)
 	}
 }
 
@@ -142,23 +234,23 @@ func (i *Image) setSource(path string) {
 	}
 
 	if bytes.HasPrefix(data, []byte("<svg")) {
-		vector, err := giosvg.NewVector(data)
-		if err != nil {
-			panic(err)
-		}
-		iconRuntime := giosvg.NewIcon(vector)
-		i.widget = iconRuntime
+		svg := NewSvg(path)
+		i.widget = svg
+		i.DefaultSize = svg.DefaultSize()
+		i.GetYogaNode().MarkDirty()
 		return
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return
 	}
+
 	imgWidget := widget.Image{
 		Src: paint.NewImageOp(img),
 		Fit: widget.Contain,
 	}
 	i.widget = imgWidget
+	i.DefaultSize = img.Bounds().Size()
 	i.GetYogaNode().MarkDirty()
 }
 
@@ -174,46 +266,9 @@ func (i *Image) SetExtendedStyle(style styles.IExtendedStyle) {
 }
 
 // Text is a concrete INode for displaying text.
-type Text struct {
-	ElementBase
-	LabelStyle material.LabelStyle
-}
 
-func NewText() *Text {
-	th := material.NewTheme()
-	faces, _ := opentype.ParseCollection(colEmoji.TTF)
-	collection := gofont.Collection()
-	th.Shaper = giotext.NewShaper(giotext.WithCollection(append(collection, faces...)))
-
-	return &Text{
-		ElementBase: ElementBase{Node: yoga.NewNode()},
-		LabelStyle:  material.Label(th, unit.Sp(16), ""),
-	}
-}
-
-func (t *Text) ApplyProps(vnode *core.VNode) {
-	if style, ok := vnode.Props["style"].(*styles.Style); ok {
-		style.Apply(t)
-	}
-	if content, ok := vnode.Props["content"].(string); ok {
-		t.LabelStyle.Text = content
-		t.GetYogaNode().MarkDirty()
-	}
-}
-
-func (t *Text) Paint(ctx layout.Context) {
-	if t.LabelStyle.Text == "" {
-		return
-	}
-	t.LabelStyle.Layout(ctx)
-}
-
-func (t *Text) SetExtendedStyle(style styles.IExtendedStyle) {
-	// Text currently does not have extended styles.
-}
-
-// --- Drawing helpers ---
-const k = 0.55228475 // Bezier curve coefficient
+const q = 4 * (math.Sqrt2 - 1) / 3
+const k = 1 - q
 
 func drawOuterLoop(p *clip.Path, w, h float32, r styles.CornerRadius) {
 	tl, tr, br, bl := r.TopLeft, r.TopRight, r.BottomRight, r.BottomLeft
@@ -230,6 +285,7 @@ func drawOuterLoop(p *clip.Path, w, h float32, r styles.CornerRadius) {
 	if bl > 0 {
 		p.CubeTo(f32.Pt(bl*(1-k), h), f32.Pt(0, h-bl*(1-k)), f32.Pt(0, h-bl))
 	}
+
 	p.LineTo(f32.Pt(0, tl))
 	if tl > 0 {
 		p.CubeTo(f32.Pt(0, tl*(1-k)), f32.Pt(tl*(1-k), 0), f32.Pt(tl, 0))
