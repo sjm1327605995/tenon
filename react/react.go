@@ -10,9 +10,9 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/unit"
+	"github.com/millken/yoga"
 	"github.com/sjm1327605995/tenon/react/core"
 	"github.com/sjm1327605995/tenon/react/dom"
-	"github.com/sjm1327605995/tenon/react/yoga"
 	"image"
 )
 

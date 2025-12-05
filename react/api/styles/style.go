@@ -3,9 +3,8 @@
 package styles
 
 import (
+	"github.com/millken/yoga"
 	"image/color"
-
-	"github.com/sjm1327605995/tenon/react/yoga"
 )
 
 // IExtendedStyle is a marker interface for extended styles.
