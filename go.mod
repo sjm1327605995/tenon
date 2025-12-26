@@ -3,13 +3,9 @@ module github.com/sjm1327605995/tenon
 go 1.25.1
 
 require (
-	eliasnaur.com/font v0.0.0-20230308162249-dd43949cb42d
 	gioui.org v0.9.0
-	github.com/millken/yoga v0.0.0-20250914114415-021d5b7d6822
-	github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7
+	github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67
 )
-replace github.com/millken/yoga v0.0.0-20250914114415-021d5b7d6822 => ./yoga
-
 
 require (
 	codeberg.org/go-pdf/fpdf v0.11.1 // indirect
