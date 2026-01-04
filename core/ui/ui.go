@@ -14,6 +14,7 @@ type ElementOption func(element *Element)
 type BaseUI[T any] struct {
 	This      *T
 	PropsFunc []ElementOption
+	Clickable bool
 }
 
 type Unit uint8
@@ -281,6 +282,7 @@ func NewBaseUI[T any](this *T) *BaseUI[T] {
 
 type ViewUI struct {
 	*BaseUI[ViewUI]
+	onClick  func()
 	Children []UI
 	style    render.ViewStyle
 }
@@ -298,7 +300,10 @@ func (v *ViewUI) Background(nrgba color.NRGBA) *ViewUI {
 	v.style.Background = nrgba
 	return v
 }
-
+func (v *ViewUI) OnClick(onClick func()) *ViewUI {
+	v.onClick = onClick
+	return v
+}
 func (v *ViewUI) Border(edge yoga.Edge, border float32) *ViewUI {
 	v.PropsFunc = append(v.PropsFunc, func(element *Element) {
 		element.Yoga.StyleSetBorder(edge, border)

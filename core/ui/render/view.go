@@ -1,7 +1,6 @@
 package render
 
 import (
-	"image"
 	"image/color"
 	"math"
 
@@ -9,7 +8,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
-	"gioui.org/widget"
 )
 
 type ViewStyle struct {
@@ -20,7 +18,7 @@ type ViewStyle struct {
 	Background  color.NRGBA
 	BorderColor color.NRGBA
 	CornerRadii CornerRadius
-	Clickable   *widget.Clickable
+	BaseRender
 }
 
 type CornerRadius struct {
@@ -35,18 +33,12 @@ type ViewRender struct {
 	ViewStyle
 }
 
-func (v *ViewRender) DefaultSize() image.Point {
-	return image.Point{}
-}
-
-func (v *ViewRender) HasDefault() bool {
+func (v *ViewRender) Clickable() bool {
 	return false
 }
 
 func (v *ViewRender) Layout(ctx layout.Context) layout.Dimensions {
-	if v.Clickable != nil {
 
-	}
 	width := float32(ctx.Constraints.Max.X)
 	height := float32(ctx.Constraints.Max.Y)
 
