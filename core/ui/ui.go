@@ -1,16 +1,19 @@
 package ui
 
 import (
+	"image/color"
+
+	"gioui.org/unit"
 	"github.com/sjm1327605995/tenon/core/ui/render"
 	"github.com/sjm1327605995/tenon/yoga"
-	"image/color"
 )
+
+var Metric unit.Metric
 
 type ElementOption func(element *Element)
 type BaseUI[T any] struct {
 	This      *T
 	PropsFunc []ElementOption
-	yoga      *yoga.Node
 }
 
 type Unit uint8
@@ -24,12 +27,6 @@ const (
 type UI interface {
 	Render() *Element
 }
-
-const (
-	Width           = "width"
-	Height          = "height"
-	BackgroundColor = "background-color"
-)
 
 type Value struct {
 	val  float32

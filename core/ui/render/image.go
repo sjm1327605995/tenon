@@ -10,10 +10,12 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
+	"github.com/sjm1327605995/tenon/core/ui/style"
 )
 
 type ImageStyle struct {
 	Src string `json:"src"`
+	Fit style.Fit
 }
 
 func (i ImageStyle) ToRender() Render {
@@ -31,7 +33,7 @@ func (i ImageStyle) ToRender() Render {
 		return &Image{
 			Image: widget.Image{
 				Src: paint.NewImageOp(img),
-				Fit: widget.Contain,
+				Fit: widget.Fit(i.Fit),
 			},
 			style:   i,
 			maxSize: img.Bounds().Max,

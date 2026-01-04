@@ -19,6 +19,8 @@ func createUserComponent() ui.UI {
 		ui.View().Background(color.NRGBA{G: 255, A: 255}).Height(ui.Px(100)).Width(ui.Px(100)),
 		ui.View().Background(color.NRGBA{R: 255, A: 255}).Height(ui.Px(100)).Width(ui.Px(100)).
 			Border(yoga.EdgeAll, 3).BorderRadius(20),
+		ui.Image().Source("react.svg").Height(ui.Px(100)).Width(ui.Px(100)),
+		ui.Text().Content("hello world"),
 	).Background(color.NRGBA{B: 255, A: 128}).JustifyContent(yoga.JustifyCenter).AlignItems(yoga.AlignCenter)
 }
 
