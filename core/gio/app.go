@@ -26,7 +26,7 @@ func RunApp(config AppConfig, component ui.UI) {
 	element := component.Render()
 	var (
 		rootRender    *render.Node
-		windowSize    = image.Point{-1, -1} // 初始化为无效值，避免首次ConfigEvent误触发
+		windowSize    = image.Point{X: -1, Y: -1} // 初始化为无效值，避免首次ConfigEvent误触发
 		isFirstRender = true
 	)
 
@@ -64,6 +64,7 @@ func RunApp(config AppConfig, component ui.UI) {
 					rootRender = element.RenderObject()
 				}
 			case app.FrameEvent:
+				ui.Metric = e.Metric
 				// 检查窗口大小是否变化
 				if !windowSize.Eq(e.Size) && e.Size.X > 0 && e.Size.Y > 0 {
 					windowSize = e.Size
