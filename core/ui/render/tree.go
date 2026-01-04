@@ -27,7 +27,6 @@ func (n *Node) Remove(child *Node) {
 	})
 }
 func (n *Node) Paint(ctx layout.Context) {
-
 	defer op.Offset(n.Offset).Push(ctx.Ops).Pop()
 	ctx.Constraints.Max = n.Max
 	n.Render.Layout(ctx)
