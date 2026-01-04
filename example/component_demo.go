@@ -10,9 +10,6 @@ import (
 	"gioui.org/unit"
 )
 
-// 用户组件创建函数类型
-type ComponentCreator func() ui.UI
-
 // 用户定义的组件示例
 func createUserComponent() ui.UI {
 	return ui.View(

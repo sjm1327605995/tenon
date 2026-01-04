@@ -270,6 +270,7 @@ func (b *BaseUI[T]) AspectRatio(aspectRatio float32) *T {
 	})
 	return b.This
 }
+
 func (b *BaseUI[T]) Render() *Element {
 	element := CreateElement(nil)
 	return element
@@ -297,6 +298,28 @@ func (v *ViewUI) Background(nrgba color.NRGBA) *ViewUI {
 	v.style.Background = nrgba
 	return v
 }
+
+func (v *ViewUI) Border(edge yoga.Edge, border float32) *ViewUI {
+	v.PropsFunc = append(v.PropsFunc, func(element *Element) {
+		element.Yoga.StyleSetBorder(edge, border)
+	})
+	switch edge {
+	case yoga.EdgeBottom:
+		v.style.Bottom = border
+	case yoga.EdgeTop:
+		v.style.Top = border
+	case yoga.EdgeRight:
+		v.style.Right = border
+	case yoga.EdgeLeft:
+		v.style.Left = border
+	default:
+		v.style.Bottom = border
+		v.style.Top = border
+		v.style.Right = border
+		v.style.Left = border
+	}
+	return v
+}
 func (v *ViewUI) BorderRadius(radius ...float32) *ViewUI {
 	switch len(radius) {
 	case 4:
@@ -321,27 +344,6 @@ func (v *ViewUI) BorderRadius(radius ...float32) *ViewUI {
 		v.style.CornerRadii.BottomLeft = radius[0]
 	default:
 
-	}
-	return v
-}
-func (v *ViewUI) Border(edge yoga.Edge, border float32) *ViewUI {
-	v.PropsFunc = append(v.PropsFunc, func(element *Element) {
-		element.Yoga.StyleSetBorder(edge, border)
-	})
-	switch edge {
-	case yoga.EdgeBottom:
-		v.style.Bottom = border
-	case yoga.EdgeTop:
-		v.style.Top = border
-	case yoga.EdgeRight:
-		v.style.Right = border
-	case yoga.EdgeLeft:
-		v.style.Left = border
-	default:
-		v.style.Bottom = border
-		v.style.Top = border
-		v.style.Right = border
-		v.style.Left = border
 	}
 	return v
 }

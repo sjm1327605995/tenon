@@ -20,6 +20,10 @@ type AppConfig struct {
 	Height unit.Dp
 }
 
+// 状态管理，保存所有Element的Clickable状态
+var clickableMap = make(map[uintptr]*ui.Element)
+var clickableCounter uintptr
+
 // RunApp 启动应用程序，渲染用户提供的UI组件
 func RunApp(config AppConfig, component ui.UI) {
 	// 创建Element树
