@@ -10,6 +10,7 @@ import (
 
 type TextStyle struct {
 	material.LabelStyle
+	BaseRender
 }
 
 func (i *TextStyle) ToRender() Render {

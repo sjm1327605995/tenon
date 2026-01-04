@@ -46,6 +46,7 @@ type Image struct {
 	widget.Image
 	style   ImageStyle
 	maxSize image.Point
+	BaseRender
 }
 
 func (i *Image) DefaultSize() image.Point {

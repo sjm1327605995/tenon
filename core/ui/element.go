@@ -76,7 +76,11 @@ func (e *Element) Mount() {
 }
 
 func (e *Element) createRenderObject() {
+
 	renderObject := e.Type.ToRender()
+	if renderObject.Clickable() {
+		renderObject = render.WrapperClickable(renderObject)
+	}
 	if renderObject.HasDefault() {
 
 	}

@@ -17,6 +17,7 @@ type Svg struct {
 	Record     bool
 	style      ImageStyle
 	dimensions layout.Dimensions
+	BaseRender
 }
 
 func (s *Svg) HasDefault() bool {
