@@ -219,7 +219,11 @@ func (n *Node) StyleSetWidthAuto() {
 
 // StyleGetWidth returns width
 func (n *Node) StyleGetWidth() float32 {
-	return n.getLayout().dimension(DimensionWidth)
+	width := n.getStyle().dimensions_[DimensionWidth]
+	if width.IsUndefined() || width.IsAuto() {
+		return Undefined
+	}
+	return width.Value().value
 }
 
 // StyleSetHeight sets height
@@ -251,7 +255,11 @@ func (n *Node) StyleSetHeightAuto() {
 
 // StyleGetHeight returns height
 func (n *Node) StyleGetHeight() float32 {
-	return n.getLayout().dimension(DimensionHeight)
+	height := n.getStyle().dimensions_[DimensionHeight]
+	if height.IsUndefined() || height.IsAuto() {
+		return Undefined
+	}
+	return height.Value().value
 }
 
 // StyleSetPositionType

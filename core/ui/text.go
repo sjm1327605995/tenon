@@ -1,109 +1,78 @@
-package component
+package ui
 
 import (
+	"image"
+
 	colEmoji "eliasnaur.com/font/noto/emoji/color"
-	"fmt"
 	"gioui.org/f32"
 	"gioui.org/font/gofont"
 	"gioui.org/font/opentype"
 	"gioui.org/layout"
 	giotext "gioui.org/text"
-	"gioui.org/unit"
 	"gioui.org/widget/material"
-	"github.com/sjm1327605995/tenon/react/yoga"
+	"github.com/sjm1327605995/tenon/core/ui/render"
+	"github.com/sjm1327605995/tenon/yoga"
 	"golang.org/x/image/math/fixed"
-	"image"
 )
 
-type Text struct {
-	Base[Text]
-	fontSize unit.Sp
-	content  string
+type TextUI struct {
+	*BaseUI[TextUI]
+	style render.TextStyle
 }
 
-func NewText(content string) *Text {
-	text := &Text{
-		content:  content,
-		fontSize: 16,
-	}
-	text.Base = NewBase(text)
-	return text
+func Text() *TextUI {
+	img := new(TextUI)
+	img.BaseUI = NewBaseUI[TextUI](img)
+	return img
 }
-func (t *Text) Update(ctx layout.Context) {
-	exceptX, exceptY := t.Node.StyleGetWidth(), t.Node.StyleGetHeight()
-	faces, err := opentype.ParseCollection(colEmoji.TTF)
-	if err != nil {
-		panic(err)
-	}
-	if exceptX > 0 {
-		ctx.Constraints.Max.X = int(exceptX)
-	}
-	if exceptY > 0 {
-		ctx.Constraints.Max.Y = int(exceptY)
+
+func (v *TextUI) Content(str string) *TextUI {
+	v.style.LabelStyle.Text = str
+	return v
+}
+func (v *TextUI) Render() *Element {
+	element := CreateElement(&v.style)
+	for i := range v.PropsFunc {
+		v.PropsFunc[i](element)
 	}
 	th := material.NewTheme()
+	faces, _ := opentype.ParseCollection(colEmoji.TTF)
 	collection := gofont.Collection()
-
 	th.Shaper = giotext.NewShaper(giotext.WithCollection(append(collection, faces...)))
-
-	labelStyle := material.Label(th, t.fontSize, t.content)
-	textGio := &TextGio{labelStyle: &labelStyle}
-	t.gio = textGio
-	th.Shaper.LayoutString(giotext.Parameters{
-		Font:            textGio.labelStyle.Font,
-		Alignment:       labelStyle.Alignment,
-		PxPerEm:         fixed.I(ctx.Sp(t.fontSize)),
-		MaxLines:        labelStyle.MaxLines,
-		WrapPolicy:      labelStyle.WrapPolicy,
-		MinWidth:        0,
-		MaxWidth:        ctx.Constraints.Max.X,
-		Locale:          ctx.Locale,
-		LineHeightScale: labelStyle.LineHeightScale,
-		LineHeight:      fixed.I(ctx.Sp(labelStyle.LineHeight)),
-	}, t.content)
-	it := textIterator{
-		viewport: image.Rectangle{Max: ctx.Constraints.Max},
-		maxLines: labelStyle.MaxLines,
-	}
-	lt := th.Shaper
-	var glyphs [32]giotext.Glyph
-	line := glyphs[:0]
-	for g, ok := lt.NextGlyph(); ok; g, ok = lt.NextGlyph() {
-		var ok bool
-		if line, ok = it.paintGlyph(g, line); !ok {
-			break
+	v.style.LabelStyle = material.Label(th, 16, v.style.Text)
+	labelStyle := v.style.LabelStyle
+	element.Yoga.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
+		th.Shaper.LayoutString(giotext.Parameters{
+			Font:       labelStyle.Font,
+			Alignment:  labelStyle.Alignment,
+			PxPerEm:    fixed.I(Metric.Sp(labelStyle.TextSize)),
+			MaxLines:   labelStyle.MaxLines,
+			WrapPolicy: labelStyle.WrapPolicy,
+			MinWidth:   0,
+			MaxWidth:   int(width),
+			//	Locale:          ctx.Locale,
+			LineHeightScale: labelStyle.LineHeightScale,
+			LineHeight:      fixed.I(Metric.Sp(labelStyle.LineHeight)),
+		}, labelStyle.Text)
+		it := textIterator{
+			viewport: image.Rectangle{Max: image.Pt(int(width), int(height))},
+			maxLines: labelStyle.MaxLines,
 		}
-	}
-	t.Node.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
-		fmt.Println("Measure")
-		return yoga.Size{}
+		lt := th.Shaper
+		var glyphs [32]giotext.Glyph
+		line := glyphs[:0]
+		for g, ok := lt.NextGlyph(); ok; g, ok = lt.NextGlyph() {
+			var ok bool
+			if line, ok = it.paintGlyph(g, line); !ok {
+				break
+			}
+		}
+		return yoga.Size{
+			Width:  float32(it.bounds.Max.X),
+			Height: float32(it.bounds.Max.Y),
+		}
 	})
-
-	textGio.Size = image.Point{X: it.bounds.Max.X, Y: it.bounds.Max.Y}
-	t.Node.StyleSetWidth(float32(it.bounds.Max.X))
-	t.Node.StyleSetHeight(float32(it.bounds.Max.Y))
-
-}
-func (t *Text) FontSize(size unit.Sp) *Text {
-	t.fontSize = size
-	return t
-}
-
-func (t *Text) Content(content string) *Text {
-	t.content = content
-	return t
-}
-
-type TextGio struct {
-	labelStyle *material.LabelStyle
-	Size       image.Point
-}
-
-func (t *TextGio) Layout(gtx layout.Context) layout.Dimensions {
-
-	gtx.Constraints.Min = t.Size
-	gtx.Constraints.Max = t.Size
-	return t.labelStyle.Layout(gtx)
+	return element
 }
 
 // textIterator computes the bounding box of and paints text.

@@ -24,7 +24,7 @@ type Node struct {
 	isReferenceBaseline_ bool
 	isDirty_             bool
 	nodeType_            NodeType
-	context_             any
+	context_             interface{}
 	measureFunc_         MeasureFunc
 	baselineFunc_        BaselineFunc
 	printFunc_           PrintFunc
@@ -83,7 +83,7 @@ func (node *Node) useWebDefaults() {
 	node.StyleSetAlignContent(AlignStretch)
 }
 
-func (node *Node) GetContext() any {
+func (node *Node) GetContext() interface{} {
 	return node.context_
 }
 
@@ -408,7 +408,7 @@ func (node *Node) getGapForAxis(axis FlexDirection) float32 {
 }
 
 // SetContext
-func (node *Node) SetContext(context any) {
+func (node *Node) SetContext(context interface{}) {
 	node.context_ = context
 }
 
