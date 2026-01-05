@@ -52,13 +52,13 @@ func createCounterComponent() ui.UI {
 }
 
 func main() {
-	// 创建用户组件
-	component := createCounterComponent()
+	// 创建路由组件
+	component := ui.CreateRouter()
 
 	// 使用新的core/gio库运行应用，用户不再需要关心Gio层面的内容
 	gio.RunApp(
 		gio.AppConfig{
-			Title:  "Data Binding Demo",
+			Title:  "Router Demo",
 			Width:  unit.Dp(800),
 			Height: unit.Dp(600),
 		},
