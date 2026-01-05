@@ -25,7 +25,9 @@ func createCounterComponent() ui.UI {
 			// 增加按钮
 			ui.View(
 				ui.Text().Content("+"),
-			).Background(color.NRGBA{G: 255, A: 255}).Height(ui.Px(50)).Width(ui.Px(100)),
+			).Background(color.NRGBA{G: 255, A: 255}).Height(ui.Px(50)).Width(ui.Px(100)).OnClick(func() {
+				fmt.Println("counter clicked")
+			}),
 			ui.View(
 				ui.Text().Content("-"),
 			).Background(color.NRGBA{R: 255, A: 255}).Height(ui.Px(50)).Width(ui.Px(100)),

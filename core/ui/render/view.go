@@ -33,10 +33,6 @@ type ViewRender struct {
 	ViewStyle
 }
 
-func (v *ViewRender) Clickable() bool {
-	return false
-}
-
 func (v *ViewRender) Layout(ctx layout.Context) layout.Dimensions {
 
 	width := float32(ctx.Constraints.Max.X)
