@@ -225,6 +225,149 @@ func (c *Context) ClearNeedsUpdate() {
 	c.needsUpdate = false
 }
 
+// ---------- Router System ----------
+
+// RouteProps 路由属性
+type RouteProps struct {
+	Path      string
+	Component interface{} // 可以是任何组件函数类型
+	Props     interface{} // 组件属性
+}
+
+// RouterProps 路由器属性
+type RouterProps struct {
+	Routes []RouteProps
+}
+
+// RouterState 路由状态
+type RouterState struct {
+	CurrentPath string
+}
+
+// RouterContext 路由上下文
+type RouterContext struct {
+	State    RouterState
+	Navigate func(path string)
+}
+
+// 全局路由上下文实例
+var routerContext *RouterContext
+
+// Route 表示一个路由组件
+type Route struct {
+	Path          string
+	component     interface{}
+	componentFunc func() UI // 包装后的组件函数
+}
+
+// NewRoute 创建一个新的路由组件
+func NewRoute(path string, component interface{}, props interface{}) *Route {
+	// 创建一个包装函数，根据不同的组件类型调用相应的渲染函数
+	var componentFunc func() UI
+
+	switch c := component.(type) {
+	case func(props CounterProps) UI:
+		componentFunc = func() UI {
+			return c(props.(CounterProps))
+		}
+	case func(props AboutPageProps) UI:
+		componentFunc = func() UI {
+			return c(props.(AboutPageProps))
+		}
+	case FC[Props]:
+		componentFunc = func() UI {
+			return c(props.(Props))
+		}
+	default:
+		componentFunc = func() UI {
+			return View()
+		}
+	}
+
+	return &Route{
+		Path:          path,
+		component:     component,
+		componentFunc: componentFunc,
+	}
+}
+
+// Render 实现UI接口
+func (r *Route) Render() *Element {
+	// 检查当前路径是否匹配
+	if routerContext != nil && routerContext.State.CurrentPath == r.Path {
+		return r.componentFunc().Render()
+	}
+	// 如果不匹配，返回一个有效的空视图元素
+	return View().Render()
+}
+
+// Router 表示路由管理器
+type Router struct {
+	routes          []RouteProps
+	currentPath     string
+	context         *Context
+	originalContext *Context
+}
+
+// NewRouter 创建一个新的路由管理器
+func NewRouter(routes []RouteProps) *Router {
+	return &Router{
+		routes:      routes,
+		currentPath: "/", // 默认路径
+	}
+}
+
+// Render 实现UI接口
+func (r *Router) Render() *Element {
+	// 保存原始上下文
+	r.originalContext = currentContext
+
+	// 创建路由上下文
+	routerContext = &RouterContext{
+		State: RouterState{
+			CurrentPath: r.currentPath,
+		},
+		Navigate: func(path string) {
+			r.Navigate(path)
+		},
+	}
+
+	// 创建所有路由组件
+	routeComponents := make([]UI, len(r.routes))
+	for i, route := range r.routes {
+		routeComponents[i] = NewRoute(route.Path, route.Component, route.Props)
+	}
+
+	// 创建视图容器并添加所有路由组件
+	container := View(routeComponents...)
+
+	// 恢复原始上下文
+	currentContext = r.originalContext
+
+	return container.Render()
+}
+
+// Navigate 导航到指定路径
+func (r *Router) Navigate(path string) {
+	r.currentPath = path
+	if r.context != nil {
+		r.context.Update()
+	}
+}
+
+// SetContext 设置路由上下文
+func (r *Router) SetContext(ctx *Context) {
+	r.context = ctx
+}
+
+// UseNavigate 返回导航函数，类似React的useNavigate hook
+func UseNavigate() func(path string) {
+	if routerContext != nil {
+		return routerContext.Navigate
+	}
+	return func(path string) {}
+}
+
 // ---------- Example Components ----------
 
 // CounterProps 计数器组件属性
@@ -236,24 +379,27 @@ type CounterProps struct {
 func Counter(props CounterProps) UI {
 	// 使用类似React的useState hook
 	count, setCount := UseState(props.InitialCount)
+	navigate := UseNavigate()
 
 	return View(
 		Text().Content(fmt.Sprintf("Count: %d", count)),
 		View(
 			View().Background(color.NRGBA{G: 255, A: 255}).Height(Px(50)).Width(Px(100)).OnClick(func() {
-				fmt.Printf("Before increment: %d\n", count)
 				setCount(count + 1)
-				fmt.Printf("After increment: %d\n", count+1)
 			}),
 			Text().Content("+"),
 		),
 		View(
 			View().Background(color.NRGBA{R: 255, A: 255}).Height(Px(50)).Width(Px(100)).OnClick(func() {
-				fmt.Printf("Before decrement: %d\n", count)
 				setCount(count - 1)
-				fmt.Printf("After decrement: %d\n", count-1)
 			}),
 			Text().Content("-"),
+		),
+		View(
+			View().Background(color.NRGBA{B: 255, A: 255}).Height(Px(50)).Width(Px(100)).OnClick(func() {
+				navigate("/about")
+			}),
+			Text().Content("Go to About"),
 		),
 	).
 		FlexDirection(yoga.FlexDirectionColumn).
@@ -264,7 +410,40 @@ func Counter(props CounterProps) UI {
 		Background(color.NRGBA{B: 255, A: 128})
 }
 
+// AboutPageProps 关于页面属性
+type AboutPageProps struct{}
+
+// AboutPage 关于页面组件
+func AboutPage(props AboutPageProps) UI {
+	navigate := UseNavigate()
+
+	return View(
+		Text().Content("About Page"),
+		View(
+			View().Background(color.NRGBA{G: 255, A: 255}).Height(Px(50)).Width(Px(150)).OnClick(func() {
+				navigate("/")
+			}),
+			Text().Content("Go to Home"),
+		),
+	).
+		FlexDirection(yoga.FlexDirectionColumn).
+		JustifyContent(yoga.JustifyCenter).
+		AlignItems(yoga.AlignCenter).
+		Width(Percent(100)).
+		Height(Percent(100)).
+		Background(color.NRGBA{R: 255, A: 128})
+}
+
 // CreateCounter 创建一个计数器组件实例
 func CreateCounter() UI {
 	return NewFunctionComponent(Counter, CounterProps{InitialCount: 0})
+}
+
+// CreateRouter 创建一个路由管理器实例
+func CreateRouter() UI {
+	routes := []RouteProps{
+		{Path: "/", Component: Counter, Props: CounterProps{InitialCount: 0}},
+		{Path: "/about", Component: AboutPage, Props: AboutPageProps{}},
+	}
+	return NewRouter(routes)
 }
