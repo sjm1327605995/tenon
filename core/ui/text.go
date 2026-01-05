@@ -1,6 +1,8 @@
-package dom
+package ui
 
 import (
+	"image"
+
 	colEmoji "eliasnaur.com/font/noto/emoji/color"
 	"gioui.org/f32"
 	"gioui.org/font/gofont"
@@ -8,33 +10,42 @@ import (
 	"gioui.org/layout"
 	giotext "gioui.org/text"
 	"gioui.org/widget/material"
-	"github.com/millken/yoga"
-	"github.com/sjm1327605995/tenon/react/api/styles"
-	"github.com/sjm1327605995/tenon/react/core"
+	"github.com/sjm1327605995/tenon/core/ui/render"
+	"github.com/sjm1327605995/tenon/yoga"
 	"golang.org/x/image/math/fixed"
-	"image"
 )
 
-type Text struct {
-	ElementBase
-	LabelStyle material.LabelStyle
+type TextUI struct {
+	*BaseUI[TextUI]
+	style render.TextStyle
 }
 
-func NewText() *Text {
+func Text() *TextUI {
+	img := new(TextUI)
+	img.BaseUI = NewBaseUI[TextUI](img)
+	return img
+}
+
+func (v *TextUI) Content(str string) *TextUI {
+	v.style.LabelStyle.Text = str
+	return v
+}
+func (v *TextUI) Render() *Element {
+	element := CreateElement(&v.style)
+	for i := range v.PropsFunc {
+		v.PropsFunc[i](element)
+	}
 	th := material.NewTheme()
 	faces, _ := opentype.ParseCollection(colEmoji.TTF)
 	collection := gofont.Collection()
 	th.Shaper = giotext.NewShaper(giotext.WithCollection(append(collection, faces...)))
-	labelStyle := material.Label(th, 16, "")
-	text := &Text{
-		ElementBase: ElementBase{Node: yoga.NewNode()},
-		LabelStyle:  labelStyle,
-	}
-	text.Node.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
+	v.style.LabelStyle = material.Label(th, 16, v.style.Text)
+	labelStyle := v.style.LabelStyle
+	element.Yoga.SetMeasureFunc(func(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
 		th.Shaper.LayoutString(giotext.Parameters{
-			Font:       text.LabelStyle.Font,
+			Font:       labelStyle.Font,
 			Alignment:  labelStyle.Alignment,
-			PxPerEm:    fixed.I(Metric.Sp(text.LabelStyle.TextSize)),
+			PxPerEm:    fixed.I(Metric.Sp(labelStyle.TextSize)),
 			MaxLines:   labelStyle.MaxLines,
 			WrapPolicy: labelStyle.WrapPolicy,
 			MinWidth:   0,
@@ -42,7 +53,7 @@ func NewText() *Text {
 			//	Locale:          ctx.Locale,
 			LineHeightScale: labelStyle.LineHeightScale,
 			LineHeight:      fixed.I(Metric.Sp(labelStyle.LineHeight)),
-		}, text.LabelStyle.Text)
+		}, labelStyle.Text)
 		it := textIterator{
 			viewport: image.Rectangle{Max: image.Pt(int(width), int(height))},
 			maxLines: labelStyle.MaxLines,
@@ -61,28 +72,7 @@ func NewText() *Text {
 			Height: float32(it.bounds.Max.Y),
 		}
 	})
-	return text
-}
-
-func (t *Text) ApplyProps(vnode *core.VNode) {
-	if style, ok := vnode.Props["style"].(*styles.Style); ok {
-		style.Apply(t)
-	}
-	if content, ok := vnode.Props["content"].(string); ok {
-		t.LabelStyle.Text = content
-		t.GetYogaNode().MarkDirty()
-	}
-}
-
-func (t *Text) Paint(ctx layout.Context) {
-	if t.LabelStyle.Text == "" {
-		return
-	}
-	t.LabelStyle.Layout(ctx)
-}
-
-func (t *Text) SetExtendedStyle(style styles.IExtendedStyle) {
-	// Text currently does not have extended styles.
+	return element
 }
 
 // textIterator computes the bounding box of and paints text.
