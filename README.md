@@ -231,13 +231,6 @@ navigate("/about")
 2. Create router manager
 3. Use `useNavigate` in components for programmatic navigation
 
-## 🤝 Contribution Guide
-
-1. Fork this repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
 
 ## 📄 License
 
