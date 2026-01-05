@@ -54,8 +54,8 @@ github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f h1:uLR2GaV0kWYZ3Ns3
 github.com/srwiley/scanFT v0.0.0-20220128184157-0d1ee492111f/go.mod h1:LZwgIPG9X6nH6j5Ef+xMFspl6Hru4b5EJxzMfeqHYJY=
 github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388 h1:ZdkidVdpLW13BQ9a+/3uerT2ezy9J7KQWH18JCfhDmI=
 github.com/srwiley/scanx v0.0.0-20190309010443-e94503791388/go.mod h1:C/WY5lmWfMtPFYYBTd3Lzdn4FTLr+RxlIeiBNye+/os=
-github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7 h1:dYiLvo5yy34KfW0xVaM/RcNNU2zocLHE1AaDvg3XEy0=
-github.com/tdewolff/canvas v0.0.0-20251108105804-83926eb3f5e7/go.mod h1:Ix3Z93vzdHDN4wdyl7vCXyi557q9o5YE4BbL/TnqlY0=
+github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67 h1:yqkrKShEWyV2lhAu30DITj9G/ByMjW+Ft1D93//40Zo=
+github.com/tdewolff/canvas v0.0.0-20251224152029-436d73bc8f67/go.mod h1:JUnBKQtnaYE12uB8NR8KsEJl06JJoAyPZAqOV/UdRuw=
 github.com/tdewolff/font v0.0.0-20250902141222-fb72ecc1bc0a h1:IuR6wFg9mSxhxcCogXcG5bte813psi1PE4KTjMAkM6k=
 github.com/tdewolff/font v0.0.0-20250902141222-fb72ecc1bc0a/go.mod h1:lGIMHKyJnHCmJeb9MqdWnudFoPDVz8COuALmILs95xY=
 github.com/tdewolff/minify/v2 v2.24.4 h1:pQyr6eWDa+RXtAoZg+6wurh0jB9ojqw/qc5LlU7/z6c=
