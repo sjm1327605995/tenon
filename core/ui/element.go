@@ -103,14 +103,6 @@ func (e *Element) UpdateRenderObject() {
 		y := e.Yoga.LayoutTop()
 		e.renderObject.Max = image.Point{X: int(width), Y: int(height)}
 
-		// 计算相对于父元素的偏移量
-		if e.parent != nil {
-			parentX := e.parent.Yoga.LayoutLeft()
-			parentY := e.parent.Yoga.LayoutTop()
-			x -= parentX
-			y -= parentY
-		}
-
 		e.renderObject.Offset = image.Point{X: int(x), Y: int(y)}
 
 		// 递归更新子元素的renderObject
