@@ -186,3 +186,5 @@ func (it *textIterator) paintGlyph(glyph giotext.Glyph, line []giotext.Glyph) ([
 	}
 	return line, visibleOrBefore
 }
+
+

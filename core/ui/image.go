@@ -31,3 +31,5 @@ func (v *ImageUI) Render() *Element {
 
 	return element
 }
+
+
