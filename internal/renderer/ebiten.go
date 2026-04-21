@@ -1,98 +1,48 @@
 package renderer
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/sjm1327605995/tenon/pkg/types"
 	"image/color"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/sjm1327605995/tenon/pkg/core"
 )
 
-type Drawable interface {
-	Draw(screen *ebiten.Image, x, y int)
-}
-
-var drawableRegistry = make(map[string]func(element types.Element) Drawable)
-
-func RegisterDrawable(elementType string, creator func(element types.Element) Drawable) {
-	drawableRegistry[elementType] = creator
-}
-
-type EbitenRenderer struct {
+type Game struct {
+	root         core.Component
 	screenWidth  int
 	screenHeight int
 }
 
-func NewEbitenRenderer(width, height int) *EbitenRenderer {
-	return &EbitenRenderer{
+func NewGame(root core.Component, width, height int) *Game {
+	return &Game{
+		root:         root,
 		screenWidth:  width,
 		screenHeight: height,
 	}
 }
 
-func (r *EbitenRenderer) GetScreenSize() (int, int) {
-	return r.screenWidth, r.screenHeight
-}
-
-func (r *EbitenRenderer) Render(screen *ebiten.Image, element types.Element) {
-	if element == nil {
-		return
-	}
-
-	screen.Fill(backgroundColor)
-	r.renderElement(screen, element, 0, 0)
-}
-
-func (r *EbitenRenderer) renderElement(screen *ebiten.Image, element types.Element, parentX, parentY int) {
-	if element == nil {
-		return
-	}
-
-	layout := element.GetLayout()
-	x := parentX + int(layout.X)
-	y := parentY + int(layout.Y)
-
-	creator, ok := drawableRegistry[element.Type()]
-	if !ok {
-		return
-	}
-
-	drawable := creator(element)
-	drawable.Draw(screen, x, y)
-
-	for _, child := range element.GetChildren() {
-		if child == nil {
-			continue
-		}
-		r.renderElement(screen, child, x, y)
-	}
-}
-
-type Game struct {
-	renderer *EbitenRenderer
-	root     types.Element
-}
-
-func NewGame(root types.Element, width, height int) *Game {
-	RegisterDrawables()
-	return &Game{
-		renderer: NewEbitenRenderer(width, height),
-		root:     root,
-	}
-}
-
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return g.renderer.screenWidth, g.renderer.screenHeight
+	// 当窗口大小改变时，更新屏幕尺寸并重新计算布局
+	g.screenWidth = outsideWidth
+	g.screenHeight = outsideHeight
+	return outsideWidth, outsideHeight
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.renderer.Render(screen, g.root)
+	screen.Fill(backgroundColor)
+	// 每次绘制时都重新计算布局，确保布局与当前窗口大小匹配
+	core.CalculateLayout(g.root, float32(g.screenWidth), float32(g.screenHeight))
+	g.root.Draw(screen)
+	g.root.DrawOverlay(screen)
 }
 
 func (g *Game) Update() error {
-	return nil
+	return g.root.Update()
 }
 
-func Run(root types.Element, width, height int) {
+func Run(root core.Component, width, height int) {
 	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("Tenon - UI Framework")
 
 	game := NewGame(root, width, height)
