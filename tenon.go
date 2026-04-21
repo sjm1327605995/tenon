@@ -1,9 +1,9 @@
 package tenon
 
 import (
-	"github.com/sjm1327605995/tenon/internal/reconciler"
 	"github.com/sjm1327605995/tenon/internal/renderer"
 	"github.com/sjm1327605995/tenon/pkg/components"
+	"github.com/sjm1327605995/tenon/pkg/core"
 	"github.com/sjm1327605995/tenon/pkg/types"
 )
 
@@ -21,6 +21,9 @@ type TextStyle = types.TextStyle
 type ImageProps = types.ImageProps
 type ImageStyle = types.ImageStyle
 
+type Component = core.Component
+type LayoutBounds = core.LayoutBounds
+
 const (
 	UnitPx      = types.UnitPx
 	UnitPercent = types.UnitPercent
@@ -31,14 +34,16 @@ var Px = types.Px
 var Percent = types.Percent
 var Auto = types.Auto
 
-var View = components.View
-var Text = components.Text
-var Image = components.Image
+var ViewFunc = components.ViewFunc
+var TextFunc = components.TextFunc
+var ImageFunc = components.ImageFunc
 
-type Reconciler = reconciler.Reconciler
+var NewView = components.NewView
+var NewText = components.NewText
+var NewImage = components.NewImage
 
-func NewReconciler(rootUI UI) *Reconciler {
-	return reconciler.NewReconciler(rootUI)
+func Run(root core.Component, width, height int) {
+	renderer.Run(root, width, height)
 }
 
 func RenderToHTML(element Element) string {

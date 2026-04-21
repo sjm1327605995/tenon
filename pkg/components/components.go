@@ -9,7 +9,7 @@ type ViewComponent struct {
 	Children []types.UI
 }
 
-func View(props *types.ViewProps, children ...types.UI) *ViewComponent {
+func ViewFunc(props *types.ViewProps, children ...types.UI) *ViewComponent {
 	return &ViewComponent{
 		Props:    props,
 		Children: children,
@@ -28,7 +28,7 @@ type TextComponent struct {
 	Props *types.TextProps
 }
 
-func Text(props *types.TextProps) *TextComponent {
+func TextFunc(props *types.TextProps) *TextComponent {
 	return &TextComponent{Props: props}
 }
 
@@ -40,7 +40,7 @@ type ImageComponent struct {
 	Props *types.ImageProps
 }
 
-func Image(props *types.ImageProps) *ImageComponent {
+func ImageFunc(props *types.ImageProps) *ImageComponent {
 	return &ImageComponent{Props: props}
 }
 
