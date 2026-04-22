@@ -11,7 +11,7 @@ import (
 )
 
 type Text struct {
-	*core.BaseComponent
+	core.BaseComponent
 	Content  string
 	FontSize float32
 	Color    color.Color
@@ -25,13 +25,9 @@ func NewText(content string) *Text {
 		FontSize:      16,
 		Color:         color.RGBA{R: 0, G: 0, B: 0, A: 255},
 	}
-
+	t.Init(t)
 	t.GetElement().Yoga.SetMeasureFunc(t.measure)
 	return t
-}
-
-func (t *Text) GetBase() *core.BaseComponent {
-	return t.BaseComponent
 }
 
 func (t *Text) measure(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
@@ -51,7 +47,6 @@ func (t *Text) getFace() *text.GoTextFace {
 		return t.FontFace.Face
 	}
 
-	// 使用字体管理器获取默认字体
 	fontManager := fonts.GetFontManager()
 	face, err := fontManager.GetDefaultFontFace(t.FontSize)
 	if err == nil && face != nil {
@@ -107,7 +102,7 @@ func (t *Text) SetContent(content string) *Text {
 
 func (t *Text) SetFontSize(size float32) *Text {
 	t.FontSize = size
-	t.FontFace = nil // 清除缓存以重新生成字体面
+	t.FontFace = nil
 	t.GetElement().Yoga.MarkDirty()
 	return t
 }
@@ -169,50 +164,5 @@ func (t *Text) SetFontStyle(style fonts.FontStyle) *Text {
 			t.GetElement().Yoga.MarkDirty()
 		}
 	}
-	return t
-}
-
-func (t *Text) SetMargin(edge yoga.Edge, value float32) *Text {
-	t.GetElement().Yoga.StyleSetMargin(edge, value)
-	return t
-}
-
-func (t *Text) SetPadding(edge yoga.Edge, value float32) *Text {
-	t.GetElement().Yoga.StyleSetPadding(edge, value)
-	return t
-}
-
-func (t *Text) SetWidth(width float32) *Text {
-	t.GetElement().Yoga.StyleSetWidth(width)
-	return t
-}
-
-func (t *Text) SetHeight(height float32) *Text {
-	t.GetElement().Yoga.StyleSetHeight(height)
-	return t
-}
-
-func (t *Text) SetFlexGrow(grow float32) *Text {
-	t.GetElement().Yoga.StyleSetFlexGrow(grow)
-	return t
-}
-
-func (t *Text) SetFlexShrink(shrink float32) *Text {
-	t.GetElement().Yoga.StyleSetFlexShrink(shrink)
-	return t
-}
-
-func (t *Text) SetAlignSelf(align yoga.Align) *Text {
-	t.GetElement().Yoga.StyleSetAlignSelf(align)
-	return t
-}
-
-func (t *Text) SetPosition(edge yoga.Edge, value float32) *Text {
-	t.GetElement().Yoga.StyleSetPosition(edge, value)
-	return t
-}
-
-func (t *Text) SetPositionType(positionType yoga.PositionType) *Text {
-	t.GetElement().Yoga.StyleSetPositionType(positionType)
 	return t
 }
