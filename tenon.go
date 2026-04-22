@@ -5,21 +5,32 @@ import (
 	"github.com/sjm1327605995/tenon/pkg/core"
 )
 
-// 导出公共类型
-type Component = core.Component
-type LayoutBounds = core.LayoutBounds
-type Element = core.Element
-type Style = core.Style
-type VisualStyle = core.VisualStyle
+// 导出公共类型，方便用户直接使用 tenon.XXX
+type (
+	Component  = core.Component
+	Widget     = core.Widget
+	Host       = core.Host
+	BaseWidget = core.BaseWidget
+	BaseHost   = core.BaseHost
+	Element    = core.Element
+	LayoutBounds = core.LayoutBounds
+	Event      = core.Event
+	EventType  = core.EventType
+	BorderRadius = core.BorderRadius
+	PointerEvents = core.PointerEvents
+	Context    = core.Context
+	Ref        = core.Ref
+)
 
-var NewStyle = core.NewStyle
-var NewVisualStyle = core.NewVisualStyle
+// 导出便捷变量/函数
+var (
+	NewElement      = core.NewElement
+	NewContext      = core.NewContext
+	PointerEventsAuto  = core.PointerEventsAuto
+	PointerEventsNone  = core.PointerEventsNone
+)
 
-// FunctionComponent 函数组件类型
-// 函数接收 props 返回一个组件实例（通常是 View）
-type FunctionComponent func(props map[string]interface{}) core.Component
-
-// Run 启动应用
+// Run 启动应用。root 可以是 Host 或 Widget。
 func Run(root core.Component, width, height int) {
 	renderer.Run(root, width, height)
 }

@@ -78,6 +78,15 @@ func (node *Node) CalculateLayout(ownerWidth, ownerHeight float32, ownerDirectio
 	CalculateLayout(node, ownerWidth, ownerHeight, ownerDirection)
 }
 
+// CopyStyleFrom 从另一个节点复制样式属性（flex、margin、padding 等）。
+// 调用后本节点的 Yoga 样式将与源节点完全一致。
+func (node *Node) CopyStyleFrom(other *Node) {
+	if other == nil {
+		return
+	}
+	node.style_ = other.style_
+}
+
 func (node *Node) useWebDefaults() {
 	node.StyleSetFlexDirection(FlexDirectionRow)
 	node.StyleSetAlignContent(AlignStretch)
