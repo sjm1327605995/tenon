@@ -5,12 +5,14 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/core"
+	"github.com/sjm1327605995/tenon/pkg/scheduler"
 )
 
 type Game struct {
 	root         core.Component
 	screenWidth  int
 	screenHeight int
+	isFirstFrame bool
 }
 
 func NewGame(root core.Component, width, height int) *Game {
@@ -18,11 +20,11 @@ func NewGame(root core.Component, width, height int) *Game {
 		root:         root,
 		screenWidth:  width,
 		screenHeight: height,
+		isFirstFrame: true,
 	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	// 当窗口大小改变时，更新屏幕尺寸并重新计算布局
 	g.screenWidth = outsideWidth
 	g.screenHeight = outsideHeight
 	return outsideWidth, outsideHeight
@@ -30,14 +32,26 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(backgroundColor)
-	// 每次绘制时都重新计算布局，确保布局与当前窗口大小匹配
+
 	core.CalculateLayout(g.root, float32(g.screenWidth), float32(g.screenHeight))
+
+	if g.isFirstFrame {
+		scheduler.GetInstance().ProcessMount(g.root)
+		g.isFirstFrame = false
+	}
+
 	g.root.Draw(screen)
 	g.root.DrawOverlay(screen)
 }
 
 func (g *Game) Update() error {
+	scheduler.GetInstance().ProcessUpdates()
 	return g.root.Update()
+}
+
+func (g *Game) Close() error {
+	scheduler.GetInstance().ProcessUnmount(g.root)
+	return nil
 }
 
 func Run(root core.Component, width, height int) {

@@ -1,26 +1,25 @@
 package components
 
 import (
+	"image/color"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/pkg/core"
-	"image/color"
 )
 
 type Image struct {
-	*core.BaseComponent
+	core.BaseComponent
 	Source    string
 	ebitenImg *ebiten.Image
 }
 
 func NewImage() *Image {
-	return &Image{
+	i := &Image{
 		BaseComponent: core.NewBaseComponent(),
 	}
-}
-
-func (i *Image) GetBase() *core.BaseComponent {
-	return i.BaseComponent
+	i.Init(i)
+	return i
 }
 
 func (i *Image) Draw(screen *ebiten.Image) {
@@ -62,15 +61,5 @@ func (i *Image) SetSource(source string) *Image {
 
 func (i *Image) SetEbitenImage(img *ebiten.Image) *Image {
 	i.ebitenImg = img
-	return i
-}
-
-func (i *Image) SetWidth(width float32) *Image {
-	i.GetElement().Yoga.StyleSetWidth(width)
-	return i
-}
-
-func (i *Image) SetHeight(height float32) *Image {
-	i.GetElement().Yoga.StyleSetHeight(height)
 	return i
 }
