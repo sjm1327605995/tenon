@@ -1,16 +1,15 @@
 package components
 
 import (
-	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/pkg/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
+// ButtonState 表示按钮的交互状态。
 type ButtonState int
 
 const (
@@ -19,8 +18,9 @@ const (
 	ButtonStatePressed
 )
 
+// Button 是按钮宿主组件。
 type Button struct {
-	core.BaseComponent
+	core.BaseHost
 	text         *Text
 	state        ButtonState
 	onClick      func()
@@ -30,17 +30,16 @@ type Button struct {
 	disabled     bool
 }
 
+// NewButton 创建一个按钮。
 func NewButton(label string) *Button {
 	b := &Button{
-		BaseComponent: core.NewBaseComponent(),
-		state:         ButtonStateNormal,
-		hoverColor:    color.RGBA{R: 70, G: 130, B: 180, A: 255},
-		pressedColor:  color.RGBA{R: 30, G: 144, B: 255, A: 255},
-		normalColor:   color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		disabled:      false,
+		state:        ButtonStateNormal,
+		normalColor:  color.RGBA{R: 0, G: 123, B: 255, A: 255},
+		hoverColor:   color.RGBA{R: 70, G: 130, B: 180, A: 255},
+		pressedColor: color.RGBA{R: 30, G: 144, B: 255, A: 255},
 	}
 	b.Init(b)
-
+	b.SetFocusable(true)
 	b.SetPadding(yoga.EdgeAll, 12)
 	b.SetBorderRadius(8)
 	b.SetBackgroundColor(b.normalColor)
@@ -55,11 +54,60 @@ func NewButton(label string) *Button {
 	return b
 }
 
-func (b *Button) SetOnClick(callback func()) *Button {
-	b.onClick = callback
-	return b
+// Draw 绘制按钮背景。
+func (b *Button) Draw(screen *ebiten.Image) {
+	el := b.GetElement()
+	if el == nil || !el.Visible {
+		return
+	}
+	bounds := b.GetLayoutBounds()
+	if bounds.Width <= 0 || bounds.Height <= 0 {
+		return
+	}
+	if el.BackgroundColor != nil {
+		vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, el.BackgroundColor, false)
+	}
 }
 
+// HandleEvent 处理按钮交互事件。
+func (b *Button) HandleEvent(e *core.Event) bool {
+	if b.disabled {
+		return false
+	}
+
+	switch e.Type {
+	case core.EventMouseDown:
+		b.state = ButtonStatePressed
+		b.refreshColor()
+	case core.EventMouseUp:
+		b.state = ButtonStateHover
+		b.refreshColor()
+	case core.EventClick:
+		if b.onClick != nil {
+			b.onClick()
+		}
+		return true
+	}
+	return false
+}
+
+func (b *Button) refreshColor() {
+	switch b.state {
+	case ButtonStateHover:
+		b.SetBackgroundColor(b.hoverColor)
+	case ButtonStatePressed:
+		b.SetBackgroundColor(b.pressedColor)
+	default:
+		b.SetBackgroundColor(b.normalColor)
+	}
+}
+
+// ==================== 链式 API ====================
+
+func (b *Button) SetOnClick(fn func()) *Button {
+	b.onClick = fn
+	return b
+}
 func (b *Button) SetDisabled(disabled bool) *Button {
 	b.disabled = disabled
 	if disabled {
@@ -69,71 +117,14 @@ func (b *Button) SetDisabled(disabled bool) *Button {
 	}
 	return b
 }
-
-func (b *Button) Update() error {
-	if b.disabled {
-		b.state = ButtonStateNormal
-		return nil
-	}
-
-	x, y := ebiten.CursorPosition()
-	bounds := b.GetLayoutBounds()
-
-	isInside := float32(x) >= bounds.X && float32(x) <= bounds.X+bounds.Width &&
-		float32(y) >= bounds.Y && float32(y) <= bounds.Y+bounds.Height
-
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		fmt.Printf("鼠标点击: (%d, %d), 按钮位置: (%.1f, %.1f, %.1f, %.1f), 是否在按钮内: %v\n",
-			x, y, bounds.X, bounds.Y, bounds.Width, bounds.Height, isInside)
-	}
-
-	if isInside {
-		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-			b.state = ButtonStatePressed
-			fmt.Println("按钮按下状态")
-		} else if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			b.state = ButtonStatePressed
-		} else {
-			b.state = ButtonStateHover
-		}
-
-		if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && b.state == ButtonStatePressed {
-			fmt.Println("按钮点击事件触发")
-			if b.onClick != nil {
-				b.onClick()
-			}
-			b.state = ButtonStateHover
-		}
-	} else {
-		b.state = ButtonStateNormal
-	}
-
-	switch b.state {
-	case ButtonStateHover:
-		b.SetBackgroundColor(b.hoverColor)
-	case ButtonStatePressed:
-		b.SetBackgroundColor(b.pressedColor)
-	default:
-		b.SetBackgroundColor(b.normalColor)
-	}
-
-	return b.BaseComponent.Update()
-}
-
-func (b *Button) HandleInput() bool {
-	return true
-}
-
 func (b *Button) SetText(text string) *Button {
 	b.text.SetContent(text)
 	return b
 }
-
 func (b *Button) SetTextColor(clr color.Color) *Button {
 	b.text.SetColor(clr)
 	return b
 }
-
 func (b *Button) SetBackgroundColors(normal, hover, pressed color.Color) *Button {
 	b.normalColor = normal
 	b.hoverColor = hover
@@ -141,41 +132,53 @@ func (b *Button) SetBackgroundColors(normal, hover, pressed color.Color) *Button
 	b.SetBackgroundColor(b.normalColor)
 	return b
 }
-
-func (b *Button) GetButtonState() ButtonState {
-	return b.state
+func (b *Button) SetWidth(width float32) *Button {
+	b.GetElement().Yoga.StyleSetWidth(width)
+	return b
+}
+func (b *Button) SetHeight(height float32) *Button {
+	b.GetElement().Yoga.StyleSetHeight(height)
+	return b
+}
+func (b *Button) SetMargin(edge yoga.Edge, value float32) *Button {
+	b.GetElement().Yoga.StyleSetMargin(edge, value)
+	return b
+}
+func (b *Button) SetPadding(edge yoga.Edge, value float32) *Button {
+	b.GetElement().Yoga.StyleSetPadding(edge, value)
+	return b
+}
+func (b *Button) SetJustifyContent(justify yoga.Justify) *Button {
+	b.GetElement().Yoga.StyleSetJustifyContent(justify)
+	return b
+}
+func (b *Button) SetAlignItems(align yoga.Align) *Button {
+	b.GetElement().Yoga.StyleSetAlignItems(align)
+	return b
+}
+func (b *Button) SetBackgroundColor(clr color.Color) *Button {
+	b.GetElement().BackgroundColor = clr
+	return b
+}
+func (b *Button) SetBorderRadius(radius float32) *Button {
+	b.GetElement().BorderRadius = core.BorderRadius{
+		TopLeft: radius, TopRight: radius,
+		BottomRight: radius, BottomLeft: radius,
+	}
+	return b
 }
 
-func (b *Button) Draw(screen *ebiten.Image) {
-	element := b.Render()
-	if element == nil || !element.Visible {
-		return
-	}
-
-	bounds := b.GetLayoutBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
-
-	if element.BackgroundColor != nil {
-		vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, element.BackgroundColor, false)
-	}
-
-	if element.BorderColor != nil {
-		yogaNode := element.Yoga
-		borderTop := yogaNode.StyleGetBorder(yoga.EdgeTop)
-		if borderTop > 0 {
-			vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, borderTop, element.BorderColor, false)
+// SyncFrom 同步按钮属性。
+func (b *Button) SyncFrom(other core.Host) {
+	if o, ok := other.(*Button); ok {
+		b.normalColor = o.normalColor
+		b.hoverColor = o.hoverColor
+		b.pressedColor = o.pressedColor
+		b.disabled = o.disabled
+		b.onClick = o.onClick
+		if b.text != nil && o.text != nil {
+			b.text.Content = o.text.Content
+			b.text.cachedLayout = nil
 		}
-	}
-
-	for _, child := range b.GetChildren() {
-		child.Draw(screen)
-	}
-}
-
-func (b *Button) DrawOverlay(screen *ebiten.Image) {
-	for _, child := range b.GetChildren() {
-		child.DrawOverlay(screen)
 	}
 }

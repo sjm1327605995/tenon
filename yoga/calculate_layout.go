@@ -2299,7 +2299,19 @@ func calculateLayoutInternal(
 			layoutType = LayoutTypeMeasure
 		}
 	}
-	_ = layoutType //TODO: use layoutType
+	// 根据 layoutType 更新布局统计
+	if layoutMarkerData != nil {
+		switch layoutType {
+		case LayoutTypeLayout:
+			layoutMarkerData.layouts++
+		case LayoutTypeMeasure:
+			layoutMarkerData.measures++
+		case LayoutTypeCachedLayout:
+			layoutMarkerData.cachedLayouts++
+		case LayoutTypeCachedMeasure:
+			layoutMarkerData.cachedMeasures++
+		}
+	}
 	// EventPublishNodeLayout(node, layoutType)
 
 	return needToVisitNode || cachedResults == nil
