@@ -25,6 +25,7 @@ type Element struct {
 	ShadowOffsetY   float32
 	PointerEvents   PointerEvents
 	BorderRadius    BorderRadius
+	Key             string // 用于 reconciler 匹配
 }
 
 type BorderRadius struct {
@@ -41,64 +42,10 @@ const (
 	PointerEventsNone
 )
 
-type ErrorInfo struct {
-	ComponentStack string
-}
-
 // ============================================================================
-// 【用户开放接口】Lifecycle - 用户自定义组件时可重写的生命周期钩子
+// Component 接口（精简版，移除 Lifecycle）
 // ============================================================================
-type Lifecycle interface {
-	// ComponentDidMount 组件挂载后执行（用户重写）
-	// 适合数据请求、订阅、DOM 操作等初始化逻辑
-	ComponentDidMount()
-
-	// ComponentDidUpdate 组件更新后执行（用户重写）
-	// prevProps: 更新前的 props
-	// prevState: 更新前的 state  
-	// snapshot: GetSnapshotBeforeUpdate 返回的值
-	ComponentDidUpdate(prevProps interface{}, prevState interface{}, snapshot interface{})
-
-	// ComponentWillUnmount 组件卸载前执行（用户重写）
-	// 适合清理定时器、取消订阅等资源释放操作
-	ComponentWillUnmount()
-
-	// ShouldComponentUpdate 性能优化钩子（用户重写）
-	// 返回 false 可阻止不必要的重新渲染
-	ShouldComponentUpdate(nextProps interface{}, nextState interface{}) bool
-
-	// GetSnapshotBeforeUpdate 在渲染提交到屏幕前调用（用户重写）
-	// 用于捕获 DOM 信息（如滚动位置），返回值将传递给 ComponentDidUpdate
-	GetSnapshotBeforeUpdate(prevProps interface{}, prevState interface{}) interface{}
-
-	// GetDerivedStateFromProps 静态方法，在每次渲染前调用（用户重写）
-	// 用于根据 props 同步更新 state
-	GetDerivedStateFromProps(props interface{}, state interface{}) interface{}
-
-	// ComponentDidCatch 错误边界钩子（用户重写）
-	// 用于捕获子组件渲染错误，记录日志或显示备用 UI
-	ComponentDidCatch(err error, info ErrorInfo)
-
-	// GetDerivedStateFromError 静态方法，渲染错误时调用（用户重写）
-	// 用于更新 state 显示备用 UI
-	GetDerivedStateFromError(err error) interface{}
-}
-
-// ============================================================================
-// 【用户开放接口】Stateful - 用户组件的状态管理接口
-// ============================================================================
-type Stateful interface {
-	GetProps() interface{}
-	GetState() interface{}
-	SetProps(props interface{})
-	SetState(state interface{})
-}
-
-// ============================================================================
-// 【框架内部接口】InternalComponent - 框架内部使用的核心接口
-// 注意：这些方法主要由框架调用，用户通常不需要直接调用或重写
-// ============================================================================
-type InternalComponent interface {
+type Component interface {
 	// 渲染相关
 	Draw(screen *ebiten.Image)
 	DrawOverlay(screen *ebiten.Image)
@@ -125,45 +72,21 @@ type InternalComponent interface {
 }
 
 // ============================================================================
-// 【综合接口】Component - 完整的组件接口（用户使用）
-// ============================================================================
-type Component interface {
-	InternalComponent
-	Lifecycle
-	Stateful
-}
-
-// ============================================================================
-// BaseComponent - 基础组件实现（用户组合使用）
-// 提供所有接口的默认实现，用户只需重写需要的方法
+// BaseComponent - 基础组件实现
 // ============================================================================
 type BaseComponent struct {
-	// 核心属性
 	children []Component
 	element  *Element
 	yogaNode *yoga.Node
 	bounds   LayoutBounds
 
-	// 内部状态
 	id    string
 	dirty bool
 	mu    sync.RWMutex
 
-	// Hooks 支持
-	hooksRenderFunc func()
-
-	// Self 引用（用于链式方法返回正确类型）
 	self Component
-
-	// 生命周期状态
-	isMounted        bool
-	prevProps        interface{}
-	prevState        interface{}
-	errorState       interface{}
-	hasError         bool
 }
 
-// NewBaseComponent 创建一个新的 BaseComponent（用户调用）
 func NewBaseComponent() BaseComponent {
 	node := yoga.NewNode()
 	return BaseComponent{
@@ -176,29 +99,18 @@ func NewBaseComponent() BaseComponent {
 		yogaNode:  node,
 		id:        generateComponentID(),
 		dirty:     false,
-		isMounted: false,
 	}
 }
 
-// Init 初始化 self 引用（用户在构造函数中调用）
-// 使用示例:
-// func NewMyComponent() *MyComponent {
-//     c := &MyComponent{BaseComponent: core.NewBaseComponent()}
-//     c.Init(c)
-//     return c
-// }
 func (b *BaseComponent) Init(self Component) {
 	b.self = self
 }
 
-// Self 返回组件自身引用（框架内部使用）
 func (b *BaseComponent) Self() Component {
 	return b.self
 }
 
-// ----------------------------------------------------------------------------
-// 【框架内部方法】InternalComponent 接口实现
-// ----------------------------------------------------------------------------
+// InternalComponent 接口实现
 
 func (b *BaseComponent) GetChildren() []Component {
 	return b.children
@@ -324,9 +236,9 @@ func (b *BaseComponent) ClearDirty() {
 	b.dirty = false
 }
 
-// ----------------------------------------------------------------------------
-// 【用户开放方法】样式设置方法（链式调用）
-// ----------------------------------------------------------------------------
+// ============================================================================
+// 样式设置方法（链式调用）
+// ============================================================================
 
 func (b *BaseComponent) ApplyStyle(style *Style) {
 	if style != nil && b.yogaNode != nil {
@@ -338,14 +250,6 @@ func (b *BaseComponent) ApplyVisualStyle(style *VisualStyle) {
 	if style != nil && b.element != nil {
 		style.Apply(b.element)
 	}
-}
-
-func (b *BaseComponent) SetHooksRenderFunc(fn func()) {
-	b.hooksRenderFunc = fn
-}
-
-func (b *BaseComponent) GetHooksRenderFunc() func() {
-	return b.hooksRenderFunc
 }
 
 func (b *BaseComponent) SetWidth(width float32) Component {
@@ -523,61 +427,32 @@ func (b *BaseComponent) SetVisualStyle(style *VisualStyle) Component {
 	return b.self
 }
 
-// ----------------------------------------------------------------------------
-// 【用户开放方法】Lifecycle 接口默认实现
-// ----------------------------------------------------------------------------
-
-func (b *BaseComponent) ComponentDidMount() {
-	b.isMounted = true
+func (b *BaseComponent) SetKey(key string) Component {
+	b.element.Key = key
+	return b.self
 }
 
-func (b *BaseComponent) ComponentDidUpdate(prevProps interface{}, prevState interface{}, snapshot interface{}) {
+// RemoveChild 移除子组件
+func (b *BaseComponent) RemoveChild(child Component) bool {
+	for i, c := range b.children {
+		if c.ID() == child.ID() {
+			// 从 yoga 树中移除
+			if childYoga := child.GetElement().Yoga; childYoga != nil && b.yogaNode != nil {
+				b.yogaNode.RemoveChild(childYoga)
+			}
+			b.children = append(b.children[:i], b.children[i+1:]...)
+			return true
+		}
+	}
+	return false
 }
 
-func (b *BaseComponent) ComponentWillUnmount() {
-	b.isMounted = false
-}
-
-func (b *BaseComponent) ShouldComponentUpdate(nextProps interface{}, nextState interface{}) bool {
-	return b.isMounted
-}
-
-func (b *BaseComponent) GetSnapshotBeforeUpdate(prevProps interface{}, prevState interface{}) interface{} {
-	return nil
-}
-
-func (b *BaseComponent) GetDerivedStateFromProps(props interface{}, state interface{}) interface{} {
-	return state
-}
-
-func (b *BaseComponent) ComponentDidCatch(err error, info ErrorInfo) {
-}
-
-func (b *BaseComponent) GetDerivedStateFromError(err error) interface{} {
-	return nil
-}
-
-// ----------------------------------------------------------------------------
-// 【用户开放方法】Stateful 接口实现
-// ----------------------------------------------------------------------------
-
-func (b *BaseComponent) IsMounted() bool {
-	return b.isMounted
-}
-
-func (b *BaseComponent) SetProps(props interface{}) {
-	b.prevProps = props
-}
-
-func (b *BaseComponent) SetState(state interface{}) {
-	b.prevState = state
-	b.MarkDirty()
-}
-
-func (b *BaseComponent) GetProps() interface{} {
-	return b.prevProps
-}
-
-func (b *BaseComponent) GetState() interface{} {
-	return b.prevState
+// ClearChildren 清空所有子组件
+func (b *BaseComponent) ClearChildren() {
+	for _, child := range b.children {
+		if childYoga := child.GetElement().Yoga; childYoga != nil && b.yogaNode != nil {
+			b.yogaNode.RemoveChild(childYoga)
+		}
+	}
+	b.children = b.children[:0]
 }
