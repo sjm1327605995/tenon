@@ -32,23 +32,24 @@ type Button struct {
 
 // NewButton 创建一个按钮。
 func NewButton(label string) *Button {
+	theme := core.GetTheme()
 	b := &Button{
 		state:        ButtonStateNormal,
-		normalColor:  color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		hoverColor:   color.RGBA{R: 70, G: 130, B: 180, A: 255},
-		pressedColor: color.RGBA{R: 30, G: 144, B: 255, A: 255},
+		normalColor:  theme.ButtonNormalColor,
+		hoverColor:   theme.ButtonHoverColor,
+		pressedColor: theme.ButtonPressedColor,
 	}
 	b.Init(b)
 	b.SetFocusable(true)
 	b.SetPadding(yoga.EdgeAll, 12)
-	b.SetBorderRadius(8)
+	b.SetBorderRadius(theme.ButtonBorderRadius)
 	b.SetBackgroundColor(b.normalColor)
 	b.SetJustifyContent(yoga.JustifyCenter)
 	b.SetAlignItems(yoga.AlignCenter)
 
 	b.text = NewText(label)
-	b.text.SetColor(color.White)
-	b.text.SetFontSize(16)
+	b.text.SetColor(theme.ButtonTextColor)
+	b.text.SetFontSize(theme.FontSizeBase + 2)
 	b.AddChild(b.text)
 
 	return b

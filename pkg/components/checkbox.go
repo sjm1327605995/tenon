@@ -23,12 +23,13 @@ type Checkbox struct {
 
 // NewCheckbox 创建一个复选框。
 func NewCheckbox(label string) *Checkbox {
+	theme := core.GetTheme()
 	cb := &Checkbox{
 		checked:     false,
 		boxSize:     18,
-		borderColor: color.RGBA{R: 108, G: 117, B: 125, A: 255},
-		fillColor:   color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		checkColor:  color.White,
+		borderColor: theme.CheckboxBorderColor,
+		fillColor:   theme.CheckboxFillColor,
+		checkColor:  theme.CheckboxCheckColor,
 	}
 	cb.Init(cb)
 	cb.SetFocusable(true)
@@ -38,8 +39,8 @@ func NewCheckbox(label string) *Checkbox {
 
 	if label != "" {
 		cb.text = NewText(label)
-		cb.text.SetFontSize(14)
-		cb.text.SetColor(color.RGBA{R: 33, G: 37, B: 41, A: 255})
+		cb.text.SetFontSize(theme.FontSizeBase)
+		cb.text.SetColor(theme.TextColor)
 		// 左边距 = 方框宽度 + 文字与方框间距
 		cb.text.SetMargin(yoga.EdgeLeft, cb.boxSize+8)
 		cb.AddChild(cb.text)

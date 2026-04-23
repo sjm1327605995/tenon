@@ -26,13 +26,14 @@ type Slider struct {
 
 // NewSlider 创建一个滑块。
 func NewSlider(min, max float32) *Slider {
+	theme := core.GetTheme()
 	s := &Slider{
 		minValue:    min,
 		maxValue:    max,
 		value:       min,
-		trackColor:  color.RGBA{R: 224, G: 224, B: 224, A: 255},
-		fillColor:   color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		thumbColor:  color.White,
+		trackColor:  theme.SliderTrackColor,
+		fillColor:   theme.SliderFillColor,
+		thumbColor:  theme.SliderThumbColor,
 		thumbRadius: 8,
 		trackHeight: 4,
 	}

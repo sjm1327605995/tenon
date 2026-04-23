@@ -40,23 +40,28 @@ type TextInput struct {
 	// 光标闪烁
 	cursorVisible    bool
 	blinkTimer       float32
+
+	// 鼠标选区
+	selecting        bool   // 是否正在拖拽选区
+	selectAnchor     int    // 选区锚点字节位置
 }
 
 // NewTextInput 创建一个文本输入框。
 func NewTextInput() *TextInput {
+	theme := core.GetTheme()
 	ti := &TextInput{
 		field:            &textinput.Field{},
 		placeholder:      "",
 		isMultiline:      false,
-		textColor:        color.RGBA{R: 33, G: 37, B: 41, A: 255},
-		placeholderColor: color.RGBA{R: 170, G: 170, B: 170, A: 255},
-		cursorColor:      color.RGBA{R: 0, G: 0, B: 0, A: 255},
-		borderColor:      color.RGBA{R: 200, G: 200, B: 200, A: 255},
-		focusBorderColor: color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		bgColor:          color.White,
-		selectionColor:   color.RGBA{R: 0, G: 123, B: 255, A: 100},
-		compositionColor: color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		fontSize:         14,
+		textColor:        theme.InputTextColor,
+		placeholderColor: theme.InputPlaceholderColor,
+		cursorColor:      theme.InputTextColor,
+		borderColor:      theme.InputBorderColor,
+		focusBorderColor: theme.InputFocusBorderColor,
+		bgColor:          theme.InputBgColor,
+		selectionColor:   theme.InputSelectionColor,
+		compositionColor: theme.PrimaryColor,
+		fontSize:         theme.FontSizeBase,
 		padding:          8,
 		cursorVisible:    true,
 	}
@@ -529,29 +534,121 @@ func (ti *TextInput) clearSelection() {
 	}
 }
 
-// HandleEvent 处理点击事件，聚焦/失焦并设置鼠标光标。
+// HandleEvent 处理点击、拖拽选区和鼠标光标。
 func (ti *TextInput) HandleEvent(e *core.Event) bool {
 	bounds := ti.GetLayoutBounds()
 	switch e.Type {
 	case core.EventMouseDown:
-		// 设置鼠标光标为文本形状
 		ebiten.SetCursorShape(ebiten.CursorShapeText)
-		return true
-	case core.EventClick:
 		if e.X >= bounds.X && e.X <= bounds.X+bounds.Width &&
 			e.Y >= bounds.Y && e.Y <= bounds.Y+bounds.Height {
-			// 点击输入框内部聚焦已在 Engine 中处理
+			ti.selecting = true
+			pos := ti.hitTestText(e.X, e.Y)
+			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+				// Shift+点击：从当前选区一端扩展到点击位置
+				start, end := ti.field.Selection()
+				if start == end {
+					ti.selectAnchor = start
+				} else if absInt(pos-start) < absInt(pos-end) {
+					ti.selectAnchor = end
+				} else {
+					ti.selectAnchor = start
+				}
+				ti.field.SetSelection(ti.selectAnchor, pos)
+			} else {
+				ti.selectAnchor = pos
+				ti.field.SetSelection(pos, pos)
+			}
+			ti.cursorVisible = true
+			ti.blinkTimer = 0
 		}
 		return true
 	case core.EventMouseMove:
+		if ti.selecting {
+			pos := ti.hitTestText(e.X, e.Y)
+			ti.field.SetSelection(ti.selectAnchor, pos)
+		}
 		// 鼠标悬停时设置文本光标
 		if e.X >= bounds.X && e.X <= bounds.X+bounds.Width &&
 			e.Y >= bounds.Y && e.Y <= bounds.Y+bounds.Height {
 			ebiten.SetCursorShape(ebiten.CursorShapeText)
 		}
 		return true
+	case core.EventMouseUp:
+		if ti.selecting {
+			// 如果选区长度为 0（单击），只定位光标
+			start, end := ti.field.Selection()
+			if start == end {
+				ti.field.SetSelection(start, start)
+			}
+			ti.selecting = false
+		}
+		return true
+	case core.EventClick:
+		// 点击事件已在 MouseDown/MouseUp 中处理
+		return true
 	}
 	return false
+}
+
+// hitTestText 将鼠标坐标转换为文本字节索引。
+func (ti *TextInput) hitTestText(mouseX, mouseY float32) int {
+	face := ti.getFace()
+	if face == nil {
+		return 0
+	}
+	bounds := ti.GetLayoutBounds()
+	textX := bounds.X + ti.padding
+	textY := bounds.Y + ti.padding
+
+	renderText := ti.field.TextForRendering()
+	lineH := ti.getLineHeight(face)
+	lines := splitLines(renderText)
+
+	// 确定在哪一行
+	relY := mouseY - textY
+	lineIdx := int(relY / lineH)
+	if lineIdx < 0 {
+		lineIdx = 0
+	}
+
+	// 计算目标行之前的字节偏移
+	byteOffset := 0
+	for i := 0; i < lineIdx && i < len(lines); i++ {
+		byteOffset += len(lines[i]) + 1 // +1 for '\n'
+	}
+
+	if lineIdx >= len(lines) {
+		return len(renderText)
+	}
+
+	line := lines[lineIdx]
+	relX := mouseX - textX
+	if relX <= 0 {
+		return byteOffset
+	}
+
+	// 二分查找：找到使 text.Measure(line[:mid]) 最接近 relX 的 mid
+	bestIdx := len(line)
+	bestDist := relX
+	low, high := 0, len(line)
+	for low < high {
+		mid := (low + high) / 2
+		w, _ := text.Measure(line[:mid], face, 0)
+		w32 := float32(w)
+		dist := absFloat32(w32 - relX)
+		if dist < bestDist {
+			bestDist = dist
+			bestIdx = mid
+		}
+		if w32 < relX {
+			low = mid + 1
+		} else {
+			high = mid
+		}
+	}
+
+	return byteOffset + bestIdx
 }
 
 // ==================== 链式 API ====================
@@ -629,6 +726,20 @@ func splitLines(s string) []string {
 	}
 	lines = append(lines, s[start:])
 	return lines
+}
+
+func absInt(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
+func absFloat32(v float32) float32 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // SyncFrom 同步文本输入框样式（保留输入状态）。

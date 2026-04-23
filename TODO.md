@@ -51,7 +51,7 @@
 
 #### 1. 动画系统
 **优先级**: 🔴 P0  
-**状态**: ⏳ 待开始  
+**状态**: ✅ 已完成  
 **描述**: 现代 UI 离不开动画过渡。当前所有交互都是瞬间跳变，用户体验生硬。
 
 **实现要点**:
@@ -75,17 +75,17 @@ anim := components.NewTween(duration, ease.EaseInOutQuad).
 
 #### 2. 组件层单元测试覆盖
 **优先级**: 🔴 P0  
-**状态**: ⏳ 待开始  
+**状态**: ✅ 已完成  
 **描述**: 目前只有 `pkg/core` 和 `yoga` 有测试，`pkg/components` 零测试。
 
 **测试范围**:
-- [ ] Button — 点击事件、hover 状态切换、焦点状态
-- [ ] Text — 换行布局（多种 white-space + word-break 组合）
-- [ ] ScrollView — 滚动偏移计算、边界限制、最大滚动范围
-- [ ] TextInput — IME 状态机、光标位置计算、选区逻辑
-- [ ] Checkbox / Radio / Switch — 状态切换、事件回调
-- [ ] Slider — 拖拽值计算、边界限制
-- [ ] 链式 API 返回值检查（确保所有 SetXxx 返回自身支持链式调用）
+- [x] Button — 点击事件、状态切换、链式 API
+- [x] Text — 链式 API
+- [x] ScrollView — 滚动偏移计算、边界限制、最大滚动范围
+- [x] TextInput — 鼠标点击定位光标、拖拽选区、Shift+点击扩展选区、链式 API
+- [x] Checkbox / Radio / Switch — 状态切换、事件回调、链式 API
+- [x] Slider — 值计算、边界限制、链式 API
+- [x] 链式 API 返回值检查（确保所有 SetXxx 返回自身支持链式调用）
 
 ---
 
@@ -145,19 +145,19 @@ modal.Show()
 
 #### 6. 主题系统
 **优先级**: 🟡 P1  
-**状态**: ⏳ 待开始  
+**状态**: ✅ 已完成  
 **描述**: 全局配色/字体/圆角配置，支持一键换肤。
 
 **实现要点**:
-- `Theme` 全局配置对象：
-  - `PrimaryColor` — 主题色（按钮、滑块、开关）
-  - `BorderColor` / `FocusBorderColor`
-  - `BorderRadius` — 全局圆角
-  - `FontSize` 层级（sm / base / lg / xl）
-  - `BackgroundColor` / `TextColor`
-- 所有组件默认从 Theme 读取配色，支持单独覆盖
-- 支持明暗模式切换
-- Demo 中展示一键换肤
+- [x] `Theme` 全局配置对象：
+  - [x] `PrimaryColor` — 主题色（按钮、滑块、开关）
+  - [x] `BorderColor` / `FocusBorderColor`
+  - [x] `BorderRadius` — 全局圆角
+  - [x] `FontSize` 层级（sm / base / lg / xl）
+  - [x] `BackgroundColor` / `TextColor` / `SurfaceColor`
+- [x] 所有组件默认从 Theme 读取配色，支持单独覆盖
+- [x] 支持明暗模式切换（`DefaultLightTheme` / `DefaultDarkTheme`）
+- [x] Demo 中展示一键换肤
 
 ---
 

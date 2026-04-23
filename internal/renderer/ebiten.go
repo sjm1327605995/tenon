@@ -29,6 +29,11 @@ func NewGame(root core.Component, width, height int) *Game {
 	}
 
 	engine := core.NewEngine(rootHost, width, height)
+
+	if w, ok := root.(core.Widget); ok {
+		engine.SetRootWidget(w)
+	}
+
 	engine.Mount()
 
 	return &Game{engine: engine}
