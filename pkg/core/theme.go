@@ -84,6 +84,7 @@ type Theme struct {
 	MenuBg                color.Color
 	MenuItemSelectedBg    color.Color
 	MenuItemSelectedText  color.Color
+	MenuItemHoverBg       color.Color
 }
 
 var defaultTheme *Theme
@@ -176,6 +177,7 @@ func DefaultLightTheme() *Theme {
 		MenuBg:               color.White,
 		MenuItemSelectedBg:   color.RGBA{R: 230, G: 244, B: 255, A: 255},
 		MenuItemSelectedText: color.RGBA{R: 0, G: 123, B: 255, A: 255},
+		MenuItemHoverBg:      color.RGBA{R: 245, G: 245, B: 245, A: 255},
 	}
 }
 
@@ -245,6 +247,7 @@ func DefaultAntTheme() *Theme {
 		MenuBg:               color.White,
 		MenuItemSelectedBg:   color.RGBA{R: 230, G: 244, B: 255, A: 255}, // #e6f4ff
 		MenuItemSelectedText: color.RGBA{R: 22, G: 119, B: 255, A: 255},  // #1677ff
+		MenuItemHoverBg:      color.RGBA{R: 245, G: 245, B: 245, A: 255}, // #f5f5f5
 	}
 }
 
@@ -314,5 +317,6 @@ func DefaultDarkTheme() *Theme {
 		MenuBg:               color.RGBA{R: 0, G: 21, B: 41, A: 255},
 		MenuItemSelectedBg:   color.RGBA{R: 0, G: 123, B: 255, A: 255},
 		MenuItemSelectedText: color.White,
+		MenuItemHoverBg:      color.RGBA{R: 255, G: 255, B: 255, A: 30},
 	}
 }

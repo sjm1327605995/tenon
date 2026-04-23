@@ -27,9 +27,6 @@ type Widget interface {
 	SetHostRef(host Host)
 	GetHostRef() Host
 
-	// === 更新 ===
-	Invalidate()
-
 	// === 内部（框架调用）===
 	setEngine(e *Engine)
 	getEngine() *Engine

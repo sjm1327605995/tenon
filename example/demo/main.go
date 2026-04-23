@@ -31,8 +31,7 @@ func (c *Counter) Render() tenon.Component {
 			SetFontSize(tenon.GetTheme().FontSizeBase+2).
 			SetMargin(yoga.EdgeBottom, 16),
 		components.NewButton("Increment").SetWidth(140).SetHeight(40).SetOnClick(func() {
-			c.count++
-			c.Invalidate()
+			c.SetState(func() { c.count++ })
 		}),
 	)
 }
@@ -50,10 +49,9 @@ func NewDataFetcher() *DataFetcher {
 
 func (d *DataFetcher) ComponentDidMount() {
 	go func() {
-		time.Sleep(1 * time.Second)
-		d.data = "Data loaded!"
-		d.Invalidate()
-	}()
+			time.Sleep(1 * time.Second)
+			d.SetState(func() { d.data = "Data loaded!" })
+		}()
 }
 
 func (d *DataFetcher) Render() tenon.Component {
@@ -97,7 +95,7 @@ func (h *HooksDemo) Render() tenon.Component {
 			}),
 			components.NewButton(fmt.Sprintf("Ref: %v", ref.Current)).SetWidth(140).SetHeight(36).SetOnClick(func() {
 				ref.Current = fmt.Sprintf("clicked-%d", count)
-				h.Invalidate()
+				h.SetState(func() {})
 			}),
 		),
 	)
@@ -134,16 +132,16 @@ func (f *FormDemo) Render() tenon.Component {
 			components.NewCheckbox("Enable Feature").
 				SetChecked(f.checked).
 				SetOnChange(func(checked bool) {
-					f.checked = checked
-					f.Invalidate()
+					f.SetState(func() { f.checked = checked })
 				}),
 		),
 		components.NewButton(btnLabel).SetWidth(160).SetHeight(36).SetOnClick(func() {
-			f.progress += 0.1
-			if f.progress > 1 {
-				f.progress = 0
-			}
-			f.Invalidate()
+			f.SetState(func() {
+				f.progress += 0.1
+				if f.progress > 1 {
+					f.progress = 0
+				}
+			})
 		}),
 	)
 }
@@ -166,30 +164,25 @@ func (c *ControlDemo) Render() tenon.Component {
 		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
 			components.NewText(fmt.Sprintf("Slider: %.0f", c.sliderVal)).SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(70),
 			components.NewSlider(0, 100).SetValue(c.sliderVal).SetWidth(200).SetOnChange(func(v float32) {
-				c.sliderVal = v
-				c.Invalidate()
+				c.SetState(func() { c.sliderVal = v })
 			}),
 		),
 		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
 			components.NewText("Switch:").SetFontSize(tenon.GetTheme().FontSizeBase).SetMargin(yoga.EdgeRight, 10),
 			components.NewSwitch().SetChecked(c.switchOn).SetOnChange(func(on bool) {
-				c.switchOn = on
-				c.Invalidate()
+				c.SetState(func() { c.switchOn = on })
 			}),
 			components.NewText(fmt.Sprintf("  %v", c.switchOn)).SetFontSize(tenon.GetTheme().FontSizeBase),
 		),
 		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
 			components.NewRadio("Option A").SetSelected(c.radioSel == 0).SetOnChange(func(_ bool) {
-				c.radioSel = 0
-				c.Invalidate()
+				c.SetState(func() { c.radioSel = 0 })
 			}).SetMargin(yoga.EdgeRight, 12),
 			components.NewRadio("Option B").SetSelected(c.radioSel == 1).SetOnChange(func(_ bool) {
-				c.radioSel = 1
-				c.Invalidate()
+				c.SetState(func() { c.radioSel = 1 })
 			}).SetMargin(yoga.EdgeRight, 12),
 			components.NewRadio("Option C").SetSelected(c.radioSel == 2).SetOnChange(func(_ bool) {
-				c.radioSel = 2
-				c.Invalidate()
+				c.SetState(func() { c.radioSel = 2 })
 			}),
 		),
 	)
@@ -215,8 +208,7 @@ func (i *InputDemo) Render() tenon.Component {
 			SetWidth(300).
 			SetPlaceholder("Enter your name").
 			SetOnChange(func(v string) {
-				i.name = v
-				i.Invalidate()
+				i.SetState(func() { i.name = v })
 			})
 	}
 	if i.emailInput == nil {
@@ -224,8 +216,7 @@ func (i *InputDemo) Render() tenon.Component {
 			SetWidth(300).
 			SetPlaceholder("Enter your email").
 			SetOnChange(func(v string) {
-				i.email = v
-				i.Invalidate()
+				i.SetState(func() { i.email = v })
 			})
 	}
 	return newPageCard("Text Input",
@@ -467,8 +458,7 @@ func (a *App) Render() tenon.Component {
 		{Key: "text", Label: "Text"},
 		{Key: "scroll", Label: "Scroll"},
 	}).SetSelectedKey(a.currentPage).SetOnSelect(func(key string) {
-		a.currentPage = key
-		a.Invalidate()
+		a.SetState(func() { a.currentPage = key })
 	})
 
 	content := components.NewView().

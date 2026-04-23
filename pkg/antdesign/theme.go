@@ -41,8 +41,11 @@ type AntTheme struct {
 	// 文字按钮 / 链接按钮
 	TextButtonColor      color.Color
 	TextButtonHoverColor color.Color
+	TextButtonHoverBg    color.Color // text 按钮 hover 背景
+	TextButtonActiveBg   color.Color // text 按钮 active 背景
 	LinkColor            color.Color
 	LinkHoverColor       color.Color
+	LinkPressedColor     color.Color
 
 	// 幽灵按钮边框
 	GhostBorderColor      color.Color
@@ -50,8 +53,8 @@ type AntTheme struct {
 	GhostTextColor        color.Color
 
 	// 禁用状态（更精细）
-	DisabledBgColor   color.Color
-	DisabledTextColor color.Color
+	DisabledBgColor     color.Color
+	DisabledTextColor   color.Color
 	DisabledBorderColor color.Color
 
 	// 斑马纹、悬停背景
@@ -67,14 +70,14 @@ type AntTheme struct {
 	AlertInfoBg    color.Color
 
 	// Tag 颜色映射
-	TagRedBg    color.Color
-	TagRedText  color.Color
-	TagOrangeBg color.Color
+	TagRedBg      color.Color
+	TagRedText    color.Color
+	TagOrangeBg   color.Color
 	TagOrangeText color.Color
-	TagGreenBg  color.Color
-	TagGreenText color.Color
-	TagBlueBg   color.Color
-	TagBlueText color.Color
+	TagGreenBg    color.Color
+	TagGreenText  color.Color
+	TagBlueBg     color.Color
+	TagBlueText   color.Color
 }
 
 // NewAntTheme 从当前全局主题创建 Ant Design 扩展主题。
@@ -84,6 +87,11 @@ func NewAntTheme() *AntTheme {
 
 // ExtendTheme 将 core.Theme 扩展为 AntTheme。
 func ExtendTheme(base *core.Theme) *AntTheme {
+	// 基于主色计算派生色
+	primary := base.PrimaryColor
+	primaryHover := lighten(primary, 0.15)
+	primaryPressed := darken(primary, 0.15)
+
 	return &AntTheme{
 		Theme: base,
 
@@ -109,20 +117,23 @@ func ExtendTheme(base *core.Theme) *AntTheme {
 
 		// 成功按钮
 		SuccessNormalColor:  color.RGBA{R: 82, G: 196, B: 26, A: 255},
-		SuccessHoverColor:    color.RGBA{R: 115, G: 209, B: 61, A: 255},
-		SuccessPressedColor:  color.RGBA{R: 56, G: 158, B: 13, A: 255},
-		SuccessTextColor:     color.White,
-		SuccessBgColor:       color.RGBA{R: 246, G: 255, B: 237, A: 255}, // #f6ffed
+		SuccessHoverColor:   color.RGBA{R: 115, G: 209, B: 61, A: 255},
+		SuccessPressedColor: color.RGBA{R: 56, G: 158, B: 13, A: 255},
+		SuccessTextColor:    color.White,
+		SuccessBgColor:      color.RGBA{R: 246, G: 255, B: 237, A: 255}, // #f6ffed
 
 		// 文字 / 链接按钮
-		TextButtonColor:      base.PrimaryColor,
-		TextButtonHoverColor: base.PrimaryHoverColor,
-		LinkColor:            base.PrimaryColor,
-		LinkHoverColor:       base.PrimaryHoverColor,
+		TextButtonColor:      base.TextColor,
+		TextButtonHoverColor: base.TextColor,
+		TextButtonHoverBg:    color.RGBA{R: 0, G: 0, B: 0, A: 15},   // rgba(0,0,0,0.06)
+		TextButtonActiveBg:   color.RGBA{R: 0, G: 0, B: 0, A: 38},   // rgba(0,0,0,0.15)
+		LinkColor:            primary,
+		LinkHoverColor:       primaryHover,
+		LinkPressedColor:     primaryPressed,
 
 		// 幽灵按钮
 		GhostBorderColor:      color.RGBA{R: 217, G: 217, B: 217, A: 255},
-		GhostBorderHoverColor: base.PrimaryColor,
+		GhostBorderHoverColor: primary,
 		GhostTextColor:        color.RGBA{R: 0, G: 0, B: 0, A: 224},
 
 		// 禁用状态

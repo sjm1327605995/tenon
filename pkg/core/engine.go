@@ -71,7 +71,7 @@ func (e *Engine) Mount() {
 	e.rootNode = e.mount(nil, e.rootHost)
 	e.injectEngine(e.rootNode)
 
-	// 如果根是 Widget，注册到 widgetMounts，使其 Invalidate 能触发更新
+	// 如果根是 Widget，注册到 widgetMounts，使其 invalidate 能触发更新
 	if e.rootWidget != nil && e.rootNode != nil {
 		e.widgetMounts[e.rootWidget] = e.rootNode
 		e.rootWidget.SetHostRef(e.rootNode.host)
@@ -872,7 +872,7 @@ func (e *Engine) removeYogaChild(parent, child Host) {
 	pel.Yoga.RemoveChild(cel.Yoga)
 }
 
-// SetRootWidget 设置根 Widget，使 Engine 能正确处理根级别的 Invalidate。
+// SetRootWidget 设置根 Widget，使 Engine 能正确处理根级别的更新。
 func (e *Engine) SetRootWidget(w Widget) {
 	e.rootWidget = w
 }
