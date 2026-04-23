@@ -20,11 +20,12 @@ type ProgressBar struct {
 
 // NewProgressBar 创建一个进度条。
 func NewProgressBar() *ProgressBar {
+	theme := core.GetTheme()
 	pb := &ProgressBar{
 		progress:     0,
-		trackColor:   color.RGBA{R: 224, G: 224, B: 224, A: 255},
-		fillColor:    color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		borderRadius: 4,
+		trackColor:   theme.ProgressBarTrackColor,
+		fillColor:    theme.ProgressBarFillColor,
+		borderRadius: theme.BorderRadius / 2,
 	}
 	pb.Init(pb)
 	pb.GetElement().Yoga.StyleSetHeight(8)
@@ -97,6 +98,10 @@ func (pb *ProgressBar) SetFillColor(clr color.Color) *ProgressBar {
 }
 func (pb *ProgressBar) SetWidth(width float32) *ProgressBar {
 	pb.GetElement().Yoga.StyleSetWidth(width)
+	return pb
+}
+func (pb *ProgressBar) SetWidthPercent(percent float32) *ProgressBar {
+	pb.GetElement().Yoga.StyleSetWidthPercent(percent)
 	return pb
 }
 func (pb *ProgressBar) SetHeight(height float32) *ProgressBar {

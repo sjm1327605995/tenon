@@ -2,6 +2,8 @@ package components
 
 import (
 	"image/color"
+	"math"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -23,14 +25,19 @@ type ScrollView struct {
 	dragging       bool
 	lastMouseX     float32
 	lastMouseY     float32
+	velocityY      float32    // fling 速度（像素/秒）
+	flinging       bool       // 是否处于惯性滚动
+	lastDragY      float32    // 上次拖拽 Y 坐标
+	lastDragTime   time.Time  // 上次拖拽时间
 }
 
 // NewScrollView 创建一个滚动视图。
 func NewScrollView() *ScrollView {
+	theme := core.GetTheme()
 	sv := &ScrollView{
 		scrollbarWidth: 6,
-		scrollbarColor: color.RGBA{R: 150, G: 150, B: 150, A: 200},
-		trackColor:     color.RGBA{R: 230, G: 230, B: 230, A: 100},
+		scrollbarColor: theme.ScrollbarColor,
+		trackColor:     theme.ScrollbarTrackColor,
 	}
 	sv.Init(sv)
 	sv.SetFocusable(true)
@@ -112,6 +119,8 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 		return true
 
 	case core.EventMouseDown:
+		sv.flinging = false
+		sv.velocityY = 0
 		if sv.maxScrollY > 0 {
 			// 检查是否点在滚动条上
 			trackX := bounds.X + bounds.Width - sv.scrollbarWidth - 2
@@ -122,6 +131,8 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 				sv.dragging = true
 				sv.lastMouseX = e.X
 				sv.lastMouseY = e.Y
+				sv.lastDragY = e.Y
+				sv.lastDragTime = time.Now()
 				return true
 			}
 		}
@@ -131,17 +142,33 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 			sv.dragging = true
 			sv.lastMouseX = e.X
 			sv.lastMouseY = e.Y
+			sv.lastDragY = e.Y
+			sv.lastDragTime = time.Now()
 			return true
 		}
 
 	case core.EventMouseUp:
-		sv.dragging = false
+		if sv.dragging {
+			sv.dragging = false
+			// 启动 fling：若速度足够大
+			if math.Abs(float64(sv.velocityY)) > 50 {
+				sv.flinging = true
+			}
+		}
 
 	case core.EventMouseMove:
 		if sv.dragging {
 			dy := e.Y - sv.lastMouseY
 			sv.scrollY += dy
 			sv.clampScroll()
+			// 计算拖拽速度
+			now := time.Now()
+			dt := float32(now.Sub(sv.lastDragTime).Seconds())
+			if dt > 0 {
+				sv.velocityY = (e.Y - sv.lastDragY) / dt
+			}
+			sv.lastDragY = e.Y
+			sv.lastDragTime = now
 			sv.lastMouseX = e.X
 			sv.lastMouseY = e.Y
 			return true
@@ -160,7 +187,7 @@ func (sv *ScrollView) clampScroll() {
 	}
 }
 
-// Update 每帧更新最大滚动范围。
+// Update 每帧更新最大滚动范围和 fling 状态。
 func (sv *ScrollView) Update() error {
 	contentH := sv.content.GetLayoutBounds().Height
 	viewportH := sv.GetLayoutBounds().Height
@@ -170,6 +197,17 @@ func (sv *ScrollView) Update() error {
 		sv.maxScrollY = 0
 		sv.scrollY = 0
 	}
+
+	// fling 惯性滚动
+	if sv.flinging {
+		sv.scrollY += sv.velocityY * (1.0 / 60.0) // 按 60 FPS 单帧时长积分
+		sv.velocityY *= 0.9
+		if math.Abs(float64(sv.velocityY)) < 10 {
+			sv.flinging = false
+			sv.velocityY = 0
+		}
+	}
+
 	sv.clampScroll()
 	return nil
 }
@@ -180,8 +218,16 @@ func (sv *ScrollView) SetWidth(width float32) *ScrollView {
 	sv.GetElement().Yoga.StyleSetWidth(width)
 	return sv
 }
+func (sv *ScrollView) SetWidthPercent(percent float32) *ScrollView {
+	sv.GetElement().Yoga.StyleSetWidthPercent(percent)
+	return sv
+}
 func (sv *ScrollView) SetHeight(height float32) *ScrollView {
 	sv.GetElement().Yoga.StyleSetHeight(height)
+	return sv
+}
+func (sv *ScrollView) SetHeightPercent(percent float32) *ScrollView {
+	sv.GetElement().Yoga.StyleSetHeightPercent(percent)
 	return sv
 }
 func (sv *ScrollView) SetFlexDirection(dir yoga.FlexDirection) *ScrollView {

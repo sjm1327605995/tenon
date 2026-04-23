@@ -1,4 +1,4 @@
-package main
+﻿package main
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// ==================== Counter：基础状态组件 ====================
+// ==================== 页面组件 ====================
 
 type Counter struct {
 	tenon.BaseWidget
@@ -26,29 +26,16 @@ func NewCounter() *Counter {
 }
 
 func (c *Counter) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText(fmt.Sprintf("Count: %d", c.count)).
-				SetFontSize(18).
-				SetColor(color.RGBA{R: 33, G: 37, B: 41, A: 255}).
-				SetMargin(yoga.EdgeBottom, 15),
-			components.NewButton("Increment").
-				SetWidth(150).
-				SetHeight(40).
-				SetOnClick(func() {
-					c.count++
-					c.Invalidate()
-				}),
-		)
+	return newPageCard("Counter",
+		components.NewText(fmt.Sprintf("Count: %d", c.count)).
+			SetFontSize(tenon.GetTheme().FontSizeBase+2).
+			SetMargin(yoga.EdgeBottom, 16),
+		components.NewButton("Increment").SetWidth(140).SetHeight(40).SetOnClick(func() {
+			c.count++
+			c.Invalidate()
+		}),
+	)
 }
-
-// ==================== DataFetcher：生命周期示例 ====================
 
 type DataFetcher struct {
 	tenon.BaseWidget
@@ -70,20 +57,10 @@ func (d *DataFetcher) ComponentDidMount() {
 }
 
 func (d *DataFetcher) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Lifecycle Demo").SetFontSize(20).SetMargin(yoga.EdgeBottom, 10),
-			components.NewText(d.data).SetFontSize(16),
-		)
+	return newPageCard("Lifecycle",
+		components.NewText(d.data).SetFontSize(tenon.GetTheme().FontSizeBase + 2),
+	)
 }
-
-// ==================== HooksDemo：Hooks 综合示例 ====================
 
 type HooksDemo struct {
 	tenon.BaseWidget
@@ -110,34 +87,26 @@ func (h *HooksDemo) Render() tenon.Component {
 		}
 	}, []any{count})
 
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Hooks Demo").SetFontSize(20).SetMargin(yoga.EdgeBottom, 10),
-			components.NewText(fmt.Sprintf("ID: %s", id)).SetFontSize(14).SetMargin(yoga.EdgeBottom, 5),
-			components.NewText(fmt.Sprintf("Count: %d", count)).SetFontSize(16).SetMargin(yoga.EdgeBottom, 5),
-			components.NewText(fmt.Sprintf("Doubled: %d", doubled)).SetFontSize(16).SetMargin(yoga.EdgeBottom, 15),
-			components.NewButton("+1").SetWidth(100).SetHeight(36).SetOnClick(func() {
+	return newPageCard("Hooks",
+		components.NewText(fmt.Sprintf("ID: %s", id)).SetFontSize(tenon.GetTheme().FontSizeBase).SetMargin(yoga.EdgeBottom, 4),
+		components.NewText(fmt.Sprintf("Count: %d", count)).SetFontSize(tenon.GetTheme().FontSizeBase).SetMargin(yoga.EdgeBottom, 4),
+		components.NewText(fmt.Sprintf("Doubled: %d", doubled)).SetFontSize(tenon.GetTheme().FontSizeBase).SetMargin(yoga.EdgeBottom, 16),
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).Add(
+			components.NewButton("+1").SetWidth(80).SetHeight(36).SetMargin(yoga.EdgeRight, 8).SetOnClick(func() {
 				setCount(count.(int) + 1)
 			}),
-			components.NewButton(fmt.Sprintf("Ref: %v", ref.Current)).SetWidth(150).SetHeight(36).SetMargin(yoga.EdgeTop, 10).SetOnClick(func() {
+			components.NewButton(fmt.Sprintf("Ref: %v", ref.Current)).SetWidth(140).SetHeight(36).SetOnClick(func() {
 				ref.Current = fmt.Sprintf("clicked-%d", count)
 				h.Invalidate()
 			}),
-		)
+		),
+	)
 }
-
-// ==================== FormDemo：表单组件示例 ====================
 
 type FormDemo struct {
 	tenon.BaseWidget
-	progress  float32
-	checked   bool
+	progress float32
+	checked  bool
 }
 
 func NewFormDemo() *FormDemo {
@@ -147,174 +116,128 @@ func NewFormDemo() *FormDemo {
 }
 
 func (f *FormDemo) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Form Components").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewText(fmt.Sprintf("Progress: %.0f%%", f.progress*100)).SetFontSize(14).SetMargin(yoga.EdgeBottom, 5),
-			components.NewProgressBar().
-				SetProgress(f.progress).
-				SetWidth(300).
-				SetHeight(10).
-				SetBorderRadius(5).
-				SetMargin(yoga.EdgeBottom, 15),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
-				components.NewCheckbox("Enable Feature").
-					SetChecked(f.checked).
-					SetOnChange(func(checked bool) {
-						f.checked = checked
-						f.Invalidate()
-					}),
-			),
-			components.NewButton(f.checkedStateText()).
-				SetWidth(180).
-				SetHeight(36).
-				SetMargin(yoga.EdgeTop, 10).
-				SetOnClick(func() {
-					f.progress += 0.1
-					if f.progress > 1 {
-						f.progress = 0
-					}
+	btnLabel := "Feature Disabled"
+	if f.checked {
+		btnLabel = "Feature Enabled"
+	}
+	return newPageCard("Form",
+		components.NewText(fmt.Sprintf("Progress: %.0f%%", f.progress*100)).
+			SetFontSize(tenon.GetTheme().FontSizeBase).
+			SetMargin(yoga.EdgeBottom, 8),
+		components.NewProgressBar().
+			SetProgress(f.progress).
+			SetWidthPercent(100).
+			SetHeight(10).
+			SetBorderRadius(5).
+			SetMargin(yoga.EdgeBottom, 16),
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
+			components.NewCheckbox("Enable Feature").
+				SetChecked(f.checked).
+				SetOnChange(func(checked bool) {
+					f.checked = checked
 					f.Invalidate()
 				}),
-		)
+		),
+		components.NewButton(btnLabel).SetWidth(160).SetHeight(36).SetOnClick(func() {
+			f.progress += 0.1
+			if f.progress > 1 {
+				f.progress = 0
+			}
+			f.Invalidate()
+		}),
+	)
 }
 
-func (f *FormDemo) checkedStateText() string {
-	if f.checked {
-		return "Feature Enabled"
+type ControlDemo struct {
+	tenon.BaseWidget
+	sliderVal float32
+	switchOn  bool
+	radioSel  int
+}
+
+func NewControlDemo() *ControlDemo {
+	c := &ControlDemo{sliderVal: 50, switchOn: false, radioSel: 0}
+	c.Init(c)
+	return c
+}
+
+func (c *ControlDemo) Render() tenon.Component {
+	return newPageCard("Controls",
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
+			components.NewText(fmt.Sprintf("Slider: %.0f", c.sliderVal)).SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(70),
+			components.NewSlider(0, 100).SetValue(c.sliderVal).SetWidth(200).SetOnChange(func(v float32) {
+				c.sliderVal = v
+				c.Invalidate()
+			}),
+		),
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
+			components.NewText("Switch:").SetFontSize(tenon.GetTheme().FontSizeBase).SetMargin(yoga.EdgeRight, 10),
+			components.NewSwitch().SetChecked(c.switchOn).SetOnChange(func(on bool) {
+				c.switchOn = on
+				c.Invalidate()
+			}),
+			components.NewText(fmt.Sprintf("  %v", c.switchOn)).SetFontSize(tenon.GetTheme().FontSizeBase),
+		),
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
+			components.NewRadio("Option A").SetSelected(c.radioSel == 0).SetOnChange(func(_ bool) {
+				c.radioSel = 0
+				c.Invalidate()
+			}).SetMargin(yoga.EdgeRight, 12),
+			components.NewRadio("Option B").SetSelected(c.radioSel == 1).SetOnChange(func(_ bool) {
+				c.radioSel = 1
+				c.Invalidate()
+			}).SetMargin(yoga.EdgeRight, 12),
+			components.NewRadio("Option C").SetSelected(c.radioSel == 2).SetOnChange(func(_ bool) {
+				c.radioSel = 2
+				c.Invalidate()
+			}),
+		),
+	)
+}
+
+type InputDemo struct {
+	tenon.BaseWidget
+	nameInput  *components.TextInput
+	emailInput *components.TextInput
+	name       string
+	email      string
+}
+
+func NewInputDemo() *InputDemo {
+	i := &InputDemo{name: "", email: ""}
+	i.Init(i)
+	return i
+}
+
+func (i *InputDemo) Render() tenon.Component {
+	if i.nameInput == nil {
+		i.nameInput = components.NewTextInput().
+			SetWidth(300).
+			SetPlaceholder("Enter your name").
+			SetOnChange(func(v string) {
+				i.name = v
+				i.Invalidate()
+			})
 	}
-	return "Feature Disabled"
-}
-
-// ==================== ScrollDemo：滚动视图示例 ====================
-
-type ScrollDemo struct {
-	tenon.BaseWidget
-	scrollView *components.ScrollView
-}
-
-func NewScrollDemo() *ScrollDemo {
-	s := &ScrollDemo{}
-	s.Init(s)
-	return s
-}
-
-func (s *ScrollDemo) Render() tenon.Component {
-	if s.scrollView == nil {
-		s.scrollView = components.NewScrollView().
-			SetWidth(400).
-			SetHeight(200).
-			SetBackgroundColor(color.White).
-			SetBorderRadius(12).
-			SetBorder(yoga.EdgeAll, 1).
-			SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-			SetMargin(yoga.EdgeBottom, 20)
-
-		content := s.scrollView.Content()
-		content.SetFlexDirection(yoga.FlexDirectionColumn).SetPadding(yoga.EdgeAll, 15)
-		for i := 1; i <= 20; i++ {
-			content.Add(
-				components.NewText(fmt.Sprintf("Scroll item #%d", i)).
-					SetFontSize(14).
-					SetMargin(yoga.EdgeBottom, 10),
-			)
-		}
+	if i.emailInput == nil {
+		i.emailInput = components.NewTextInput().
+			SetWidth(300).
+			SetPlaceholder("Enter your email").
+			SetOnChange(func(v string) {
+				i.email = v
+				i.Invalidate()
+			})
 	}
-	return s.scrollView
+	return newPageCard("Text Input",
+		components.NewText("Name:").SetFontSize(tenon.GetTheme().FontSizeBase).SetColor(tenon.GetTheme().TextMutedColor).SetMargin(yoga.EdgeBottom, 4),
+		i.nameInput.SetMargin(yoga.EdgeBottom, 12),
+		components.NewText("Email:").SetFontSize(tenon.GetTheme().FontSizeBase).SetColor(tenon.GetTheme().TextMutedColor).SetMargin(yoga.EdgeBottom, 4),
+		i.emailInput.SetMargin(yoga.EdgeBottom, 12),
+		components.NewText(fmt.Sprintf("Name: %s | Email: %s", i.name, i.email)).
+			SetFontSize(tenon.GetTheme().FontSizeBase).
+			SetColor(tenon.GetTheme().TextMutedColor),
+	)
 }
-
-// ==================== ImageDemo：图片组件示例 ====================
-
-type ImageDemo struct {
-	tenon.BaseWidget
-}
-
-func NewImageDemo() *ImageDemo {
-	im := &ImageDemo{}
-	im.Init(im)
-	return im
-}
-
-func (im *ImageDemo) Render() tenon.Component {
-	img := ebiten.NewImage(120, 120)
-	img.Fill(color.RGBA{R: 100, G: 180, B: 255, A: 255})
-
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Image Component").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
-				components.NewImage().SetEbitenImage(img).SetWidth(120).SetHeight(120).SetMargin(yoga.EdgeRight, 20),
-				components.NewView().SetFlexDirection(yoga.FlexDirectionColumn).SetJustifyContent(yoga.JustifyCenter).Add(
-					components.NewText("Ebiten Image").SetFontSize(14).SetColor(color.RGBA{R: 100, G: 100, B: 100, A: 255}),
-					components.NewText("Rendered in Tenon").SetFontSize(14).SetColor(color.RGBA{R: 100, G: 100, B: 100, A: 255}),
-				),
-			),
-		)
-}
-
-// ==================== StyleDemo：样式展示 ====================
-
-type StyleDemo struct {
-	tenon.BaseWidget
-}
-
-func NewStyleDemo() *StyleDemo {
-	s := &StyleDemo{}
-	s.Init(s)
-	return s
-}
-
-func (s *StyleDemo) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Styles & Effects").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetJustifyContent(yoga.JustifySpaceBetween).Add(
-				components.NewView().
-					SetWidth(80).SetHeight(80).
-					SetBackgroundColor(color.RGBA{R: 255, G: 99, B: 71, A: 255}).
-					SetBorderRadius(40).
-					SetMargin(yoga.EdgeRight, 10),
-				components.NewView().
-					SetWidth(80).SetHeight(80).
-					SetBackgroundColor(color.RGBA{R: 50, G: 205, B: 50, A: 255}).
-					SetBorderRadius(8).
-					SetShadow(color.RGBA{A: 80}, 12, 4, 4).
-					SetMargin(yoga.EdgeRight, 10),
-				components.NewView().
-					SetWidth(80).SetHeight(80).
-					SetBackgroundColor(color.RGBA{R: 255, G: 215, B: 0, A: 255}).
-					SetBorderRadius(0).
-					SetBorder(yoga.EdgeAll, 3).
-					SetBorderColor(color.RGBA{R: 255, G: 140, B: 0, A: 255}).
-					SetMargin(yoga.EdgeRight, 10),
-				components.NewView().
-					SetWidth(80).SetHeight(80).
-					SetBackgroundColor(color.RGBA{R: 138, G: 43, B: 226, A: 255}).
-					SetBorderRadius4(20, 4, 20, 4).
-					SetShadow(color.RGBA{A: 60}, 8, 0, 6),
-			),
-		)
-}
-
-// ==================== FocusDemo：焦点系统示例 ====================
 
 type FocusDemo struct {
 	tenon.BaseWidget
@@ -327,26 +250,16 @@ func NewFocusDemo() *FocusDemo {
 }
 
 func (f *FocusDemo) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Focus System (Press Tab)").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
-				components.NewButton("Button A").SetWidth(100).SetHeight(36).SetMargin(yoga.EdgeRight, 10),
-				components.NewButton("Button B").SetWidth(100).SetHeight(36).SetMargin(yoga.EdgeRight, 10),
-				components.NewButton("Button C").SetWidth(100).SetHeight(36).SetMargin(yoga.EdgeRight, 20),
-				components.NewCheckbox("Check 1").SetMargin(yoga.EdgeRight, 15),
-				components.NewCheckbox("Check 2"),
-			),
-		)
+	return newPageCard("Focus System (Press Tab)",
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetFlexWrap(yoga.WrapWrap).Add(
+			components.NewButton("Button A").SetWidth(90).SetHeight(36).SetMargin(yoga.EdgeRight, 8).SetMargin(yoga.EdgeBottom, 8),
+			components.NewButton("Button B").SetWidth(90).SetHeight(36).SetMargin(yoga.EdgeRight, 8).SetMargin(yoga.EdgeBottom, 8),
+			components.NewButton("Button C").SetWidth(90).SetHeight(36).SetMargin(yoga.EdgeRight, 16).SetMargin(yoga.EdgeBottom, 8),
+			components.NewCheckbox("Check 1").SetMargin(yoga.EdgeRight, 12).SetMargin(yoga.EdgeBottom, 8),
+			components.NewCheckbox("Check 2").SetMargin(yoga.EdgeBottom, 8),
+		),
+	)
 }
-
-// ==================== LayoutDemo：Flex 布局示例 ====================
 
 type LayoutDemo struct {
 	tenon.BaseWidget
@@ -380,135 +293,61 @@ func (l *LayoutDemo) Render() tenon.Component {
 			SetMargin(yoga.EdgeRight, 8).SetMargin(yoga.EdgeBottom, 8))
 	}
 
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Flex Layout").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewText("Row (fixed size)").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 5),
-			row1,
-			components.NewText("Row (flex grow 1:2:1)").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 5),
-			row2,
-			components.NewText("Row (wrap)").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 5),
-			row3,
-		)
+	return newPageCard("Flex Layout",
+		newSectionTitle("Row (fixed size)"),
+		row1,
+		newSectionTitle("Row (flex grow 1:2:1)"),
+		row2,
+		newSectionTitle("Row (wrap)"),
+		row3,
+	)
 }
 
-// ==================== InputDemo：文本输入示例 ====================
-
-type InputDemo struct {
+type StyleDemo struct {
 	tenon.BaseWidget
-	nameInput  *components.TextInput
-	emailInput *components.TextInput
-	name       string
-	email      string
 }
 
-func NewInputDemo() *InputDemo {
-	i := &InputDemo{name: "", email: ""}
-	i.Init(i)
-	return i
+func NewStyleDemo() *StyleDemo {
+	s := &StyleDemo{}
+	s.Init(s)
+	return s
 }
 
-func (i *InputDemo) Render() tenon.Component {
-	// 缓存并复用 TextInput，避免 Invalidate 后重建导致输入状态丢失
-	if i.nameInput == nil {
-		i.nameInput = components.NewTextInput().
-			SetWidth(300).
-			SetPlaceholder("Enter your name").
-			SetOnChange(func(v string) {
-				i.name = v
-				i.Invalidate()
-			})
-	}
-	if i.emailInput == nil {
-		i.emailInput = components.NewTextInput().
-			SetWidth(300).
-			SetPlaceholder("Enter your email").
-			SetOnChange(func(v string) {
-				i.email = v
-				i.Invalidate()
-			})
-	}
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Text Input").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewText("Name:").SetFontSize(14).SetColor(color.RGBA{R: 100, G: 100, B: 100, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			i.nameInput.SetMargin(yoga.EdgeBottom, 12),
-			components.NewText("Email:").SetFontSize(14).SetColor(color.RGBA{R: 100, G: 100, B: 100, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			i.emailInput.SetMargin(yoga.EdgeBottom, 12),
-			components.NewText(fmt.Sprintf("Name: %s | Email: %s", i.name, i.email)).SetFontSize(14).SetColor(color.RGBA{R: 100, G: 100, B: 100, A: 255}),
-		)
+func (s *StyleDemo) Render() tenon.Component {
+	return newPageCard("Styles & Effects",
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetJustifyContent(yoga.JustifySpaceBetween).Add(
+			components.NewView().SetWidth(70).SetHeight(70).SetBackgroundColor(tenon.GetTheme().PrimaryColor).SetBorderRadius(35).SetMargin(yoga.EdgeRight, 10),
+			components.NewView().SetWidth(70).SetHeight(70).SetBackgroundColor(color.RGBA{R: 50, G: 205, B: 50, A: 255}).SetBorderRadius(tenon.GetTheme().BorderRadius).SetShadow(tenon.GetTheme().ShadowColor, 12, 4, 4).SetMargin(yoga.EdgeRight, 10),
+			components.NewView().SetWidth(70).SetHeight(70).SetBackgroundColor(color.RGBA{R: 255, G: 215, B: 0, A: 255}).SetBorderRadius(0).SetBorder(yoga.EdgeAll, 3).SetBorderColor(tenon.GetTheme().BorderColor).SetMargin(yoga.EdgeRight, 10),
+			components.NewView().SetWidth(70).SetHeight(70).SetBackgroundColor(color.RGBA{R: 138, G: 43, B: 226, A: 255}).SetBorderRadius4(16, 4, 16, 4).SetShadow(tenon.GetTheme().ShadowColor, 8, 0, 6),
+		),
+	)
 }
 
-// ==================== ControlDemo：控件组件示例 ====================
-
-type ControlDemo struct {
+type ImageDemo struct {
 	tenon.BaseWidget
-	sliderVal float32
-	switchOn  bool
-	radioSel  int
 }
 
-func NewControlDemo() *ControlDemo {
-	c := &ControlDemo{sliderVal: 50, switchOn: false, radioSel: 0}
-	c.Init(c)
-	return c
+func NewImageDemo() *ImageDemo {
+	im := &ImageDemo{}
+	im.Init(im)
+	return im
 }
 
-func (c *ControlDemo) Render() tenon.Component {
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
-		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Controls").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
-				components.NewText(fmt.Sprintf("Slider: %.0f", c.sliderVal)).SetFontSize(14).SetWidth(80),
-				components.NewSlider(0, 100).SetValue(c.sliderVal).SetWidth(200).SetOnChange(func(v float32) {
-					c.sliderVal = v
-					c.Invalidate()
-				}),
-			),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).SetMargin(yoga.EdgeBottom, 12).Add(
-				components.NewText("Switch:").SetFontSize(14).SetMargin(yoga.EdgeRight, 10),
-				components.NewSwitch().SetChecked(c.switchOn).SetOnChange(func(on bool) {
-					c.switchOn = on
-					c.Invalidate()
-				}),
-				components.NewText(fmt.Sprintf("  %v", c.switchOn)).SetFontSize(14),
-			),
-			components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
-				components.NewRadio("Option A").SetSelected(c.radioSel == 0).SetOnChange(func(_ bool) {
-					c.radioSel = 0
-					c.Invalidate()
-				}).SetMargin(yoga.EdgeRight, 15),
-				components.NewRadio("Option B").SetSelected(c.radioSel == 1).SetOnChange(func(_ bool) {
-					c.radioSel = 1
-					c.Invalidate()
-				}).SetMargin(yoga.EdgeRight, 15),
-				components.NewRadio("Option C").SetSelected(c.radioSel == 2).SetOnChange(func(_ bool) {
-					c.radioSel = 2
-					c.Invalidate()
-				}),
-			),
-		)
-}
+func (im *ImageDemo) Render() tenon.Component {
+	img := ebiten.NewImage(100, 100)
+	img.Fill(tenon.GetTheme().PrimaryColor)
 
-// ==================== TextWrapDemo：文本换行示例 ====================
+	return newPageCard("Image",
+		components.NewView().SetFlexDirection(yoga.FlexDirectionRow).SetAlignItems(yoga.AlignCenter).Add(
+			components.NewImage().SetEbitenImage(img).SetWidth(100).SetHeight(100).SetMargin(yoga.EdgeRight, 16),
+			components.NewView().SetFlexDirection(yoga.FlexDirectionColumn).SetJustifyContent(yoga.JustifyCenter).Add(
+				components.NewText("Ebiten Image").SetFontSize(tenon.GetTheme().FontSizeBase),
+				components.NewText("Rendered in Tenon").SetFontSize(tenon.GetTheme().FontSizeBase).SetColor(tenon.GetTheme().TextMutedColor),
+			),
+		),
+	)
+}
 
 type TextWrapDemo struct {
 	tenon.BaseWidget
@@ -524,68 +363,156 @@ func (t *TextWrapDemo) Render() tenon.Component {
 	longText := "The quick brown fox jumps over the lazy dog. 这是一段用于测试文本换行功能的中英文混合长文本内容。"
 	cjkText := "这是一个很长的中文文本用于测试自动换行功能，中文应该在字符边界处正确断行。"
 
-	return components.NewView().
-		SetPadding(yoga.EdgeAll, 20).
-		SetBackgroundColor(color.White).
-		SetBorderRadius(12).
+	return newPageCard("Text Wrapping",
+		newSectionTitle("Normal (auto wrap)"),
+		components.NewText(longText).SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(300).SetWhiteSpace(components.WhiteSpaceNormal).SetMargin(yoga.EdgeBottom, 10),
+		newSectionTitle("BreakAll"),
+		components.NewText(longText).SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(300).SetWhiteSpace(components.WhiteSpaceNormal).SetWordBreak(components.WordBreakBreakAll).SetMargin(yoga.EdgeBottom, 10),
+		newSectionTitle("CJK Normal"),
+		components.NewText(cjkText).SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(260).SetWhiteSpace(components.WhiteSpaceNormal).SetMargin(yoga.EdgeBottom, 10),
+		newSectionTitle("Pre-wrap (preserve \\n)"),
+		components.NewText("Line 1\nLine 2\nLine 3").SetFontSize(tenon.GetTheme().FontSizeBase).SetWidth(260).SetWhiteSpace(components.WhiteSpacePreWrap),
+	)
+}
+
+type ScrollDemo struct {
+	tenon.BaseWidget
+	scrollView *components.ScrollView
+}
+
+func NewScrollDemo() *ScrollDemo {
+	s := &ScrollDemo{}
+	s.Init(s)
+	return s
+}
+
+func (s *ScrollDemo) Render() tenon.Component {
+	if s.scrollView == nil {
+		s.scrollView = components.NewScrollView().
+			SetHeight(200).
+			SetBackgroundColor(tenon.GetTheme().SurfaceColor).
+			SetBorderRadius(tenon.GetTheme().BorderRadius).
+			SetBorder(yoga.EdgeAll, 1).
+			SetBorderColor(tenon.GetTheme().BorderColor)
+
+		content := s.scrollView.Content()
+		content.SetFlexDirection(yoga.FlexDirectionColumn).SetPadding(yoga.EdgeAll, 12)
+		for i := 1; i <= 20; i++ {
+			content.Add(
+				components.NewText(fmt.Sprintf("Scroll item #%d", i)).
+					SetFontSize(tenon.GetTheme().FontSizeBase).
+					SetMargin(yoga.EdgeBottom, 8),
+			)
+		}
+	}
+	return s.scrollView
+}
+
+// ==================== 布局辅助函数 ====================
+
+func newPageCard(title string, children ...tenon.Component) tenon.Component {
+	theme := tenon.GetTheme()
+	card := components.NewView().
+		SetPadding(yoga.EdgeAll, 24).
+		SetBackgroundColor(theme.SurfaceColor).
+		SetBorderRadius(theme.BorderRadius).
 		SetBorder(yoga.EdgeAll, 1).
-		SetBorderColor(color.RGBA{R: 222, G: 226, B: 230, A: 255}).
-		SetMargin(yoga.EdgeBottom, 20).
-		Add(
-			components.NewText("Text Wrapping").SetFontSize(20).SetMargin(yoga.EdgeBottom, 15),
-			components.NewText("Normal (auto wrap):").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			components.NewText(longText).SetFontSize(14).SetWidth(350).SetWhiteSpace(components.WhiteSpaceNormal).SetMargin(yoga.EdgeBottom, 12),
-			components.NewText("BreakAll:").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			components.NewText(longText).SetFontSize(14).SetWidth(350).SetWhiteSpace(components.WhiteSpaceNormal).SetWordBreak(components.WordBreakBreakAll).SetMargin(yoga.EdgeBottom, 12),
-			components.NewText("CJK Normal:").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			components.NewText(cjkText).SetFontSize(14).SetWidth(300).SetWhiteSpace(components.WhiteSpaceNormal).SetMargin(yoga.EdgeBottom, 12),
-			components.NewText("Pre-wrap (preserve \\n):").SetFontSize(12).SetColor(color.RGBA{R: 120, G: 120, B: 120, A: 255}).SetMargin(yoga.EdgeBottom, 4),
-			components.NewText("Line 1\nLine 2\nLine 3").SetFontSize(14).SetWidth(300).SetWhiteSpace(components.WhiteSpacePreWrap),
-		)
+		SetBorderColor(theme.BorderColor).
+		SetMargin(yoga.EdgeBottom, 16)
+
+	card.Add(
+		components.NewText(title).
+			SetFontSize(theme.FontSizeLG).
+			SetColor(theme.TextColor).
+			SetMargin(yoga.EdgeBottom, 16),
+	)
+	for _, c := range children {
+		card.AddChild(c)
+	}
+	return card
+}
+
+func newSectionTitle(text string) tenon.Component {
+	return components.NewText(text).
+		SetFontSize(tenon.GetTheme().FontSizeSM).
+		SetColor(tenon.GetTheme().TextMutedColor).
+		SetMargin(yoga.EdgeBottom, 4)
 }
 
 // ==================== App：根组件 ====================
 
 type App struct {
 	tenon.BaseWidget
-	scrollView *components.ScrollView
+	currentPage string
 }
 
 func NewApp() *App {
-	a := &App{}
+	a := &App{currentPage: "counter"}
 	a.Init(a)
 	return a
 }
 
 func (a *App) Render() tenon.Component {
-	if a.scrollView == nil {
-		a.scrollView = components.NewScrollView().
-			SetWidth(800).
-			SetHeight(600).
-			SetBackgroundColor(color.RGBA{R: 240, G: 240, B: 240, A: 255})
+	menu := components.NewMenu().SetItems([]components.MenuItemData{
+		{Key: "counter", Label: "Counter"},
+		{Key: "lifecycle", Label: "Lifecycle"},
+		{Key: "hooks", Label: "Hooks"},
+		{Key: "form", Label: "Form"},
+		{Key: "controls", Label: "Controls"},
+		{Key: "input", Label: "Text Input"},
+		{Key: "focus", Label: "Focus"},
+		{Key: "layout", Label: "Layout"},
+		{Key: "styles", Label: "Styles"},
+		{Key: "image", Label: "Image"},
+		{Key: "text", Label: "Text"},
+		{Key: "scroll", Label: "Scroll"},
+	}).SetSelectedKey(a.currentPage).SetOnSelect(func(key string) {
+		a.currentPage = key
+		a.Invalidate()
+	})
 
-		content := a.scrollView.Content()
-		content.SetFlexDirection(yoga.FlexDirectionColumn).SetPadding(yoga.EdgeAll, 20)
-		content.Add(
-			components.NewText("Tenon UI Framework").
-				SetFontSize(24).
-				SetColor(color.RGBA{R: 51, G: 51, B: 51, A: 255}).
-				SetMargin(yoga.EdgeBottom, 30),
-			NewCounter(),
-			NewDataFetcher(),
-			NewHooksDemo(),
-			NewFormDemo(),
-			NewImageDemo(),
-			NewStyleDemo(),
-			NewFocusDemo(),
-			NewLayoutDemo(),
-			NewInputDemo(),
-			NewControlDemo(),
-			NewTextWrapDemo(),
-			NewScrollDemo(),
-		)
+	content := components.NewView().
+		SetFlexGrow(1).
+		SetPadding(yoga.EdgeAll, 24).
+		SetBackgroundColor(tenon.GetTheme().BackgroundColor)
+
+	switch a.currentPage {
+	case "counter":
+		content.AddChild(NewCounter())
+	case "lifecycle":
+		content.AddChild(NewDataFetcher())
+	case "hooks":
+		content.AddChild(NewHooksDemo())
+	case "form":
+		content.AddChild(NewFormDemo())
+	case "controls":
+		content.AddChild(NewControlDemo())
+	case "input":
+		content.AddChild(NewInputDemo())
+	case "focus":
+		content.AddChild(NewFocusDemo())
+	case "layout":
+		content.AddChild(NewLayoutDemo())
+	case "styles":
+		content.AddChild(NewStyleDemo())
+	case "image":
+		content.AddChild(NewImageDemo())
+	case "text":
+		content.AddChild(NewTextWrapDemo())
+	case "scroll":
+		content.AddChild(NewScrollDemo())
 	}
-	return a.scrollView
+
+	scrollView := components.NewScrollView().
+		SetWidthPercent(100).
+		SetHeightPercent(100)
+	scrollView.Content().AddChild(content)
+
+	return components.NewView().
+		SetFlexDirection(yoga.FlexDirectionRow).
+		SetWidthPercent(100).
+		SetHeightPercent(100).
+		Add(menu, scrollView)
 }
 
 // ==================== Main ====================
@@ -598,6 +525,8 @@ func main() {
 		fonts.SetDefaultFontFamily(fonts.FontFamilySans)
 	}
 
-	// 直接运行 App，App 内部是 ScrollView
-	tenon.Run(NewApp(), 800, 600)
+	// 使用 Ant Design 主题
+	tenon.SetTheme(tenon.DefaultAntTheme())
+
+	tenon.Run(NewApp(), 900, 650)
 }

@@ -153,6 +153,14 @@ func (v *View) SetWidth(width float32) *View {
 	v.GetElement().Yoga.StyleSetWidth(width)
 	return v
 }
+func (v *View) SetWidthPercent(percent float32) *View {
+	v.GetElement().Yoga.StyleSetWidthPercent(percent)
+	return v
+}
+func (v *View) SetHeightPercent(percent float32) *View {
+	v.GetElement().Yoga.StyleSetHeightPercent(percent)
+	return v
+}
 func (v *View) SetHeight(height float32) *View {
 	v.GetElement().Yoga.StyleSetHeight(height)
 	return v

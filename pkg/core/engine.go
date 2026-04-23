@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"reflect"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -23,6 +24,7 @@ type renderNode struct {
 type Engine struct {
 	rootHost     Host
 	rootNode     *renderNode
+	rootWidget   Widget // 根 Widget（当 root 是 Widget 而非 Host 时）
 
 	widgetMounts map[Widget]*renderNode // Widget -> 展开后的根 renderNode
 	dirtyWidgets map[Widget]struct{}    // 待更新队列
@@ -38,6 +40,8 @@ type Engine struct {
 	mouseDownButton  ebiten.MouseButton // 按下的鼠标按钮
 	lastMouseX       float32           // 上一帧鼠标 X
 	lastMouseY       float32           // 上一帧鼠标 Y
+	animations     []Animation // 活跃动画列表
+	lastFrameTime  time.Time   // 上一帧时间（用于计算 deltaTime）
 }
 
 // NewEngine 创建一个引擎，rootHost 必须是宿主组件。
@@ -48,6 +52,7 @@ func NewEngine(rootHost Host, width, height int) *Engine {
 		dirtyWidgets: make(map[Widget]struct{}),
 		screenWidth:  width,
 		screenHeight: height,
+		lastFrameTime: time.Now(),
 	}
 }
 
@@ -61,7 +66,16 @@ func (e *Engine) SetScreenSize(w, h int) {
 func (e *Engine) Mount() {
 	e.rootNode = e.mount(nil, e.rootHost)
 	e.injectEngine(e.rootNode)
+
+	// 如果根是 Widget，注册到 widgetMounts，使其 Invalidate 能触发更新
+	if e.rootWidget != nil && e.rootNode != nil {
+		e.widgetMounts[e.rootWidget] = e.rootNode
+		e.rootWidget.SetHostRef(e.rootNode.host)
+		e.rootWidget.setEngine(e)
+	}
+
 	e.calculateLayout()
+	setActiveEngine(e)
 }
 
 // injectEngine 给所有 Host 节点注入 Engine 引用。
@@ -154,6 +168,14 @@ func (e *Engine) scheduleUpdate(w Widget) {
 	e.dirtyWidgets[w] = struct{}{}
 }
 
+// InvalidateAll 标记所有已挂载的 Widget 为 dirty，触发全局重渲染。
+// 通常用于主题切换等需要更新整个 UI 树的场景。
+func (e *Engine) InvalidateAll() {
+	for w := range e.widgetMounts {
+		e.dirtyWidgets[w] = struct{}{}
+	}
+}
+
 func (e *Engine) flushUpdates() {
 	for w := range e.dirtyWidgets {
 		e.updateWidget(w)
@@ -171,11 +193,6 @@ func (e *Engine) updateWidget(w Widget) {
 		return
 	}
 
-	parent := oldNode.parent
-	if parent == nil {
-		return
-	}
-
 	// 重新 Render
 	w.resetHooks()
 	rendered := w.Render()
@@ -185,8 +202,10 @@ func (e *Engine) updateWidget(w Widget) {
 		if newHost, ok := rendered.(Host); ok {
 			if reflect.TypeOf(oldNode.host) == reflect.TypeOf(newHost) {
 				syncHost(oldNode.host, newHost)
+				newChildren := make([]Component, len(newHost.GetChildren()))
+				copy(newChildren, newHost.GetChildren())
 				oldNode.host.ClearChildren()
-				for _, child := range newHost.GetChildren() {
+				for _, child := range newChildren {
 					oldNode.host.AddChild(child)
 				}
 				rendered = oldNode.host
@@ -206,23 +225,39 @@ func (e *Engine) updateWidget(w Widget) {
 	}
 
 	// 无法复用，全量重建
+	parent := oldNode.parent
 	e.unmount(oldNode)
-	for i, child := range parent.children {
-		if child == oldNode {
-			parent.children = append(parent.children[:i], parent.children[i+1:]...)
-			break
-		}
-	}
 
-	newNode := e.mount(parent, rendered)
-	if newNode != nil {
-		parent.children = append(parent.children, newNode)
-		if newNode.host != nil && parent.host != nil {
-			e.insertYogaChild(parent.host, newNode.host)
+	if parent != nil {
+		for i, child := range parent.children {
+			if child == oldNode {
+				parent.children = append(parent.children[:i], parent.children[i+1:]...)
+				break
+			}
 		}
-		e.widgetMounts[w] = newNode
-		newNode.sourceWidget = w
-		w.SetHostRef(newNode.host)
+		newNode := e.mount(parent, rendered)
+		if newNode != nil {
+			parent.children = append(parent.children, newNode)
+			if newNode.host != nil && parent.host != nil {
+				e.insertYogaChild(parent.host, newNode.host)
+			}
+			e.widgetMounts[w] = newNode
+			newNode.sourceWidget = w
+			w.SetHostRef(newNode.host)
+		}
+	} else {
+		// 根节点（parent == nil）
+		e.rootNode = nil
+		if h, ok := rendered.(Host); ok {
+			e.rootHost = h
+			newNode := e.mount(nil, rendered)
+			e.rootNode = newNode
+			if newNode != nil {
+				e.widgetMounts[w] = newNode
+				newNode.sourceWidget = w
+				w.SetHostRef(newNode.host)
+			}
+		}
 	}
 
 	w.ComponentDidUpdate(nil, nil)
@@ -308,6 +343,14 @@ func (e *Engine) replaceHostTree(node *renderNode, newHost Host) bool {
 // ==================== 渲染循环 ====================
 
 func (e *Engine) Update() error {
+	// 计算 deltaTime
+	now := time.Now()
+	deltaTime := float32(now.Sub(e.lastFrameTime).Seconds())
+	e.lastFrameTime = now
+
+	// 0. 动画更新
+	e.updateAnimations(deltaTime)
+
 	// 1. Widget 更新
 	e.flushUpdates()
 
@@ -703,6 +746,32 @@ func (e *Engine) updateHosts(node *renderNode) {
 	}
 }
 
+// ==================== 动画管理 ====================
+
+func (e *Engine) AddAnimation(anim Animation) {
+	if anim == nil {
+		return
+	}
+	e.animations = append(e.animations, anim)
+}
+
+func (e *Engine) updateAnimations(deltaTime float32) {
+	if len(e.animations) == 0 {
+		return
+	}
+	// 防止 deltaTime 过大（如窗口失去焦点后恢复）
+	if deltaTime > 0.1 {
+		deltaTime = 1.0 / 60.0
+	}
+	active := e.animations[:0]
+	for _, anim := range e.animations {
+		if anim.Update(deltaTime) {
+			active = append(active, anim)
+		}
+	}
+	e.animations = active
+}
+
 // ==================== Yoga 工具 ====================
 
 func (e *Engine) insertYogaChild(parent, child Host) {
@@ -727,6 +796,11 @@ func (e *Engine) removeYogaChild(parent, child Host) {
 		return
 	}
 	pel.Yoga.RemoveChild(cel.Yoga)
+}
+
+// SetRootWidget 设置根 Widget，使 Engine 能正确处理根级别的 Invalidate。
+func (e *Engine) SetRootWidget(w Widget) {
+	e.rootWidget = w
 }
 
 // ==================== Portal ====================

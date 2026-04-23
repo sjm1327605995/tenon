@@ -31,10 +31,11 @@ type Text struct {
 
 // NewText 创建一个文本组件。
 func NewText(content string) *Text {
+	theme := core.GetTheme()
 	t := &Text{
 		Content:    content,
-		FontSize:   16,
-		Color:      color.RGBA{R: 0, G: 0, B: 0, A: 255},
+		FontSize:   theme.FontSizeBase + 2,
+		Color:      theme.TextColor,
 		whiteSpace: WhiteSpaceNormal,
 		wordBreak:  WordBreakNormal,
 	}

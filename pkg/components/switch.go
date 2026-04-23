@@ -2,6 +2,7 @@ package components
 
 import (
 	"image/color"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -19,17 +20,20 @@ type Switch struct {
 	offColor      color.Color
 	onColor       color.Color
 	thumbColor    color.Color
+	thumbProgress float32    // 0=off, 1=on，用于动画插值
+	thumbAnim     *core.Tween // 当前正在运行的滑块动画
 }
 
 // NewSwitch 创建一个开关。
 func NewSwitch() *Switch {
+	theme := core.GetTheme()
 	s := &Switch{
 		checked:     false,
 		trackWidth:  44,
 		trackHeight: 24,
-		offColor:    color.RGBA{R: 204, G: 204, B: 204, A: 255},
-		onColor:     color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		thumbColor:  color.White,
+		offColor:    theme.SwitchOffColor,
+		onColor:     theme.SwitchOnColor,
+		thumbColor:  theme.SwitchThumbColor,
 	}
 	s.Init(s)
 	s.SetFocusable(true)
@@ -57,13 +61,12 @@ func (s *Switch) Draw(screen *ebiten.Image) {
 	// 绘制圆角轨道
 	s.drawRoundedRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, bounds.Height/2, trackColor)
 
-	// 绘制滑块
+	// 绘制滑块（使用 thumbProgress 插值位置）
 	thumbRadius := bounds.Height/2 - 2
 	thumbY := bounds.Y + bounds.Height/2
-	thumbX := bounds.X + thumbRadius + 2
-	if s.checked {
-		thumbX = bounds.X + bounds.Width - thumbRadius - 2
-	}
+	leftX := bounds.X + thumbRadius + 2
+	rightX := bounds.X + bounds.Width - thumbRadius - 2
+	thumbX := core.LerpFloat32(leftX, rightX, s.thumbProgress)
 	drawFilledCirclePath(screen, thumbX, thumbY, thumbRadius, s.thumbColor)
 }
 
@@ -84,9 +87,35 @@ func (s *Switch) HandleEvent(e *core.Event) bool {
 		if s.onChange != nil {
 			s.onChange(s.checked)
 		}
+		s.startThumbAnimation()
 		return true
 	}
 	return false
+}
+
+func (s *Switch) startThumbAnimation() {
+	target := float32(0)
+	if s.checked {
+		target = 1
+	}
+	if s.thumbAnim != nil {
+		s.thumbAnim.Stop()
+	}
+	startProgress := s.thumbProgress
+	s.thumbAnim = core.NewTween(200*time.Millisecond, core.EaseInOutQuad).
+		OnUpdate(func(progress float32) {
+			s.thumbProgress = core.LerpFloat32(startProgress, target, progress)
+		})
+	s.thumbAnim.Start()
+	if engine := s.GetEngine(); engine != nil {
+		engine.AddAnimation(s.thumbAnim)
+	}
+}
+
+// Update 每帧更新动画状态（Engine 会调用）。
+func (s *Switch) Update() error {
+	// thumbAnim 由 Engine 统一更新，此处无需额外操作
+	return nil
 }
 
 // ==================== 链式 API ====================
@@ -133,5 +162,6 @@ func (s *Switch) SyncFrom(other core.Host) {
 		s.offColor = o.offColor
 		s.onColor = o.onColor
 		s.thumbColor = o.thumbColor
+		s.thumbProgress = o.thumbProgress
 	}
 }

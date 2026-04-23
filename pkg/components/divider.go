@@ -18,9 +18,10 @@ type Divider struct {
 
 // NewDivider 创建一个分割线。
 func NewDivider() *Divider {
+	theme := core.GetTheme()
 	d := &Divider{
 		thickness: 1,
-		clr:       color.RGBA{R: 222, G: 226, B: 230, A: 255},
+		clr:       theme.DividerColor,
 	}
 	d.Init(d)
 	d.GetElement().Yoga.StyleSetHeight(1)

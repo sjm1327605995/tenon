@@ -22,12 +22,13 @@ type Radio struct {
 
 // NewRadio 创建一个单选框。
 func NewRadio(label string) *Radio {
+	theme := core.GetTheme()
 	r := &Radio{
 		selected:    false,
 		boxSize:     18,
-		borderColor: color.RGBA{R: 108, G: 117, B: 125, A: 255},
-		fillColor:   color.RGBA{R: 0, G: 123, B: 255, A: 255},
-		innerColor:  color.White,
+		borderColor: theme.RadioBorderColor,
+		fillColor:   theme.RadioFillColor,
+		innerColor:  theme.RadioInnerColor,
 	}
 	r.Init(r)
 	r.SetFocusable(true)
@@ -36,8 +37,8 @@ func NewRadio(label string) *Radio {
 
 	if label != "" {
 		r.text = NewText(label)
-		r.text.SetFontSize(14)
-		r.text.SetColor(color.RGBA{R: 33, G: 37, B: 41, A: 255})
+		r.text.SetFontSize(theme.FontSizeBase)
+		r.text.SetColor(theme.TextColor)
 		r.text.SetMargin(yoga.EdgeLeft, r.boxSize+8)
 		r.AddChild(r.text)
 	}

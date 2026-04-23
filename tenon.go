@@ -20,6 +20,7 @@ type (
 	PointerEvents = core.PointerEvents
 	Context    = core.Context
 	Ref        = core.Ref
+	Theme      = core.Theme
 )
 
 // 导出便捷变量/函数
@@ -28,6 +29,11 @@ var (
 	NewContext      = core.NewContext
 	PointerEventsAuto  = core.PointerEventsAuto
 	PointerEventsNone  = core.PointerEventsNone
+	GetTheme        = core.GetTheme
+	SetTheme        = core.SetTheme
+	DefaultLightTheme = core.DefaultLightTheme
+	DefaultDarkTheme  = core.DefaultDarkTheme
+	DefaultAntTheme   = core.DefaultAntTheme
 )
 
 // Run 启动应用。root 可以是 Host 或 Widget。
