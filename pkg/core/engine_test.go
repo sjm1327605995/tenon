@@ -112,7 +112,7 @@ func TestWidgetInvalidate(t *testing.T) {
 	engine := NewEngine(root, 100, 100)
 	engine.Mount()
 
-	widget.Invalidate()
+	widget.invalidate()
 	if len(engine.dirtyWidgets) != 1 {
 		t.Fatalf("expected 1 dirty widget, got %d", len(engine.dirtyWidgets))
 	}
@@ -154,7 +154,7 @@ func TestWidgetUpdatePreservesParentLink(t *testing.T) {
 
 	// 切换并更新
 	toggle.useA = false
-	toggle.Invalidate()
+	toggle.invalidate()
 	engine.flushUpdates()
 	engine.calculateLayout()
 

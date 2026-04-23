@@ -119,6 +119,10 @@ func (cb *Checkbox) drawCheckmark(screen *ebiten.Image, x, y, size float32) {
 // HandleEvent 处理点击事件。
 func (cb *Checkbox) HandleEvent(e *core.Event) bool {
 	switch e.Type {
+	case core.EventMouseDown:
+		return true
+	case core.EventMouseUp:
+		return true
 	case core.EventClick:
 		cb.checked = !cb.checked
 		if cb.onChange != nil {

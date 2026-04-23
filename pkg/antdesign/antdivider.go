@@ -43,11 +43,6 @@ func (d *AntDivider) Render() tenon.Component {
 	}
 
 	// 带文字的水平分隔线：左线 + 文字 + 右线
-	line := components.NewView().
-		SetHeight(1).
-		SetBackgroundColor(theme.DividerColor).
-		SetFlexGrow(1)
-
 	textComp := components.NewView().
 		SetMargin(yoga.EdgeHorizontal, 16).
 		Add(components.NewText(d.text).
@@ -59,19 +54,25 @@ func (d *AntDivider) Render() tenon.Component {
 		SetAlignItems(yoga.AlignCenter).
 		SetMargin(yoga.EdgeVertical, 12)
 
+	newLine := func() *components.View {
+		return components.NewView().
+			SetHeight(1).
+			SetBackgroundColor(theme.DividerColor)
+	}
+
 	switch d.align {
 	case "left":
-		root.Add(line.SetWidth(24))
+		root.Add(newLine().SetWidth(24))
 		root.Add(textComp)
-		root.Add(line.SetFlexGrow(1))
+		root.Add(newLine().SetFlexGrow(1))
 	case "right":
-		root.Add(line.SetFlexGrow(1))
+		root.Add(newLine().SetFlexGrow(1))
 		root.Add(textComp)
-		root.Add(line.SetWidth(24))
+		root.Add(newLine().SetWidth(24))
 	default: // center
-		root.Add(line)
+		root.Add(newLine().SetFlexGrow(1))
 		root.Add(textComp)
-		root.Add(line)
+		root.Add(newLine().SetFlexGrow(1))
 	}
 	return root
 }

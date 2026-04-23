@@ -33,13 +33,13 @@
 
 ### Ant Design Components (Implemented)
 - [x] Button - button (primary/default/dashed/text/link, danger, size, loading, disabled)
-- [x] Alert - alert (error/warning/success/info, closable, banner, icon, description)
-- [x] Badge - badge (count, dot, status, color)
-- [x] Card - card (title, extra, shadow, hoverable, children)
-- [x] Divider - divider (horizontal/vertical, with text)
-- [x] Input - input (placeholder, prefix/suffix, search, password, onChange, onSubmit)
-- [x] Table - table (columns, dataSource, header, stripe, hover)
-- [x] Tag - tag (color, closable, icon)
+- [x] **Alert** - alert (error/warning/success/info, closable, banner, icon, description)
+- [x] **Badge** - badge (count, dot, status, color)
+- [x] **Card** - card (title, extra, shadow, hoverable, children)
+- [x] **Divider** - divider (horizontal/vertical, with text)
+- [x] **Input** - input (placeholder, prefix/suffix, search, password, onChange, onSubmit)
+- [x] **Table** - table (columns, dataSource, header, stripe, hover)
+- [x] **Tag** - tag (color, closable, icon)
 
 ### Infrastructure
 - [x] Font manager (multi-font family, multi-weight, caching)
@@ -61,57 +61,59 @@ Complex components should support composition (e.g. Card + Table, Form + Input).
 
 ---
 
+---
+
 ## P0 - Core Essentials (High Frequency)
 
 ### 1. Typography
-Status: pending | Strategy: Widget composition (Text + View)
+Status: **implemented** | Strategy: Widget composition (Text + View)
 
-- [ ] AntTitle - headings h1-h4 (auto fontSize / fontWeight)
-- [ ] AntText - text variants (primary, secondary, success, warning, danger, mark, code, keyboard, underline, delete, strong, italic)
-- [ ] AntParagraph - paragraph (ellipsis, copyable, editable)
-- [ ] AntLink - link (hover underline)
+- [x] AntTitle - headings h1-h4 (auto fontSize / fontWeight)
+- [x] AntText - text variants (primary, secondary, success, warning, danger, mark, code, keyboard, underline, delete, strong, italic)
+- [x] AntParagraph - paragraph (ellipsis, copyable, editable)
+- [x] AntLink - link (hover underline)
 
 ### 2. Space
-Status: pending | Strategy: Widget composition (View + Yoga flex gap)
+Status: **partially implemented** | Strategy: Widget composition (View + Yoga flex gap)
 
-- [ ] AntSpace - spacing container (direction, size, align)
+- [x] AntSpace - spacing container (direction, size, align)
 - [ ] AntSpace.Compact - compact mode for form control dense arrangement
 
 ### 3. Grid
-Status: pending | Strategy: Widget composition (View + Yoga flex)
+Status: **implemented** | Strategy: Widget composition (View + Yoga flex)
 
-- [ ] AntRow - row (gutter, justify, align, wrap)
-- [ ] AntCol - column (span, offset, push, pull, order, responsive breakpoints)
+- [x] AntRow - row (gutter, justify, align, wrap)
+- [x] AntCol - column (span, offset, push, pull, order, responsive breakpoints)
 
 ### 4. Layout
-Status: pending | Strategy: Widget composition (View)
+Status: **implemented** | Strategy: Widget composition (View)
 
-- [ ] AntLayout - layout container
-- [ ] AntHeader - top navigation
-- [ ] AntSider - sidebar (collapsible, collapsedWidth, trigger)
-- [ ] AntContent - content area
-- [ ] AntFooter - footer
+- [x] AntLayout - layout container
+- [x] AntHeader - top navigation
+- [x] AntSider - sidebar (collapsible, collapsedWidth, trigger)
+- [x] AntContent - content area
+- [x] AntFooter - footer
 
 ### 5. Flex
-Status: pending | Strategy: Widget composition (View + Yoga flex)
+Status: **implemented** | Strategy: Widget composition (View + Yoga flex)
 
-- [ ] AntFlex - flex layout (vertical, justify, align, gap, wrap)
+- [x] AntFlex - flex layout (vertical, justify, align, gap, wrap)
 
 ### 6. Avatar
-Status: pending | Strategy: Widget composition (Image / Text + View circular clip)
+Status: **partially implemented** | Strategy: Widget composition (Image / Text + View circular clip)
 
-- [ ] AntAvatar - avatar (size, shape: circle/square, src, icon, alt, gap)
+- [x] AntAvatar - avatar (size, shape: circle/square, src, icon, alt, gap)
 - [ ] AntAvatar.Group - avatar group (maxCount, maxStyle, size)
 
 ### 7. Empty
-Status: pending | Strategy: Widget composition (View + Text / Image)
+Status: **implemented** | Strategy: Widget composition (View + Text / Image)
 
-- [ ] AntEmpty - empty state (image, description, children custom bottom)
+- [x] AntEmpty - empty state (image, description, children custom bottom)
 
 ### 8. Tooltip
-Status: pending | Strategy: Widget + Overlay system
+Status: **partially implemented** | Strategy: Widget + Overlay system
 
-- [ ] AntTooltip - tooltip (title, placement, color, onOpenChange)
+- [x] AntTooltip - tooltip (title, placement, color, onOpenChange)
 - [ ] Auto position calculation (boundary detection)
 - [ ] Small arrow pointing to target
 
@@ -190,30 +192,30 @@ Status: pending | Strategy: Widget composition (native Menu + View + Text)
 - [ ] AntMenu.Item, AntMenu.SubMenu, AntMenu.ItemGroup
 
 ### 21. Tabs
-Status: pending | Strategy: Widget composition (View + Text + Button)
+Status: **implemented** | Strategy: Widget composition (View + Text + Button)
 
-- [ ] AntTabs - tabs (items, activeKey, type: line/card, size, onChange)
-- [ ] AntTabs.TabPane - tab pane content
-- [ ] Top/bottom/left/right tab bar placement
+- [x] AntTabs - tabs (items, activeKey, type: line/card, size, onChange)
+- [x] AntTabs.TabPane - tab pane content
+- [x] Top/bottom/left/right tab bar placement
 - [ ] Tab switching animation
 
 ### 22. Breadcrumb
-Status: pending | Strategy: Widget composition (Text + View + separator)
+Status: **implemented** | Strategy: Widget composition (Text + View + separator)
 
-- [ ] AntBreadcrumb - breadcrumb (items, separator)
-- [ ] AntBreadcrumb.Item - breadcrumb item
-- [ ] AntBreadcrumb.Separator - custom separator
+- [x] AntBreadcrumb - breadcrumb (items, separator)
+- [x] AntBreadcrumb.Item - breadcrumb item
+- [x] AntBreadcrumb.Separator - custom separator
 
 ### 23. Pagination
-Status: pending | Strategy: Widget composition (Button + Text + View)
+Status: **implemented** | Strategy: Widget composition (Button + Text + View)
 
-- [ ] AntPagination - pagination (current, total, pageSize, showSizeChanger, showQuickJumper)
+- [x] AntPagination - pagination (current, total, pageSize, showSizeChanger, showQuickJumper)
 
 ### 24. Steps
-Status: pending | Strategy: Widget composition (View + Text)
+Status: **implemented** | Strategy: Widget composition (View + Text)
 
-- [ ] AntSteps - steps (current, direction, size, status, items)
-- [ ] AntSteps.Step - step item (title, description, icon)
+- [x] AntSteps - steps (current, direction, size, status, items)
+- [x] AntSteps.Step - step item (title, description, icon)
 
 ### 25. Form
 Status: pending | Strategy: Widget composition + state management
@@ -492,13 +494,163 @@ These require the existing Overlay system:
 Tooltip, Popover, Popconfirm, Modal, Drawer, Dropdown, Select, DatePicker, TimePicker, Cascader, ColorPicker, AutoComplete, Mentions, TreeSelect, Message, Notification, Tour, Image preview
 
 ### Recommended Implementation Order
-Phase 1 (Layout & Typography): Typography, Space, Grid, Layout, Flex
-Phase 2 (Basic Data Display): Avatar, Empty, Descriptions, Statistic, Timeline, List, Collapse, Breadcrumb, Steps
-Phase 3 (Feedback & Navigation): Tooltip, Popover, Popconfirm, Modal, Drawer, Dropdown, Tabs, Pagination, Menu, BackTop, Affix, Anchor
-Phase 4 (Form Controls): Checkbox, Radio, Switch, Slider, Select, Form, InputNumber, Rate, Segmented, AutoComplete, Mentions, Cascader, DatePicker, TimePicker, ColorPicker, TreeSelect
-Phase 5 (Data Display Advanced): Table enhancements, Tree, Transfer, Calendar, Carousel, Image, Comment, Result
-Phase 6 (Feedback Advanced): Progress (circle), Spin, Skeleton, Message, Notification, Tour
-Phase 7 (Utilities): Icon, QRCode, Watermark, FloatButton, Upload, VirtualList, App, ConfigProvider
+### Current Progress Summary
+Phase 1 (Layout & Typography): ✅ Typography, Space, Grid, Layout, Flex
+Phase 2 (Basic Data Display): ✅ Avatar, Empty, Breadcrumb, Steps | 🔄 Descriptions, Statistic, Timeline, List, Collapse
+Phase 3 (Feedback & Navigation): ✅ Tabs, Pagination | 🔄 Tooltip, Popover, Popconfirm, Modal, Drawer, Dropdown, Menu, BackTop, Affix, Anchor
+Phase 4 (Form Controls): 🔄 Checkbox, Radio, Switch, Slider, Select, Form, InputNumber, Rate, Segmented, AutoComplete, Mentions, Cascader, DatePicker, TimePicker, ColorPicker, TreeSelect
+Phase 5 (Data Display Advanced): ✅ Table | 🔄 Tree, Transfer, Calendar, Carousel, Image, Comment, Result
+Phase 6 (Feedback Advanced): 🔄 Progress (circle), Spin, Skeleton, Message, Notification, Tour
+Phase 7 (Utilities): 🔄 Icon, QRCode, Watermark, FloatButton, Upload, VirtualList, App, ConfigProvider
+
+---
+
+## Test Coverage TODO
+
+### Core Engine Tests
+- [x] Core engine unit tests
+- [x] Text layout unit tests
+- [ ] Yoga layout integration tests (measure, align, flex direction)
+- [ ] Event system tests (dispatch, bubbling, capture)
+- [ ] Focus system tests (tab order, focus trap)
+- [ ] Animation system tests (tween, easing, callback)
+- [ ] Host reuse mechanism tests
+
+### Component Layer Tests (Existing)
+- [x] Button unit tests
+- [x] Text unit tests
+- [x] ScrollView unit tests
+- [x] TextInput unit tests
+- [x] Checkbox unit tests
+- [x] Radio unit tests
+- [x] Switch unit tests
+- [x] Slider unit tests
+
+### Component Layer Tests (Missing)
+- [ ] View tests (background, border, shadow, radius, clip)
+- [ ] Image tests (load, fallback, resize)
+- [ ] ProgressBar tests (line mode, percent updates)
+- [ ] Menu tests (selection, keyboard navigation)
+- [ ] Divider tests
+
+### Ant Design Component Tests
+- [ ] AntButton tests (variants, loading, disabled, events)
+- [ ] AntInput tests (placeholder, prefix/suffix, password, onChange)
+- [ ] AntTable tests (columns, dataSource, sorting, selection)
+- [ ] AntAlert tests (types, closable, banner)
+- [ ] AntCard tests (title, extra, hoverable)
+- [ ] AntTag tests (color, closable, icon)
+- [ ] AntBadge tests (count, dot, status, overflow)
+- [ ] AntModal tests (open/close, footer, callbacks)
+- [ ] AntTabs tests (activeKey, onChange, placement)
+- [ ] AntForm tests (validation, submission, layout)
+- [ ] AntSelect tests (options, multiple, search, keyboard)
+
+### Integration Tests
+- [ ] End-to-end demo scenario tests
+- [ ] Theme switching tests (light/dark mode)
+- [ ] Overlay/Portal z-index stacking tests
+- [ ] Drag and drop interaction tests
+- [ ] IME composition tests (CJK input)
+
+---
+
+## Performance Optimization TODO
+
+### Rendering Performance
+- [ ] **Dirty region rendering**: Only redraw changed regions instead of full screen
+- [ ] **Off-screen caching**: Cache static Widget subtrees to image buffers
+- [ ] **Text layout caching**: Cache text measurement results by (content, font, width)
+- [ ] **Clip optimization**: Skip rendering for off-screen Widgets
+- [ ] **Batch draw calls**: Merge adjacent primitive draws where possible
+
+### Layout Performance
+- [ ] **Incremental Yoga layout**: Only re-layout changed subtrees
+- [ ] **Layout debouncing**: Batch rapid layout invalidations
+- [ ] **Virtual scrolling for large lists**: ScrollView virtual scrolling support
+- [ ] **Table virtual scrolling**: Only render visible rows for large datasets
+
+### Memory Optimization
+- [ ] **Image atlas packing**: Pack small images into texture atlases
+- [ ] **Font glyph caching**: Cache rendered glyphs at common sizes
+- [ ] **Widget pool**: Reuse transient Widget allocations
+- [ ] **Yoga node pool**: Reduce Yoga node allocation churn
+
+### Startup Performance
+- [ ] **Lazy font loading**: Load font files on first use, not startup
+- [ ] **Deferred component initialization**: Postpone non-visible component setup
+- [ ] **Splash screen**: Show loading state while initializing heavy resources
+
+---
+
+## Documentation TODO
+
+### API Documentation
+- [ ] Godoc coverage for all public APIs in `pkg/core`
+- [ ] Godoc coverage for all public APIs in `pkg/components`
+- [ ] Godoc coverage for all public APIs in `pkg/antdesign`
+- [ ] Godoc coverage for `pkg/fonts` and `pkg/react`
+- [ ] Usage examples for each Ant Design component
+
+### Developer Guides
+- [ ] Custom component development guide
+- [ ] Theme customization guide (colors, fonts, radius)
+- [ ] Animation cookbook (common tween patterns)
+- [ ] Event handling guide (custom events, event bubbling)
+- [ ] Layout best practices (Yoga flexbox patterns)
+
+### Architecture Documentation
+- [ ] Rendering pipeline deep dive (Widget → Host → Ebiten)
+- [ ] Overlay/Portal system architecture
+- [ ] Focus management system design
+- [ ] Host reuse mechanism explanation
+
+---
+
+## Technical Debt & Known Issues
+
+### Framework Level
+- [ ] **Modal/Drawer focus trap**: When Modal opens, focus should be trapped inside until closed
+- [ ] **Overlay boundary detection**: Tooltip/Popover should flip placement when near screen edges
+- [ ] **ScrollView overscroll**: Add rubber-band overscroll effect
+- [ ] **TextInput cursor blink**: Cursor blinking causes full re-render; optimize to local
+- [ ] **Drag gesture threshold**: Add configurable drag start threshold to prevent accidental drags
+- [ ] **Widget key reconciliation**: Improve diff algorithm for keyed children
+
+### Ant Design Components
+- [ ] **AntTable sorting/filtering**: Add column sorting and filtering UI
+- [ ] **AntTable row selection**: Add checkbox-based row selection
+- [ ] **AntTable pagination integration**: Built-in pagination for large datasets
+- [ ] **AntInput clear button**: Add allowClear X button inside input
+- [ ] **AntButton focus ring**: Visible focus indicator for accessibility
+- [ ] **AntTabs animated indicator**: Smooth sliding indicator for active tab
+
+### Platform & Build
+- [ ] **Windows HiDPI support**: Proper scaling for high-DPI displays
+- [ ] **Cross-platform font fallback**: Better fallback when primary font is missing
+- [ ] **Build size optimization**: Reduce binary size (strip debug info, optimize assets)
+- [ ] **CI/CD pipeline**: GitHub Actions for automated testing on push/PR
+
+---
+
+## Long-term Roadmap (Post-v1.0)
+
+### Platform Expansion
+- [ ] **Mobile touch support**: Touch events, pinch zoom, swipe gestures
+- [ ] **WebAssembly target**: Compile to WASM for browser deployment
+- [ ] **Linux / macOS testing**: Ensure cross-platform compatibility
+
+### Advanced Features
+- [ ] **Accessibility (a11y)**: Screen reader support, ARIA attributes, high contrast mode
+- [ ] **Right-to-left (RTL)**: Full RTL layout support for Arabic/Hebrew
+- [ ] **Internationalization (i18n)**: Built-in locale switching for component text
+- [ ] **Hot reload**: Development mode component hot-swapping
+- [ ] **DevTools overlay**: Runtime component inspector (tree, props, layout bounds)
+
+### Ecosystem
+- [ ] **Component marketplace**: Third-party component sharing
+- [ ] **Design tool integration**: Figma/Sketch plugin for design-to-code
+- [ ] **Starter templates**: Common app templates (dashboard, form-heavy, landing page)
 
 ---
 

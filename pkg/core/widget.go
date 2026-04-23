@@ -63,12 +63,20 @@ func (b *BaseWidget) ShouldComponentUpdate(_ any) bool { return true }
 func (b *BaseWidget) SetHostRef(host Host) { b.hostRef = host }
 func (b *BaseWidget) GetHostRef() Host     { return b.hostRef }
 
-// Invalidate 标记组件需要重新 Render，并在下一帧触发更新。
-func (b *BaseWidget) Invalidate() {
+// invalidate 标记组件需要重新 Render，并在下一帧触发更新。
+// 这是框架内部方法，用户不应直接调用。请使用 UseState 或 SetState 来管理状态。
+func (b *BaseWidget) invalidate() {
 	b.dirty = true
 	if b.engine != nil {
 		b.engine.scheduleUpdate(b.self)
 	}
+}
+
+// SetState 批量修改状态并自动触发重新渲染。
+// 用于在回调中直接修改字段后触发 UI 更新，替代直接调用 Invalidate()。
+func (b *BaseWidget) SetState(fn func()) {
+	fn()
+	b.invalidate()
 }
 
 func (b *BaseWidget) isComponent() {}
@@ -90,7 +98,7 @@ func (b *BaseWidget) UseState(initial any) (any, func(any)) {
 
 	setter := func(v any) {
 		h.state = v
-		b.Invalidate()
+		b.invalidate()
 	}
 	return h.state, setter
 }

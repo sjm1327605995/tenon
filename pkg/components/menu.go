@@ -1,11 +1,7 @@
-﻿package components
+package components
 
 import (
-	"image/color"
-	"math"
-
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/pkg/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -17,12 +13,15 @@ type MenuItemData struct {
 }
 
 // MenuItem 是单个菜单项宿主组件。
+// 由 View + hoverBg(View) + indicator(View) + label(Text) 组合而成，零自定义绘制代码。
 type MenuItem struct {
-	core.BaseHost
+	View
 	selected  bool
 	hovered   bool
 	onClick   func()
-	textComp  *Text
+	hoverBg   *View
+	indicator *View
+	label     *Text
 }
 
 // NewMenuItem 创建一个菜单项。
@@ -31,11 +30,41 @@ func NewMenuItem(label string) *MenuItem {
 	mi.Init(mi)
 	mi.GetElement().Yoga.StyleSetHeight(40)
 	mi.GetElement().Yoga.StyleSetWidthPercent(100)
-	mi.GetElement().Yoga.StyleSetAlignItems(yoga.AlignCenter) // 垂直居中
+	mi.GetElement().Yoga.StyleSetAlignItems(yoga.AlignCenter)
+	mi.GetElement().Yoga.StyleSetFlexDirection(yoga.FlexDirectionRow)
 
-	mi.textComp = NewText(label)
-	mi.textComp.SetMargin(yoga.EdgeLeft, 24)
-	mi.AddChild(mi.textComp)
+	theme := core.GetTheme()
+
+	// Hover 背景：absolute 定位，左右上下各留 4px 边距，圆角
+	mi.hoverBg = NewView().
+		SetPositionType(yoga.PositionTypeAbsolute).
+		SetPosition(yoga.EdgeLeft, 4).
+		SetPosition(yoga.EdgeTop, 4).
+		SetPosition(yoga.EdgeRight, 4).
+		SetPosition(yoga.EdgeBottom, 4).
+		SetBorderRadius(4).
+		SetPointerEvents(core.PointerEventsNone).
+		SetVisible(false)
+	mi.AddChild(mi.hoverBg)
+
+	// 选中指示器：左侧 3px 竖条
+	mi.indicator = NewView().
+		SetPositionType(yoga.PositionTypeAbsolute).
+		SetPosition(yoga.EdgeLeft, 0).
+		SetPosition(yoga.EdgeTop, 0).
+		SetPosition(yoga.EdgeBottom, 0).
+		SetWidth(3).
+		SetBackgroundColor(theme.PrimaryColor).
+		SetPointerEvents(core.PointerEventsNone).
+		SetVisible(false)
+	mi.AddChild(mi.indicator)
+
+	// 文本标签
+	mi.label = NewText(label)
+	mi.label.SetMargin(yoga.EdgeLeft, 24)
+	mi.label.GetElement().PointerEvents = core.PointerEventsNone
+	mi.AddChild(mi.label)
+
 	mi.refreshStyle()
 	return mi
 }
@@ -43,17 +72,21 @@ func NewMenuItem(label string) *MenuItem {
 func (mi *MenuItem) refreshStyle() {
 	theme := core.GetTheme()
 	if mi.selected {
-		mi.GetElement().BackgroundColor = theme.MenuItemSelectedBg
-		mi.textComp.SetColor(theme.MenuItemSelectedText)
+		mi.SetBackgroundColor(theme.MenuItemSelectedBg)
+		mi.label.SetColor(theme.MenuItemSelectedText)
+		mi.indicator.SetVisible(true)
+		mi.hoverBg.SetVisible(false)
 	} else {
-		mi.GetElement().BackgroundColor = nil
-		mi.textComp.SetColor(theme.TextColor)
+		mi.SetBackgroundColor(nil)
+		mi.label.SetColor(theme.TextColor)
+		mi.indicator.SetVisible(false)
 	}
 }
 
 // SetSelected 设置选中状态。
 func (mi *MenuItem) SetSelected(selected bool) *MenuItem {
 	mi.selected = selected
+	mi.hovered = false
 	mi.refreshStyle()
 	return mi
 }
@@ -64,71 +97,31 @@ func (mi *MenuItem) SetOnClick(fn func()) *MenuItem {
 	return mi
 }
 
-// Draw 绘制左边选中竖条。
-func (mi *MenuItem) Draw(screen *ebiten.Image) {
-	el := mi.GetElement()
-	if el == nil || !el.Visible {
-		return
-	}
-	bounds := mi.GetLayoutBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
-
-	// 绘制背景（已由 Element.BackgroundColor 处理，但 nil 时引擎不绘，这里确保透明背景被覆盖）
-	if el.BackgroundColor != nil {
-		vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, el.BackgroundColor, false)
-	}
-
-	// Hover 时绘制圆角背景
-	if mi.hovered && !mi.selected {
-		// Ant Design 风格的 hover 背景色
-		hoverColor := color.RGBA{R: 245, G: 245, B: 245, A: 255}
-		// 左右各留 4px 边距，形成圆角背景效果
-		drawRoundedRect(screen, bounds.X+4, bounds.Y+4, bounds.Width-8, bounds.Height-8, 4, hoverColor)
-	}
-
-	// 选中时绘制左侧蓝色竖条
-	if mi.selected {
-		theme := core.GetTheme()
-		vector.FillRect(screen, bounds.X, bounds.Y, 3, bounds.Height, theme.PrimaryColor, false)
-	}
-}
-
-// drawRoundedRect 绘制圆角矩形填充。
-func drawRoundedRect(screen *ebiten.Image, x, y, w, h, r float32, c color.Color) {
-	if w <= 0 || h <= 0 {
-		return
-	}
-	path := vector.Path{}
-	// 左上角开始，顺时针绘制
-	path.MoveTo(x+r, y)
-	path.LineTo(x+w-r, y)
-	path.Arc(x+w-r, y+r, r, -math.Pi/2, 0, vector.Clockwise)
-	path.LineTo(x+w, y+h-r)
-	path.Arc(x+w-r, y+h-r, r, 0, math.Pi/2, vector.Clockwise)
-	path.LineTo(x+r, y+h)
-	path.Arc(x+r, y+h-r, r, math.Pi/2, math.Pi, vector.Clockwise)
-	path.LineTo(x, y+r)
-	path.Arc(x+r, y+r, r, math.Pi, math.Pi*1.5, vector.Clockwise)
-	path.Close()
-	op := &vector.DrawPathOptions{}
-	op.ColorScale.ScaleWithColor(c)
-	vector.FillPath(screen, &path, &vector.FillOptions{}, op)
-}
-
 // Update 每帧检测鼠标是否悬停。
 func (mi *MenuItem) Update() error {
 	mx, my := ebiten.CursorPosition()
 	bounds := mi.GetLayoutBounds()
-	mi.hovered = float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
+	hovered := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
 		float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
+
+	if hovered != mi.hovered {
+		mi.hovered = hovered
+		if hovered && !mi.selected {
+			mi.hoverBg.SetBackgroundColor(core.GetTheme().MenuItemHoverBg).SetVisible(true)
+		} else {
+			mi.hoverBg.SetVisible(false)
+		}
+	}
 	return nil
 }
 
 // HandleEvent 处理点击事件。
 func (mi *MenuItem) HandleEvent(e *core.Event) bool {
 	switch e.Type {
+	case core.EventMouseDown:
+		return true
+	case core.EventMouseUp:
+		return true
 	case core.EventClick:
 		if mi.onClick != nil {
 			mi.onClick()
@@ -143,9 +136,9 @@ func (mi *MenuItem) SyncFrom(other core.Host) {
 	if o, ok := other.(*MenuItem); ok {
 		mi.selected = o.selected
 		mi.onClick = o.onClick
-		if mi.textComp != nil && o.textComp != nil {
-			mi.textComp.Content = o.textComp.Content
-			mi.textComp.cachedLayout = nil
+		if mi.label != nil && o.label != nil {
+			mi.label.Content = o.label.Content
+			mi.label.cachedLayout = nil
 		}
 		mi.refreshStyle()
 	}
@@ -198,6 +191,17 @@ func (m *Menu) SetOnSelect(fn func(key string)) *Menu {
 func (m *Menu) rebuild() {
 	m.ClearChildren()
 	for _, item := range m.items {
+		if item.Key == "" {
+			// 分组标题
+			title := NewText(item.Label)
+			title.SetFontSize(core.GetTheme().FontSizeSM)
+			title.SetColor(core.GetTheme().TextMutedColor)
+			title.GetElement().Yoga.StyleSetMargin(yoga.EdgeTop, 12)
+			title.GetElement().Yoga.StyleSetMargin(yoga.EdgeBottom, 4)
+			title.GetElement().Yoga.StyleSetMargin(yoga.EdgeLeft, 24)
+			m.AddChild(title)
+			continue
+		}
 		mi := NewMenuItem(item.Label)
 		mi.SetSelected(item.Key == m.selectedKey)
 		key := item.Key // 闭包捕获
@@ -215,7 +219,10 @@ func (m *Menu) refreshSelection() {
 		if mi, ok := child.(*MenuItem); ok {
 			// 通过 SyncFrom 无法直接找到对应项，这里简单遍历
 			for _, item := range m.items {
-				if mi.textComp != nil && mi.textComp.Content == item.Label {
+				if item.Key == "" {
+					continue
+				}
+				if mi.label != nil && mi.label.Content == item.Label {
 					mi.SetSelected(item.Key == m.selectedKey)
 					break
 				}

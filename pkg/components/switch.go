@@ -82,6 +82,10 @@ func (s *Switch) drawRoundedRect(screen *ebiten.Image, x, y, w, h, r float32, cl
 // HandleEvent 处理点击事件。
 func (s *Switch) HandleEvent(e *core.Event) bool {
 	switch e.Type {
+	case core.EventMouseDown:
+		return true
+	case core.EventMouseUp:
+		return true
 	case core.EventClick:
 		s.checked = !s.checked
 		if s.onChange != nil {

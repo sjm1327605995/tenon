@@ -75,6 +75,10 @@ func (r *Radio) Draw(screen *ebiten.Image) {
 // HandleEvent 处理点击事件。
 func (r *Radio) HandleEvent(e *core.Event) bool {
 	switch e.Type {
+	case core.EventMouseDown:
+		return true
+	case core.EventMouseUp:
+		return true
 	case core.EventClick:
 		r.selected = true
 		if r.onChange != nil {
