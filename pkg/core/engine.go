@@ -18,6 +18,7 @@ type renderNode struct {
 	sourceWidget Widget   // 若此子树由 Widget 展开，记录来源
 	parent       *renderNode
 	children     []*renderNode
+	alive        bool     // 是否仍在树中（被 unmount 后设为 false）
 }
 
 // Engine 是 Tenon 的核心引擎，负责挂载、更新、渲染和事件。
@@ -42,6 +43,8 @@ type Engine struct {
 	lastMouseY       float32           // 上一帧鼠标 Y
 	animations     []Animation // 活跃动画列表
 	lastFrameTime  time.Time   // 上一帧时间（用于计算 deltaTime）
+
+	aliveHosts map[Host]struct{} // 当前存活的所有 Host（用于事件目标有效性检查）
 }
 
 // NewEngine 创建一个引擎，rootHost 必须是宿主组件。
@@ -53,6 +56,7 @@ func NewEngine(rootHost Host, width, height int) *Engine {
 		screenWidth:  width,
 		screenHeight: height,
 		lastFrameTime: time.Now(),
+		aliveHosts:   make(map[Host]struct{}),
 	}
 }
 
@@ -115,8 +119,9 @@ func (e *Engine) mount(parent *renderNode, c Component) *renderNode {
 
 	// Host：创建 renderNode
 	if h, ok := c.(Host); ok {
-		node := &renderNode{host: h, parent: parent}
+		node := &renderNode{host: h, parent: parent, alive: true}
 		h.SetEngine(e)
+		e.aliveHosts[h] = struct{}{}
 
 		// 布局钩子
 		bounds := h.GetLayoutBounds()
@@ -147,6 +152,18 @@ func (e *Engine) unmount(node *renderNode) {
 		e.unmount(child)
 	}
 	node.children = nil
+
+	// 清理全局引用：如果该节点的 host 是当前焦点或拖拽目标，一并清除
+	if node.host != nil {
+		delete(e.aliveHosts, node.host)
+		if e.focusHost == node.host {
+			e.focusHost = nil
+		}
+		if e.mouseDownTarget == node.host {
+			e.mouseDownTarget = nil
+		}
+	}
+	node.alive = false
 
 	// Widget 来源清理
 	if node.sourceWidget != nil {
@@ -453,11 +470,12 @@ func (e *Engine) setFocusHost(host Host) {
 	if e.focusHost == host {
 		return
 	}
-	if e.focusHost != nil {
+	// 不要给已失效的 host 发焦点事件
+	if e.focusHost != nil && e.isHostAlive(e.focusHost) {
 		e.dispatchEvent(e.focusHost, &Event{Type: EventFocusOut, Target: e.focusHost})
 	}
 	e.focusHost = host
-	if host != nil {
+	if host != nil && e.isHostAlive(host) {
 		e.dispatchEvent(host, &Event{Type: EventFocusIn, Target: host})
 	}
 }
@@ -466,7 +484,7 @@ func (e *Engine) collectFocusableHosts() []Host {
 	var hosts []Host
 	var walk func(*renderNode)
 	walk = func(node *renderNode) {
-		if node == nil {
+		if node == nil || !node.alive {
 			return
 		}
 		if node.host != nil && node.host.IsFocusable() {
@@ -477,10 +495,19 @@ func (e *Engine) collectFocusableHosts() []Host {
 		}
 	}
 	walk(e.rootNode)
+	// overlays 中的组件也应能接收焦点
+	for _, overlay := range e.overlays {
+		walk(overlay)
+	}
 	return hosts
 }
 
 func (e *Engine) focusNext(reverse bool) {
+	// 当前焦点已失效，重置
+	if e.focusHost != nil && !e.isHostAlive(e.focusHost) {
+		e.focusHost = nil
+	}
+
 	focusables := e.collectFocusableHosts()
 	if len(focusables) == 0 {
 		return
@@ -517,7 +544,7 @@ func (e *Engine) handleEvents() {
 
 	// Hover 检测：未拖拽时向当前 hover 组件发送 MouseMove，用于光标形状、hover 样式等
 	if e.mouseDownTarget == nil {
-		hoverTarget := e.hitTest(e.rootNode, fx, fy)
+		hoverTarget := e.hitTestAll(fx, fy)
 		if hoverTarget != nil {
 			bounds := hoverTarget.GetLayoutBounds()
 			e.dispatchEvent(hoverTarget, &Event{
@@ -534,7 +561,7 @@ func (e *Engine) handleEvents() {
 	// 1. 滚轮
 	dx, dy := ebiten.Wheel()
 	if dx != 0 || dy != 0 {
-		target := e.hitTest(e.rootNode, fx, fy)
+		target := e.hitTestAll(fx, fy)
 		if target != nil {
 			e.dispatchEvent(target, &Event{
 				Type:   EventScroll,
@@ -551,8 +578,11 @@ func (e *Engine) handleEvents() {
 
 	// 2. 鼠标移动 / 拖拽
 	if e.mouseDownTarget != nil {
-		// 鼠标按下状态下移动：发送 EventMouseMove 给 mouseDownTarget
-		if fx != e.lastMouseX || fy != e.lastMouseY {
+		// 目标已失效（如重渲染后被卸载），丢弃拖拽状态
+		if !e.isHostAlive(e.mouseDownTarget) {
+			e.mouseDownTarget = nil
+		} else if fx != e.lastMouseX || fy != e.lastMouseY {
+			// 鼠标按下状态下移动：发送 EventMouseMove 给 mouseDownTarget
 			bounds := e.mouseDownTarget.GetLayoutBounds()
 			e.dispatchEvent(e.mouseDownTarget, &Event{
 				Type:   EventMouseMove,
@@ -568,7 +598,7 @@ func (e *Engine) handleEvents() {
 
 	// 3. 点击（MouseDown / MouseUp / Click）
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		target := e.hitTest(e.rootNode, fx, fy)
+		target := e.hitTestAll(fx, fy)
 		if target != nil {
 			// 点击可焦点组件时设置焦点；点击非焦点区域时清除焦点
 			if target.IsFocusable() {
@@ -598,21 +628,13 @@ func (e *Engine) handleEvents() {
 
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
 		if e.mouseDownTarget != nil {
-			bounds := e.mouseDownTarget.GetLayoutBounds()
-			e.dispatchEvent(e.mouseDownTarget, &Event{
-				Type:   EventMouseUp,
-				X:      fx,
-				Y:      fy,
-				LocalX: fx - bounds.X,
-				LocalY: fy - bounds.Y,
-				Button: ebiten.MouseButtonLeft,
-				Target: e.mouseDownTarget,
-			})
-			// 只有释放时仍在同一组件上才触发 Click
-			target := e.hitTest(e.rootNode, fx, fy)
-			if target == e.mouseDownTarget {
+			// 目标已失效，静默丢弃 MouseUp / Click
+			if !e.isHostAlive(e.mouseDownTarget) {
+				e.mouseDownTarget = nil
+			} else {
+				bounds := e.mouseDownTarget.GetLayoutBounds()
 				e.dispatchEvent(e.mouseDownTarget, &Event{
-					Type:   EventClick,
+					Type:   EventMouseUp,
 					X:      fx,
 					Y:      fy,
 					LocalX: fx - bounds.X,
@@ -620,8 +642,21 @@ func (e *Engine) handleEvents() {
 					Button: ebiten.MouseButtonLeft,
 					Target: e.mouseDownTarget,
 				})
+				// 只有释放时仍在同一组件上才触发 Click
+				target := e.hitTestAll(fx, fy)
+				if target == e.mouseDownTarget {
+					e.dispatchEvent(e.mouseDownTarget, &Event{
+						Type:   EventClick,
+						X:      fx,
+						Y:      fy,
+						LocalX: fx - bounds.X,
+						LocalY: fy - bounds.Y,
+						Button: ebiten.MouseButtonLeft,
+						Target: e.mouseDownTarget,
+					})
+				}
+				e.mouseDownTarget = nil
 			}
-			e.mouseDownTarget = nil
 		}
 	}
 
@@ -709,8 +744,13 @@ func (e *Engine) hitTest(node *renderNode, x, y float32) Host {
 }
 
 func (e *Engine) dispatchEvent(target Host, event *Event) {
+	// 目标已失效，直接丢弃事件
+	if !e.isHostAlive(target) {
+		return
+	}
+
 	// 从 target 向上冒泡，直到有 Host 消费事件
-	node := e.findNodeByHost(e.rootNode, target)
+	node := e.findNodeByHostAll(target)
 	for node != nil && node.host != nil {
 		if node.host.HandleEvent(event) {
 			return
@@ -732,6 +772,40 @@ func (e *Engine) findNodeByHost(node *renderNode, host Host) *renderNode {
 		}
 	}
 	return nil
+}
+
+// findNodeByHostAll 在完整树（包括 overlays）中查找 host 对应的 renderNode。
+func (e *Engine) findNodeByHostAll(host Host) *renderNode {
+	// 先搜 overlays
+	for _, overlay := range e.overlays {
+		if found := e.findNodeByHost(overlay, host); found != nil {
+			return found
+		}
+	}
+	// 再搜主树
+	return e.findNodeByHost(e.rootNode, host)
+}
+
+// isHostAlive 检查 host 是否仍在渲染树中。
+func (e *Engine) isHostAlive(host Host) bool {
+	if host == nil {
+		return false
+	}
+	_, ok := e.aliveHosts[host]
+	return ok
+}
+
+// hitTestAll 在完整树（包括 overlays）上执行 hitTest。
+// Overlay 后渲染在最上层，因此先检测 overlays。
+func (e *Engine) hitTestAll(x, y float32) Host {
+	// 1. 先检测 overlays（后渲染在最上层，后入的先测）
+	for i := len(e.overlays) - 1; i >= 0; i-- {
+		if h := e.hitTest(e.overlays[i], x, y); h != nil {
+			return h
+		}
+	}
+	// 2. 再检测主树
+	return e.hitTest(e.rootNode, x, y)
 }
 
 // ==================== Host 更新 ====================
