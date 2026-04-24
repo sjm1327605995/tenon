@@ -85,18 +85,15 @@ func (b *Button) Draw(screen *ebiten.Image) {
 	}
 }
 
-// Update handles hover state per frame.
+// Update syncs hover state with engine's hoverTarget.
 func (b *Button) Update() error {
 	if b.disabled {
 		return nil
 	}
-	mx, my := ebiten.CursorPosition()
-	bounds := b.GetBounds()
-	hovered := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
-		float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
-
 	newState := ButtonNormal
-	if hovered && b.state != ButtonPressed {
+	if b.state == ButtonPressed && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		newState = ButtonPressed
+	} else if b.engine != nil && b.engine.GetHoverTarget() == b.self {
 		newState = ButtonHover
 	}
 	if newState != b.state {

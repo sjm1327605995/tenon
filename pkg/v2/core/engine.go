@@ -674,18 +674,39 @@ func (e *Engine) collectFocusables(el Element) []Element {
 	return result
 }
 
+func (e *Engine) GetHoverTarget() Element {
+	return e.hoverTarget
+}
+
 func (e *Engine) hitTest(el Element, x, y float32) Element {
+	return e.hitTestClipped(el, x, y, nil)
+}
+
+func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBounds) Element {
 	if el == nil || !el.IsVisible() {
 		return nil
 	}
+	b := el.GetBounds()
+	// 如果当前节点在裁剪区域外，直接跳过
+	if clipBounds != nil {
+		if b.X+b.Width <= clipBounds.X || b.X >= clipBounds.X+clipBounds.Width ||
+			b.Y+b.Height <= clipBounds.Y || b.Y >= clipBounds.Y+clipBounds.Height {
+			return nil
+		}
+	}
 	// 后序遍历：子节点优先
 	children := el.GetChildren()
+	var childClip *LayoutBounds
+	if el.HasFlag(FlagClipChildren) {
+		childClip = &b
+	} else {
+		childClip = clipBounds
+	}
 	for i := len(children) - 1; i >= 0; i-- {
-		if h := e.hitTest(children[i], x, y); h != nil {
+		if h := e.hitTestClipped(children[i], x, y, childClip); h != nil {
 			return h
 		}
 	}
-	b := el.GetBounds()
 	if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
 		return el
 	}
