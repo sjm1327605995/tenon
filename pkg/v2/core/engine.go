@@ -23,9 +23,14 @@ type Engine struct {
 	screenHeight int
 
 	// 输入状态
-	lastMouseX   float32
-	lastMouseY   float32
+	lastMouseX      float32
+	lastMouseY      float32
 	mouseDownTarget Element
+	mouseDownX      float32
+	mouseDownY      float32
+	mouseDownButton ebiten.MouseButton
+	hoverTarget     Element
+	focusTarget     Element
 
 	// 时间
 	lastFrameTime time.Time
@@ -39,6 +44,11 @@ func NewEngine(rootWidget Widget, width, height int) *Engine {
 		screenHeight:  height,
 		lastFrameTime: time.Now(),
 	}
+}
+
+// Layout implements ebiten.Game interface.
+func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return e.screenWidth, e.screenHeight
 }
 
 // Mount 执行首次挂载，调用 Widget.Build() 并构建 Element 树。
@@ -267,26 +277,250 @@ func (e *Engine) updateElements(el Element) {
 	}
 }
 
-// ==================== 事件（简化版）====================
+// ==================== 事件系统 ====================
+
+type eventState struct {
+	mouseX, mouseY     float32
+	mouseDownTarget    Element
+	mouseDownX         float32
+	mouseDownY         float32
+	hoverTarget        Element
+	focusTarget        Element
+	mouseDownButton    ebiten.MouseButton
+}
 
 func (e *Engine) handleEvents() {
 	mx, my := ebiten.CursorPosition()
 	fx, fy := float32(mx), float32(my)
 
-	// Hover / Click 简化处理
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		target := e.hitTest(e.rootElement, fx, fy)
-		if target != nil {
-			target.HandleEvent(&Event{Type: EventClick, X: fx, Y: fy, Target: target})
+	// 1. MouseMove / Hover
+	if fx != e.lastMouseX || fy != e.lastMouseY {
+		e.handleMouseMove(fx, fy)
+	}
+
+	// 2. Mouse wheel
+	dx, dy := ebiten.Wheel()
+	if dx != 0 || dy != 0 {
+		e.handleScroll(fx, fy, float32(dx), float32(dy))
+	}
+
+	// 3. Mouse buttons
+	for _, btn := range []ebiten.MouseButton{ebiten.MouseButtonLeft, ebiten.MouseButtonRight, ebiten.MouseButtonMiddle} {
+		if inpututil.IsMouseButtonJustPressed(btn) {
+			e.handleMouseDown(fx, fy, btn)
+		}
+		if inpututil.IsMouseButtonJustReleased(btn) {
+			e.handleMouseUp(fx, fy, btn)
 		}
 	}
+
+	// 4. Keyboard
+	e.handleKeyboard()
 
 	e.lastMouseX = fx
 	e.lastMouseY = fy
 }
 
-func (e *Engine) hitTest(el Element, x, y float32) Element {
+func (e *Engine) handleMouseMove(x, y float32) {
+	target := e.hitTest(e.rootElement, x, y)
+	if target != e.hoverTarget {
+		// MouseLeave old target
+		if e.hoverTarget != nil {
+			e.dispatchEvent(e.hoverTarget, &Event{Type: EventMouseMove, X: x, Y: y, Target: e.hoverTarget})
+		}
+		e.hoverTarget = target
+	}
+	if target != nil {
+		b := target.GetBounds()
+		e.dispatchEvent(target, &Event{
+			Type:   EventMouseMove,
+			X:      x,
+			Y:      y,
+			LocalX: x - b.X,
+			LocalY: y - b.Y,
+			Target: target,
+		})
+	}
+}
+
+func (e *Engine) handleMouseDown(x, y float32, btn ebiten.MouseButton) {
+	target := e.hitTest(e.rootElement, x, y)
+	if target != nil {
+		b := target.GetBounds()
+		e.mouseDownTarget = target
+		e.mouseDownX = x
+		e.mouseDownY = y
+		e.mouseDownButton = btn
+		// Set focus on click
+		if e.focusTarget != target {
+			e.setFocus(target)
+		}
+		e.dispatchEvent(target, &Event{
+			Type:   EventMouseDown,
+			X:      x,
+			Y:      y,
+			LocalX: x - b.X,
+			LocalY: y - b.Y,
+			Button: btn,
+			Target: target,
+		})
+	} else {
+		// Click on empty area clears focus
+		e.setFocus(nil)
+	}
+}
+
+func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
+	if e.mouseDownTarget != nil {
+		b := e.mouseDownTarget.GetBounds()
+		e.dispatchEvent(e.mouseDownTarget, &Event{
+			Type:   EventMouseUp,
+			X:      x,
+			Y:      y,
+			LocalX: x - b.X,
+			LocalY: y - b.Y,
+			Button: btn,
+			Target: e.mouseDownTarget,
+		})
+
+		// Click = mouseDown + mouseUp on same target
+		target := e.hitTest(e.rootElement, x, y)
+		if target == e.mouseDownTarget {
+			e.dispatchEvent(target, &Event{
+				Type:   EventClick,
+				X:      x,
+				Y:      y,
+				LocalX: x - b.X,
+				LocalY: y - b.Y,
+				Button: btn,
+				Target: target,
+			})
+		}
+	}
+	e.mouseDownTarget = nil
+}
+
+func (e *Engine) handleScroll(x, y float32, dx, dy float32) {
+	target := e.hitTest(e.rootElement, x, y)
+	if target != nil {
+		b := target.GetBounds()
+		e.dispatchEvent(target, &Event{
+			Type:   EventScroll,
+			X:      x,
+			Y:      y,
+			LocalX: x - b.X,
+			LocalY: y - b.Y,
+			DeltaX: dx,
+			DeltaY: dy,
+			Target: target,
+		})
+	}
+}
+
+func (e *Engine) handleKeyboard() {
+	// Tab to cycle focus
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		e.focusNext(ebiten.IsKeyPressed(ebiten.KeyShift))
+		return
+	}
+
+	if e.focusTarget == nil {
+		return
+	}
+
+	// Space/Enter triggers click on focused element
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		b := e.focusTarget.GetBounds()
+		e.dispatchEvent(e.focusTarget, &Event{
+			Type:   EventClick,
+			X:      b.X + b.Width/2,
+			Y:      b.Y + b.Height/2,
+			LocalX: b.Width / 2,
+			LocalY: b.Height / 2,
+			Target: e.focusTarget,
+		})
+		return
+	}
+
+	// KeyDown / KeyUp
+	for key := ebiten.Key(0); key <= ebiten.KeyMax; key++ {
+		if inpututil.IsKeyJustPressed(key) {
+			e.dispatchEvent(e.focusTarget, &Event{Type: EventKeyDown, Key: key, Target: e.focusTarget})
+		}
+		if inpututil.IsKeyJustReleased(key) {
+			e.dispatchEvent(e.focusTarget, &Event{Type: EventKeyUp, Key: key, Target: e.focusTarget})
+		}
+	}
+}
+
+// dispatchEvent sends event to target and bubbles up until consumed.
+func (e *Engine) dispatchEvent(target Element, event *Event) {
+	el := target
+	for el != nil {
+		if el.HandleEvent(event) {
+			return // consumed
+		}
+		el = el.GetParent()
+	}
+}
+
+// setFocus changes focused element.
+func (e *Engine) setFocus(target Element) {
+	if e.focusTarget == target {
+		return
+	}
+	if e.focusTarget != nil {
+		e.focusTarget.HandleEvent(&Event{Type: EventFocusOut, Target: e.focusTarget})
+	}
+	e.focusTarget = target
+	if target != nil {
+		target.HandleEvent(&Event{Type: EventFocusIn, Target: target})
+	}
+}
+
+// focusNext cycles focus to next/previous focusable element.
+func (e *Engine) focusNext(reverse bool) {
+	focusables := e.collectFocusables(e.rootElement)
+	if len(focusables) == 0 {
+		return
+	}
+	idx := -1
+	for i, el := range focusables {
+		if el == e.focusTarget {
+			idx = i
+			break
+		}
+	}
+	if reverse {
+		idx--
+		if idx < 0 {
+			idx = len(focusables) - 1
+		}
+	} else {
+		idx++
+		if idx >= len(focusables) {
+			idx = 0
+		}
+	}
+	e.setFocus(focusables[idx])
+}
+
+func (e *Engine) collectFocusables(el Element) []Element {
 	if el == nil {
+		return nil
+	}
+	var result []Element
+	if el.HasFlag(FlagFocusable) {
+		result = append(result, el)
+	}
+	for _, child := range el.GetChildren() {
+		result = append(result, e.collectFocusables(child)...)
+	}
+	return result
+}
+
+func (e *Engine) hitTest(el Element, x, y float32) Element {
+	if el == nil || !el.IsVisible() {
 		return nil
 	}
 	// 后序遍历：子节点优先

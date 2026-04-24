@@ -174,7 +174,11 @@ func (b *AntButton) applyStyle(theme *AntTheme) {
 	b.btn.SetDashed(b.btnType == AntButtonDashed)
 
 	// 边框宽度
-	if b.btnType == AntButtonDefault || b.btnType == AntButtonDashed {
+	hasBorder := b.btnType == AntButtonDefault || b.btnType == AntButtonDashed
+	if b.ghost && (b.btnType == AntButtonPrimary || b.btnType == AntButtonDefault || b.btnType == AntButtonDashed) {
+		hasBorder = true
+	}
+	if hasBorder {
 		b.btn.GetElement().Yoga.StyleSetBorder(yoga.EdgeAll, 1)
 	} else {
 		b.btn.GetElement().Yoga.StyleSetBorder(yoga.EdgeAll, 0)
@@ -231,23 +235,10 @@ func (b *AntButton) getTextColor(theme *AntTheme) color.Color {
 		return theme.DisabledTextColor
 	}
 	if b.ghost {
-		switch b.btnType {
-		case AntButtonPrimary:
-			if b.danger {
-				return theme.DangerNormalColor
-			}
-			return theme.PrimaryColor
-		case AntButtonDefault, AntButtonDashed:
-			if b.danger {
-				return theme.DangerNormalColor
-			}
-			return theme.PrimaryColor
-		case AntButtonText, AntButtonLink:
-			if b.danger {
-				return theme.DangerNormalColor
-			}
-			return theme.PrimaryColor
+		if b.danger {
+			return theme.DangerNormalColor
 		}
+		return theme.ButtonTextColor
 	}
 	if b.danger {
 		switch b.btnType {
@@ -335,16 +326,17 @@ func (b *AntButton) resolveGhostColors(theme *AntTheme) (
 	textNormal, textHover, textPressed color.Color,
 ) {
 	transparent := color.RGBA{A: 0}
+	white := theme.ButtonTextColor
 	switch b.btnType {
 	case AntButtonPrimary:
 		if b.danger {
 			return transparent, theme.DangerNormalColor, theme.DangerHoverColor,
 				theme.DangerNormalColor, theme.DangerNormalColor, theme.DangerHoverColor,
-				theme.DangerNormalColor, theme.ButtonTextColor, theme.ButtonTextColor
+				theme.DangerNormalColor, white, white
 		}
 		return transparent, theme.PrimaryColor, theme.PrimaryHoverColor,
-			theme.PrimaryColor, theme.PrimaryColor, theme.PrimaryHoverColor,
-			theme.PrimaryColor, theme.ButtonTextColor, theme.ButtonTextColor
+			white, white, white,
+			white, white, white
 	case AntButtonDefault, AntButtonDashed:
 		if b.danger {
 			return transparent, theme.DangerNormalColor, theme.DangerHoverColor,
@@ -352,8 +344,8 @@ func (b *AntButton) resolveGhostColors(theme *AntTheme) (
 				theme.DangerNormalColor, theme.DangerNormalColor, theme.DangerHoverColor
 		}
 		return transparent, theme.PrimaryColor, theme.PrimaryHoverColor,
-			theme.PrimaryColor, theme.PrimaryColor, theme.PrimaryHoverColor,
-			theme.PrimaryColor, theme.PrimaryColor, theme.PrimaryHoverColor
+			white, white, white,
+			white, white, white
 	case AntButtonText, AntButtonLink:
 		if b.danger {
 			return transparent, theme.DangerBgColor, theme.DangerBgColor,
@@ -362,11 +354,11 @@ func (b *AntButton) resolveGhostColors(theme *AntTheme) (
 		}
 		return transparent, theme.TextButtonHoverBg, theme.TextButtonActiveBg,
 			transparent, transparent, transparent,
-			theme.PrimaryColor, theme.PrimaryHoverColor, theme.ButtonPressedColor
+			white, white, white
 	}
 	return transparent, theme.PrimaryColor, theme.PrimaryHoverColor,
-		theme.PrimaryColor, theme.PrimaryColor, theme.PrimaryHoverColor,
-		theme.PrimaryColor, theme.PrimaryColor, theme.PrimaryHoverColor
+		white, white, white,
+		white, white, white
 }
 
 // ==================== 链式 API ====================

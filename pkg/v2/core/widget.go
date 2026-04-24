@@ -21,9 +21,15 @@ type Widget interface {
 
 // BaseWidget 提供 Widget 的默认实现。
 type BaseWidget struct {
+	self         Widget
 	engine       *Engine
 	needBuild    bool
 	rootElement  Element
+}
+
+// Init 初始化 BaseWidget，必须在子类构造函数中调用。
+func (b *BaseWidget) Init(self Widget) {
+	b.self = self
 }
 
 // Build 默认返回 nil，子类必须覆盖。
