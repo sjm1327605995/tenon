@@ -48,3 +48,6 @@ func (b *BaseWidget) OnUnmount()              {}
 
 // GetRootElement 返回该 Widget 已挂载的根 Element。
 func (b *BaseWidget) GetRootElement() Element { return b.rootElement }
+
+// SetRootElement 设置该 Widget 的根 Element，框架内部使用。
+func (b *BaseWidget) SetRootElement(el Element) { b.rootElement = el }
