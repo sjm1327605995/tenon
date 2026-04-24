@@ -11,25 +11,31 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// ScrollView is a scrollable container with vertical scrolling support.
+// ScrollView is a scrollable container with vertical and horizontal scrolling support.
 type ScrollView struct {
 	core.BaseElement
-	content        *View
-	scrollX        float32
-	scrollY        float32
-	maxScrollX     float32
-	maxScrollY     float32
-	scrollbarWidth float32
-	scrollbarColor color.Color
-	trackColor     color.Color
+	content         *View
+	scrollX         float32
+	scrollY         float32
+	maxScrollX      float32
+	maxScrollY      float32
+	scrollbarWidth  float32
+	scrollbarColor  color.Color
+	trackColor      color.Color
 	backgroundColor color.Color
-	dragging       bool
-	lastMouseX     float32
-	lastMouseY     float32
-	velocityY      float32
-	flinging       bool
-	lastDragY      float32
-	lastDragTime   time.Time
+	dragging        bool
+	lastMouseX      float32
+	lastMouseY      float32
+	velocityY       float32
+	velocityX       float32
+	flinging        bool
+	flingingX       bool
+	lastDragY       float32
+	lastDragX       float32
+	lastDragTime    time.Time
+	panStartX       float32
+	panStartY       float32
+	panning         bool
 }
 
 // NewScrollView creates a scrollable container.
@@ -82,6 +88,10 @@ func (sv *ScrollView) Draw(screen *ebiten.Image) {
 	if sv.maxScrollY > 0 {
 		sv.drawVerticalScrollbar(screen, bounds)
 	}
+	// Horizontal scrollbar
+	if sv.maxScrollX > 0 {
+		sv.drawHorizontalScrollbar(screen, bounds)
+	}
 }
 
 func (sv *ScrollView) drawVerticalScrollbar(screen *ebiten.Image, bounds core.LayoutBounds) {
@@ -120,19 +130,36 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 		} else if deltaY < -1 {
 			deltaY = -1
 		}
-		sv.scrollY -= deltaY * 20
-		// Prevent negative scroll immediately; upper bound clamped in Update().
-		if sv.scrollY < 0 {
-			sv.scrollY = 0
+		deltaX := e.DeltaX
+		if deltaX > 1 {
+			deltaX = 1
+		} else if deltaX < -1 {
+			deltaX = -1
 		}
-		sv.applyScrollToContent()
-		sv.Mark(core.FlagNeedDraw)
-		core.LogDebug("[ScrollView] EventScroll", "rawDeltaY", e.DeltaY, "cappedDeltaY", deltaY, "scrollY", sv.scrollY, "maxScrollY", sv.maxScrollY)
+		if sv.maxScrollY > 0 && deltaY != 0 {
+			sv.scrollY -= deltaY * 20
+			if sv.scrollY < 0 {
+				sv.scrollY = 0
+			}
+			sv.applyScrollToContent()
+			sv.Mark(core.FlagNeedDraw)
+		}
+		if sv.maxScrollX > 0 && deltaX != 0 {
+			sv.scrollX -= deltaX * 20
+			if sv.scrollX < 0 {
+				sv.scrollX = 0
+			}
+			sv.applyScrollToContent()
+			sv.Mark(core.FlagNeedDraw)
+		}
+		core.LogDebug("[ScrollView] EventScroll", "rawDeltaY", e.DeltaY, "cappedDeltaY", deltaY, "scrollY", sv.scrollY, "maxScrollY", sv.maxScrollY, "scrollX", sv.scrollX, "maxScrollX", sv.maxScrollX)
 		return true
 
 	case core.EventMouseDown:
 		sv.flinging = false
 		sv.velocityY = 0
+		sv.velocityX = 0
+		// Only consume if clicking on scrollbar (so child elements in content area still get clicks)
 		if sv.maxScrollY > 0 {
 			trackX := bounds.X + bounds.Width - sv.scrollbarWidth - 2
 			trackY := bounds.Y + 2
@@ -147,15 +174,22 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 				return true
 			}
 		}
-		if e.X >= bounds.X && e.X <= bounds.X+bounds.Width &&
-			e.Y >= bounds.Y && e.Y <= bounds.Y+bounds.Height {
-			sv.dragging = true
-			sv.lastMouseX = e.X
-			sv.lastMouseY = e.Y
-			sv.lastDragY = e.Y
-			sv.lastDragTime = time.Now()
-			return true
+		if sv.maxScrollX > 0 {
+			trackY := bounds.Y + bounds.Height - sv.scrollbarWidth - 2
+			trackX := bounds.X + 2
+			trackW := bounds.Width - 4
+			if e.Y >= trackY && e.Y <= trackY+sv.scrollbarWidth+4 &&
+				e.X >= trackX && e.X <= trackX+trackW {
+				sv.dragging = true
+				sv.lastMouseX = e.X
+				sv.lastMouseY = e.Y
+				sv.lastDragX = e.X
+				sv.lastDragTime = time.Now()
+				return true
+			}
 		}
+		// Content area: do NOT consume, let children handle their own clicks.
+		// Pan-scrolling is handled in Update() instead.
 
 	case core.EventMouseUp:
 		if sv.dragging {
@@ -163,23 +197,41 @@ func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 			if math.Abs(float64(sv.velocityY)) > 50 {
 				sv.flinging = true
 			}
+			if math.Abs(float64(sv.velocityX)) > 50 {
+				sv.flingingX = true
+			}
 		}
 
 	case core.EventMouseMove:
 		if sv.dragging {
 			dy := e.Y - sv.lastMouseY
-			sv.scrollY += dy
-			// Prevent negative scroll immediately; upper bound clamped in Update().
-			if sv.scrollY < 0 {
-				sv.scrollY = 0
+			dx := e.X - sv.lastMouseX
+			if sv.maxScrollY > 0 {
+				sv.scrollY += dy
+				if sv.scrollY < 0 {
+					sv.scrollY = 0
+				}
+				sv.applyScrollToContent()
 			}
-			sv.applyScrollToContent()
+			if sv.maxScrollX > 0 {
+				sv.scrollX += dx
+				if sv.scrollX < 0 {
+					sv.scrollX = 0
+				}
+				sv.applyScrollToContent()
+			}
 			now := time.Now()
 			dt := float32(now.Sub(sv.lastDragTime).Seconds())
 			if dt > 0 {
-				sv.velocityY = (e.Y - sv.lastDragY) / dt
+				if sv.maxScrollY > 0 {
+					sv.velocityY = (e.Y - sv.lastDragY) / dt
+				}
+				if sv.maxScrollX > 0 {
+					sv.velocityX = (e.X - sv.lastDragX) / dt
+				}
 			}
 			sv.lastDragY = e.Y
+			sv.lastDragX = e.X
 			sv.lastDragTime = now
 			sv.lastMouseX = e.X
 			sv.lastMouseY = e.Y
@@ -210,11 +262,13 @@ func (sv *ScrollView) applyScrollToContent() {
 	svBounds := sv.GetBounds()
 	contentBounds := sv.content.GetBounds()
 	targetY := svBounds.Y - sv.scrollY
+	targetX := svBounds.X - sv.scrollX
 	dy := targetY - contentBounds.Y
-	if dy == 0 {
+	dx := targetX - contentBounds.X
+	if dx == 0 && dy == 0 {
 		return
 	}
-	sv.applyOffsetRecursive(sv.content, 0, dy)
+	sv.applyOffsetRecursive(sv.content, dx, dy)
 }
 
 func (sv *ScrollView) applyOffsetRecursive(el core.Element, dx, dy float32) {
@@ -230,23 +284,72 @@ func (sv *ScrollView) applyOffsetRecursive(el core.Element, dx, dy float32) {
 	}
 }
 
-// Update recalculates max scroll and handles fling.
+// Update recalculates max scroll, handles fling, and pan-gesture scrolling.
 func (sv *ScrollView) Update() error {
 	contentH := sv.content.GetBounds().Height
 	viewportH := sv.GetBounds().Height
+	contentW := sv.content.GetBounds().Width
+	viewportW := sv.GetBounds().Width
+
 	if contentH > viewportH {
 		sv.maxScrollY = contentH - viewportH
-		// Reserve right margin for scrollbar so content doesn't cover it.
 		if y := sv.content.GetYoga(); y != nil {
 			y.StyleSetMargin(yoga.EdgeRight, sv.scrollbarWidth+4)
 		}
 	} else {
 		sv.maxScrollY = 0
 		sv.scrollY = 0
-		// No scrollbar needed, remove right margin.
 		if y := sv.content.GetYoga(); y != nil {
 			y.StyleSetMargin(yoga.EdgeRight, 0)
 		}
+	}
+
+	if contentW > viewportW {
+		sv.maxScrollX = contentW - viewportW
+		if y := sv.content.GetYoga(); y != nil {
+			y.StyleSetMargin(yoga.EdgeBottom, sv.scrollbarWidth+4)
+		}
+	} else {
+		sv.maxScrollX = 0
+		sv.scrollX = 0
+		if y := sv.content.GetYoga(); y != nil {
+			y.StyleSetMargin(yoga.EdgeBottom, 0)
+		}
+	}
+
+	// Pan gesture: if mouse is down inside scrollview bounds, track movement for scrolling.
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		mx, my := ebiten.CursorPosition()
+		bounds := sv.GetBounds()
+		inBounds := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
+			float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
+		if inBounds && !sv.dragging {
+			if !sv.panning {
+				sv.panning = true
+				sv.panStartX = float32(mx)
+				sv.panStartY = float32(my)
+				sv.lastMouseX = float32(mx)
+				sv.lastMouseY = float32(my)
+			} else {
+				dx := float32(mx) - sv.lastMouseX
+				dy := float32(my) - sv.lastMouseY
+				moved := math.Abs(float64(dx)) > 0.5 || math.Abs(float64(dy)) > 0.5
+				if moved {
+					if sv.maxScrollY > 0 {
+						sv.scrollY -= dy
+					}
+					if sv.maxScrollX > 0 {
+						sv.scrollX -= dx
+					}
+					sv.applyScrollToContent()
+					sv.Mark(core.FlagNeedDraw)
+				}
+				sv.lastMouseX = float32(mx)
+				sv.lastMouseY = float32(my)
+			}
+		}
+	} else {
+		sv.panning = false
 	}
 
 	if sv.flinging {
@@ -259,9 +362,42 @@ func (sv *ScrollView) Update() error {
 		sv.Mark(core.FlagNeedDraw)
 	}
 
+	if sv.flingingX {
+		sv.scrollX += sv.velocityX * (1.0 / 60.0)
+		sv.velocityX *= 0.9
+		if math.Abs(float64(sv.velocityX)) < 10 {
+			sv.flingingX = false
+			sv.velocityX = 0
+		}
+		sv.Mark(core.FlagNeedDraw)
+	}
+
 	sv.clampScroll()
 	sv.applyScrollToContent()
 	return nil
+}
+
+func (sv *ScrollView) drawHorizontalScrollbar(screen *ebiten.Image, bounds core.LayoutBounds) {
+	trackY := bounds.Y + bounds.Height - sv.scrollbarWidth - 2
+	trackX := bounds.X + 2
+	trackW := bounds.Width - 4
+
+	// Track
+	vector.FillRect(screen, trackX, trackY, trackW, sv.scrollbarWidth, sv.trackColor, false)
+
+	// Thumb
+	contentW := sv.content.GetBounds().Width
+	viewportW := bounds.Width
+	if contentW > viewportW {
+		ratio := viewportW / contentW
+		thumbW := ratio * trackW
+		if thumbW < 10 {
+			thumbW = 10
+		}
+		scrollRatio := sv.scrollX / sv.maxScrollX
+		thumbX := trackX + scrollRatio*(trackW-thumbW)
+		vector.FillRect(screen, thumbX, trackY, thumbW, sv.scrollbarWidth, sv.scrollbarColor, false)
+	}
 }
 
 // SetScrollbarWidth sets the scrollbar width.
