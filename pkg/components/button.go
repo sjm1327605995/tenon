@@ -259,29 +259,13 @@ func min(a, b float32) float32 {
 	return b
 }
 
-// Update 每帧检测鼠标悬停状态，处理 hover / normal 切换。
+// Update 每帧更新 loading 动画。
 func (b *Button) Update() error {
 	if b.loading {
 		b.loadingAngle += 0.15
 		if b.loadingAngle > 2*math.Pi {
 			b.loadingAngle -= 2 * math.Pi
 		}
-	}
-	if b.disabled || b.state == ButtonStatePressed {
-		return nil
-	}
-	mx, my := ebiten.CursorPosition()
-	bounds := b.GetLayoutBounds()
-	hovered := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
-		float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
-
-	newState := ButtonStateNormal
-	if hovered {
-		newState = ButtonStateHover
-	}
-	if newState != b.state {
-		b.state = newState
-		b.refreshColor()
 	}
 	return nil
 }
@@ -293,18 +277,24 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 	}
 
 	switch e.Type {
+	case core.EventMouseEnter:
+		if b.state != ButtonStatePressed {
+			b.state = ButtonStateHover
+			b.refreshColor()
+		}
+		return true
+	case core.EventMouseLeave:
+		if b.state != ButtonStatePressed {
+			b.state = ButtonStateNormal
+			b.refreshColor()
+		}
+		return true
 	case core.EventMouseDown:
 		b.state = ButtonStatePressed
 		b.refreshColor()
 		return true
 	case core.EventMouseUp:
-		bounds := b.GetLayoutBounds()
-		if e.X >= bounds.X && e.X < bounds.X+bounds.Width &&
-			e.Y >= bounds.Y && e.Y < bounds.Y+bounds.Height {
-			b.state = ButtonStateHover
-		} else {
-			b.state = ButtonStateNormal
-		}
+		b.state = ButtonStateNormal
 		b.refreshColor()
 		return true
 	case core.EventClick:

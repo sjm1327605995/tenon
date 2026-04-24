@@ -97,27 +97,22 @@ func (mi *MenuItem) SetOnClick(fn func()) *MenuItem {
 	return mi
 }
 
-// Update 每帧检测鼠标是否悬停。
+// Update 每帧更新。
 func (mi *MenuItem) Update() error {
-	mx, my := ebiten.CursorPosition()
-	bounds := mi.GetLayoutBounds()
-	hovered := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
-		float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
-
-	if hovered != mi.hovered {
-		mi.hovered = hovered
-		if hovered && !mi.selected {
-			mi.hoverBg.SetBackgroundColor(core.GetTheme().MenuItemHoverBg).SetVisible(true)
-		} else {
-			mi.hoverBg.SetVisible(false)
-		}
-	}
 	return nil
 }
 
 // HandleEvent 处理点击事件。
 func (mi *MenuItem) HandleEvent(e *core.Event) bool {
 	switch e.Type {
+	case core.EventMouseEnter:
+		if !mi.selected {
+			mi.hoverBg.SetBackgroundColor(core.GetTheme().MenuItemHoverBg).SetVisible(true)
+		}
+		return true
+	case core.EventMouseLeave:
+		mi.hoverBg.SetVisible(false)
+		return true
 	case core.EventMouseDown:
 		return true
 	case core.EventMouseUp:

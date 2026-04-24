@@ -15,6 +15,8 @@ const (
 	EventKeyUp
 	EventFocusIn
 	EventFocusOut
+	EventMouseEnter
+	EventMouseLeave
 )
 
 // Event 是统一的 UI 事件结构。

@@ -36,6 +36,8 @@ type Engine struct {
 	screenHeight int
 
 	focusHost Host // 当前焦点组件
+	hoverTarget    Host // 当前悬停组件
+	prevHoverTarget Host // 上一帧悬停组件
 
 	mouseDownTarget  Host              // 鼠标按下的目标组件（用于拖拽）
 	mouseDownButton  ebiten.MouseButton // 按下的鼠标按钮
@@ -542,18 +544,47 @@ func (e *Engine) handleEvents() {
 	// 每帧重置光标为默认箭头，组件可通过 MouseMove/Click 覆盖为其他形状
 	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 
-	// Hover 检测：未拖拽时向当前 hover 组件发送 MouseMove，用于光标形状、hover 样式等
+	// Hover 检测：未拖拽时更新 hover 目标，发送 MouseEnter/MouseLeave/MouseMove
 	if e.mouseDownTarget == nil {
-		hoverTarget := e.hitTestAll(fx, fy)
-		if hoverTarget != nil {
-			bounds := hoverTarget.GetLayoutBounds()
-			e.dispatchEvent(hoverTarget, &Event{
+		e.prevHoverTarget = e.hoverTarget
+		e.hoverTarget = e.hitTestAll(fx, fy)
+
+		// MouseLeave: 旧的 hover 目标不再是当前 hover 目标
+		if e.prevHoverTarget != nil && e.prevHoverTarget != e.hoverTarget && e.isHostAlive(e.prevHoverTarget) {
+			bounds := e.prevHoverTarget.GetLayoutBounds()
+			e.dispatchEvent(e.prevHoverTarget, &Event{
+				Type:   EventMouseLeave,
+				X:      fx,
+				Y:      fy,
+				LocalX: fx - bounds.X,
+				LocalY: fy - bounds.Y,
+				Target: e.prevHoverTarget,
+			})
+		}
+
+		// MouseEnter: 新的 hover 目标
+		if e.hoverTarget != nil && e.hoverTarget != e.prevHoverTarget && e.isHostAlive(e.hoverTarget) {
+			bounds := e.hoverTarget.GetLayoutBounds()
+			e.dispatchEvent(e.hoverTarget, &Event{
+				Type:   EventMouseEnter,
+				X:      fx,
+				Y:      fy,
+				LocalX: fx - bounds.X,
+				LocalY: fy - bounds.Y,
+				Target: e.hoverTarget,
+			})
+		}
+
+		// MouseMove: 当前 hover 目标
+		if e.hoverTarget != nil && e.isHostAlive(e.hoverTarget) {
+			bounds := e.hoverTarget.GetLayoutBounds()
+			e.dispatchEvent(e.hoverTarget, &Event{
 				Type:   EventMouseMove,
 				X:      fx,
 				Y:      fy,
 				LocalX: fx - bounds.X,
 				LocalY: fy - bounds.Y,
-				Target: hoverTarget,
+				Target: e.hoverTarget,
 			})
 		}
 	}
@@ -607,9 +638,8 @@ func (e *Engine) handleEvents() {
 				e.setFocusHost(nil)
 			}
 			bounds := target.GetLayoutBounds()
-			e.mouseDownTarget = target
 			e.mouseDownButton = ebiten.MouseButtonLeft
-			e.dispatchEvent(target, &Event{
+			consumer := e.dispatchEvent(target, &Event{
 				Type:   EventMouseDown,
 				X:      fx,
 				Y:      fy,
@@ -618,6 +648,12 @@ func (e *Engine) handleEvents() {
 				Button: ebiten.MouseButtonLeft,
 				Target: target,
 			})
+			// 将 mouseDownTarget 设为实际消费事件的组件，若无则设为原始 target
+			if consumer != nil {
+				e.mouseDownTarget = consumer
+			} else {
+				e.mouseDownTarget = target
+			}
 		} else {
 			// 点击空白区域，清除焦点
 			if e.focusHost != nil {
@@ -743,20 +779,21 @@ func (e *Engine) hitTest(node *renderNode, x, y float32) Host {
 	return nil
 }
 
-func (e *Engine) dispatchEvent(target Host, event *Event) {
+func (e *Engine) dispatchEvent(target Host, event *Event) Host {
 	// 目标已失效，直接丢弃事件
 	if !e.isHostAlive(target) {
-		return
+		return nil
 	}
 
 	// 从 target 向上冒泡，直到有 Host 消费事件
 	node := e.findNodeByHostAll(target)
 	for node != nil && node.host != nil {
 		if node.host.HandleEvent(event) {
-			return
+			return node.host
 		}
 		node = node.parent
 	}
+	return nil
 }
 
 func (e *Engine) findNodeByHost(node *renderNode, host Host) *renderNode {
