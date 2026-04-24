@@ -1,8 +1,6 @@
 package core
 
 import (
-	"image/color"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -36,6 +34,7 @@ type Element interface {
 	Mark(flags ElementFlags)
 	GetFlags() ElementFlags
 	ClearDirty()
+	HasFlag(f ElementFlags) bool
 
 	// === 类型与标识 ===
 	ElementType() string
@@ -45,8 +44,38 @@ type Element interface {
 	// === 样式标签 ===
 	SetTag(tag string)
 	GetTag() string
-	SetClass(classes ...string)
+	SetClass(classes ...string) Element
 	GetClass() []string
+
+	// === 链式布局 API ===
+	SetWidth(v float32) Element
+	SetWidthPercent(v float32) Element
+	SetHeight(v float32) Element
+	SetHeightPercent(v float32) Element
+	SetMinWidth(v float32) Element
+	SetMinHeight(v float32) Element
+	SetMaxWidth(v float32) Element
+	SetMaxHeight(v float32) Element
+	SetFlexDirection(dir yoga.FlexDirection) Element
+	SetJustifyContent(v yoga.Justify) Element
+	SetAlignItems(v yoga.Align) Element
+	SetAlignSelf(v yoga.Align) Element
+	SetFlexGrow(v float32) Element
+	SetFlexShrink(v float32) Element
+	SetFlexBasis(v float32) Element
+	SetFlexWrap(v yoga.Wrap) Element
+	SetPadding(edge yoga.Edge, v float32) Element
+	SetMargin(edge yoga.Edge, v float32) Element
+	SetBorder(edge yoga.Edge, v float32) Element
+	SetPosition(edge yoga.Edge, v float32) Element
+	SetPositionType(v yoga.PositionType) Element
+	SetAspectRatio(v float32) Element
+	SetDisplay(v yoga.Display) Element
+	SetOverflow(v yoga.Overflow) Element
+	SetGap(gutter yoga.Gutter, v float32) Element
+	Add(children ...Element) Element
+	SetVisible(v bool) Element
+	IsVisible() bool
 
 	// === Engine ===
 	SetEngine(engine *Engine)
@@ -207,7 +236,7 @@ func (b *BaseElement) SetKey(key string)     { b.key = key }
 func (b *BaseElement) GetKey() string        { return b.key }
 func (b *BaseElement) SetTag(tag string)     { b.tag = tag }
 func (b *BaseElement) GetTag() string        { return b.tag }
-func (b *BaseElement) SetClass(c ...string)  { b.classes = append(b.classes[:0], c...) }
+func (b *BaseElement) SetClass(c ...string) Element { b.classes = append(b.classes[:0], c...); return b.self }
 func (b *BaseElement) GetClass() []string    { return b.classes }
 
 // === Engine ===
@@ -367,7 +396,7 @@ func (b *BaseElement) SetGap(gutter yoga.Gutter, v float32) Element {
 	return b.self
 }
 
-// Add 是 AppendChild 的链式语法糖。
+// Add is AppendChild chained.
 func (b *BaseElement) Add(children ...Element) Element {
 	for _, c := range children {
 		b.AppendChild(c)
@@ -375,7 +404,7 @@ func (b *BaseElement) Add(children ...Element) Element {
 	return b.self
 }
 
-// SetVisible 控制是否可见（视觉属性，不重排）。
+// SetVisible controls visibility.
 func (b *BaseElement) SetVisible(v bool) Element {
 	if v {
 		b.flags |= FlagVisible
@@ -386,5 +415,5 @@ func (b *BaseElement) SetVisible(v bool) Element {
 	return b.self
 }
 
-// IsVisible 检查可见性。
+// IsVisible checks visibility.
 func (b *BaseElement) IsVisible() bool { return b.flags&FlagVisible != 0 }
