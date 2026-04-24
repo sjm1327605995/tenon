@@ -2,6 +2,7 @@ package components
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -77,6 +78,11 @@ func (b *Button) Draw(screen *ebiten.Image) {
 	}
 
 	vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, bg, false)
+
+	// Loading spinner
+	if b.loading {
+		b.drawLoading(screen, bounds)
+	}
 }
 
 // Update handles hover state per frame.
@@ -90,7 +96,7 @@ func (b *Button) Update() error {
 		float32(my) >= bounds.Y && float32(my) < bounds.Y+bounds.Height
 
 	newState := ButtonNormal
-	if hovered {
+	if hovered && b.state != ButtonPressed {
 		newState = ButtonHover
 	}
 	if newState != b.state {
@@ -105,9 +111,22 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 	if b.disabled {
 		return false
 	}
-	if e.Type == core.EventClick {
+	switch e.Type {
+	case core.EventMouseDown:
 		b.state = ButtonPressed
 		b.Mark(core.FlagNeedDraw)
+		return true
+	case core.EventMouseUp:
+		bounds := b.GetBounds()
+		if e.X >= bounds.X && e.X < bounds.X+bounds.Width &&
+			e.Y >= bounds.Y && e.Y < bounds.Y+bounds.Height {
+			b.state = ButtonHover
+		} else {
+			b.state = ButtonNormal
+		}
+		b.Mark(core.FlagNeedDraw)
+		return true
+	case core.EventClick:
 		if b.onClick != nil {
 			b.onClick()
 		}
@@ -120,6 +139,12 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 
 func (b *Button) SetLabel(label string) *Button {
 	b.labelEl.SetContent(label)
+	return b
+}
+
+// SetText is an alias for SetLabel.
+func (b *Button) SetText(text string) *Button {
+	b.labelEl.SetContent(text)
 	return b
 }
 
@@ -146,4 +171,25 @@ func (b *Button) SetColors(normal, hover, pressed color.Color) *Button {
 	b.pressedColor = pressed
 	b.Mark(core.FlagNeedDraw)
 	return b
+}
+
+func (b *Button) drawLoading(screen *ebiten.Image, bounds core.LayoutBounds) {
+	cx := bounds.X + bounds.Width/2
+	cy := bounds.Y + bounds.Height/2
+	r := float32(6)
+	stroke := float32(2)
+	clr := b.textColor
+	if clr == nil {
+		clr = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+	}
+	angle := float32(0) // static for simplicity, could animate
+	var path vector.Path
+	startAngle := angle
+	endAngle := angle + 1.2
+	path.MoveTo(cx+r*float32(math.Cos(float64(startAngle))), cy+r*float32(math.Sin(float64(startAngle))))
+	path.Arc(cx, cy, r, startAngle, endAngle, vector.Clockwise)
+	strokeOp := &vector.StrokeOptions{Width: stroke, MiterLimit: 10}
+	op := &vector.DrawPathOptions{}
+	op.ColorScale.ScaleWithColor(clr)
+	vector.StrokePath(screen, &path, strokeOp, op)
 }

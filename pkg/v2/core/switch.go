@@ -1,5 +1,7 @@
 package core
 
+
+
 // Switch 是声明式路由/页面切换组件。
 // 它根据 State 的值自动切换显示的子 Element，用户不需要写 switch 或手动管理子节点。
 // Switch 本身是 Element，可以像 View、Text 一样被挂载到树中。
@@ -90,6 +92,13 @@ func (s *Switch[T]) show(key T) {
 	if newEl != nil {
 		s.current = newEl
 		s.AppendChild(newEl)
+		// 递归注入 engine，确保新子树能正常 Mark dirty、接收事件
+		if s.engine != nil {
+			LogDebug("[Switch] onElementMounted", "type", newEl.ElementType())
+			s.engine.onElementMounted(newEl)
+		} else {
+			LogDebug("[Switch] WARNING: engine is nil, cannot mount newEl")
+		}
 		// 新子节点加入后需要重新布局
 		s.Mark(FlagNeedLayout)
 	}

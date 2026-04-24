@@ -1,24 +1,33 @@
 package components
 
 import (
-	"image"
-
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
+	"github.com/sjm1327605995/tenon/yoga"
 )
 
 // Image displays an image.
 type Image struct {
 	core.BaseElement
-	src       *ebiten.Image
-	drawOpts  *ebiten.DrawImageOptions
+	src      *ebiten.Image
+	drawOpts *ebiten.DrawImageOptions
 }
 
 // NewImage creates an image element.
 func NewImage() *Image {
 	img := &Image{}
 	img.Init(img)
+	img.GetYoga().SetMeasureFunc(img.measure)
 	return img
+}
+
+func (img *Image) measure(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
+	if img.src == nil {
+		return yoga.Size{Width: 0, Height: 0}
+	}
+	b := img.src.Bounds()
+	return yoga.Size{Width: float32(b.Dx()), Height: float32(b.Dy())}
 }
 
 // ElementType returns type identifier.
@@ -43,7 +52,11 @@ func (img *Image) Draw(screen *ebiten.Image) {
 	sw := float64(bounds.Width) / float64(img.src.Bounds().Dx())
 	sh := float64(bounds.Height) / float64(img.src.Bounds().Dy())
 	op.GeoM.Scale(sw, sh)
-	op.GeoM.Translate(float64(bounds.X), float64(bounds.Y))
+
+	// Apply transform (concatenates on the left: Transform * Scale)
+	t := img.GetTransform()
+	op.GeoM.Concat(core.BuildTransformGeoM(bounds, t))
+	core.ApplyColorScaleAlpha(&op.ColorScale, t.Alpha)
 
 	screen.DrawImage(img.src, op)
 }
@@ -57,7 +70,10 @@ func (img *Image) SetEbitenImage(src *ebiten.Image) *Image {
 
 // SetSource loads image from file path.
 func (img *Image) SetSource(path string) *Image {
-	// TODO: implement image loading from file
+	if loaded, _, err := ebitenutil.NewImageFromFile(path); err == nil {
+		img.src = loaded
+		img.Mark(core.FlagNeedMeasure | core.FlagNeedDraw)
+	}
 	return img
 }
 

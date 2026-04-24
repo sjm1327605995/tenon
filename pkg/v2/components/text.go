@@ -10,34 +10,96 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// Text renders text with font support.
+// Text renders text with font support and multiline layout.
 type Text struct {
 	core.BaseElement
 	content    string
 	fontSize   float64
 	color      color.Color
 	faceSource *text.GoTextFaceSource
+
+	// Layout strategy
+	whiteSpace WhiteSpace
+	wordBreak  WordBreak
+	lineHeight float32 // explicit line height, 0 = auto
+
+	// Layout cache
+	cachedLayout  *textLayoutResult
+	cachedFace    *text.GoTextFace
+	cachedWidth   float32
+	cachedContent string
 }
 
 // NewText creates a Text element.
 func NewText(content string) *Text {
 	t := &Text{
-		content:  content,
-		fontSize: 16,
-		color:    color.Black,
+		content:    content,
+		fontSize:   16,
+		color:      color.Black,
+		whiteSpace: WhiteSpaceNormal,
+		wordBreak:  WordBreakNormal,
 	}
 	t.Init(t)
-	// Auto-load default font face source if available
 	if face, err := fonts.GetDefaultFontFace(float32(t.fontSize)); err == nil {
 		t.faceSource = face.Face.Source
 	}
-	// Text nodes measure their own size
 	t.GetYoga().SetMeasureFunc(t.measure)
 	return t
 }
 
 // ElementType returns type identifier.
 func (t *Text) ElementType() string { return "Text" }
+
+func (t *Text) getFace() *text.GoTextFace {
+	if t.faceSource == nil {
+		return nil
+	}
+	return &text.GoTextFace{
+		Source: t.faceSource,
+		Size:   t.fontSize,
+	}
+}
+
+func (t *Text) getLayoutResult(face *text.GoTextFace, maxWidth float32) textLayoutResult {
+	if t.cachedLayout != nil && t.cachedFace != nil &&
+		t.cachedFace.Source == face.Source && t.cachedFace.Size == face.Size &&
+		t.cachedWidth == maxWidth && t.cachedContent == t.content {
+		return *t.cachedLayout
+	}
+	result := computeTextLayout(t.content, face, maxWidth, t.whiteSpace, t.wordBreak, t.lineHeight)
+	t.cachedLayout = &result
+	t.cachedFace = face
+	t.cachedWidth = maxWidth
+	t.cachedContent = t.content
+	return result
+}
+
+func (t *Text) invalidateCache() {
+	t.cachedLayout = nil
+	t.cachedFace = nil
+	t.GetYoga().MarkDirty()
+	t.Mark(core.FlagNeedLayout)
+}
+
+// measure implements yoga.MeasureFunc.
+func (t *Text) measure(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
+	face := t.getFace()
+	if face == nil {
+		return yoga.Size{
+			Width:  float32(len(t.content)) * float32(t.fontSize) * 0.6,
+			Height: float32(t.fontSize) * 1.5,
+		}
+	}
+
+	var maxWidth float32
+	if widthMode == yoga.MeasureModeExactly || widthMode == yoga.MeasureModeAtMost {
+		maxWidth = width
+	}
+	// Undefined mode: single line, no wrapping
+
+	result := t.getLayoutResult(face, maxWidth)
+	return yoga.Size{Width: result.width, Height: result.height}
+}
 
 // Draw renders the text.
 func (t *Text) Draw(screen *ebiten.Image) {
@@ -49,37 +111,30 @@ func (t *Text) Draw(screen *ebiten.Image) {
 		return
 	}
 
+	face := t.getFace()
+	if face == nil {
+		return
+	}
+
+	result := t.getLayoutResult(face, bounds.Width)
+
 	clr := t.color
 	if clr == nil {
 		clr = color.Black
 	}
 
-	// Simple text rendering using Ebiten text package
-	face := &text.GoTextFace{
-		Source: t.faceSource,
-		Size:   t.fontSize,
-	}
 	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(bounds.X), float64(bounds.Y))
+	tr := t.GetTransform()
+	op.GeoM.Concat(core.BuildTransformGeoM(bounds, tr))
+	core.ApplyColorScaleAlpha(&op.ColorScale, tr.Alpha)
 	op.ColorScale.ScaleWithColor(clr)
-	text.Draw(screen, t.content, face, op)
-}
-
-// measure implements yoga.MeasureFunc.
-func (t *Text) measure(node *yoga.Node, width float32, widthMode yoga.MeasureMode, height float32, heightMode yoga.MeasureMode) yoga.Size {
-	face := &text.GoTextFace{
-		Source: t.faceSource,
-		Size:   t.fontSize,
-	}
-	w, h := text.Measure(t.content, face, 0)
-	return yoga.Size{Width: float32(w), Height: float32(h)}
+	op.LineSpacing = float64(result.lineHeight)
+	text.Draw(screen, result.content, face, op)
 }
 
 // FlushMeasure recalculates text layout when content changes.
 func (t *Text) FlushMeasure() {
-	// Trigger yoga remeasure
-	t.GetYoga().MarkDirty()
-	t.Mark(core.FlagNeedLayout)
+	t.invalidateCache()
 }
 
 // Chain API
@@ -87,7 +142,7 @@ func (t *Text) FlushMeasure() {
 func (t *Text) SetContent(content string) *Text {
 	if t.content != content {
 		t.content = content
-		t.Mark(core.FlagNeedMeasure | core.FlagNeedDraw)
+		t.invalidateCache()
 	}
 	return t
 }
@@ -97,7 +152,7 @@ func (t *Text) SetFontSize(size float64) *Text {
 	if face, err := fonts.GetDefaultFontFace(float32(size)); err == nil {
 		t.faceSource = face.Face.Source
 	}
-	t.Mark(core.FlagNeedMeasure | core.FlagNeedDraw)
+	t.invalidateCache()
 	return t
 }
 
@@ -109,6 +164,66 @@ func (t *Text) SetColor(c color.Color) *Text {
 
 func (t *Text) SetFaceSource(src *text.GoTextFaceSource) *Text {
 	t.faceSource = src
-	t.Mark(core.FlagNeedMeasure | core.FlagNeedDraw)
+	t.invalidateCache()
+	return t
+}
+
+// SetFontFamily sets the font family.
+func (t *Text) SetFontFamily(family fonts.FontFamily) *Text {
+	face, err := fonts.GetFontFace(fonts.FontDescriptor{
+		Family: family, Weight: fonts.FontWeightNormal,
+		Style: fonts.FontStyleNormal, Size: float32(t.fontSize),
+	})
+	if err == nil && face != nil {
+		t.faceSource = face.Face.Source
+		t.invalidateCache()
+	}
+	return t
+}
+
+// SetFontWeight sets the font weight.
+func (t *Text) SetFontWeight(weight fonts.FontWeight) *Text {
+	face, err := fonts.GetFontFace(fonts.FontDescriptor{
+		Family: fonts.FontFamilySans, Weight: weight,
+		Style: fonts.FontStyleNormal, Size: float32(t.fontSize),
+	})
+	if err == nil && face != nil {
+		t.faceSource = face.Face.Source
+		t.invalidateCache()
+	}
+	return t
+}
+
+// SetFontStyle sets the font style.
+func (t *Text) SetFontStyle(style fonts.FontStyle) *Text {
+	face, err := fonts.GetFontFace(fonts.FontDescriptor{
+		Family: fonts.FontFamilySans, Weight: fonts.FontWeightNormal,
+		Style: style, Size: float32(t.fontSize),
+	})
+	if err == nil && face != nil {
+		t.faceSource = face.Face.Source
+		t.invalidateCache()
+	}
+	return t
+}
+
+// SetWhiteSpace sets the white-space wrapping strategy.
+func (t *Text) SetWhiteSpace(ws WhiteSpace) *Text {
+	t.whiteSpace = ws
+	t.invalidateCache()
+	return t
+}
+
+// SetWordBreak sets the word-break strategy.
+func (t *Text) SetWordBreak(wb WordBreak) *Text {
+	t.wordBreak = wb
+	t.invalidateCache()
+	return t
+}
+
+// SetLineHeight sets explicit line height in pixels, 0 means auto.
+func (t *Text) SetLineHeight(height float32) *Text {
+	t.lineHeight = height
+	t.invalidateCache()
 	return t
 }

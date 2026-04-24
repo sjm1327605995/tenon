@@ -15,6 +15,7 @@ const (
 	EventKeyUp
 	EventFocusIn
 	EventFocusOut
+	EventResize
 )
 
 // Event 是统一的 UI 事件结构。
@@ -27,5 +28,7 @@ type Event struct {
 	DeltaY   float32 // 滚轮垂直增量
 	Key      ebiten.Key
 	Button   ebiten.MouseButton
+	Width    float32 // 窗口新宽度（EventResize）
+	Height   float32 // 窗口新高度（EventResize）
 	Target   Element
 }

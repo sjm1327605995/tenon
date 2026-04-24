@@ -3,6 +3,7 @@ package components
 import (
 	"image/color"
 	"math"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -10,30 +11,39 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// ScrollView is a scrollable container.
+// ScrollView is a scrollable container with vertical scrolling support.
 type ScrollView struct {
 	core.BaseElement
-	content       *View
-	scrollX       float32
-	scrollY       float32
-	maxScrollX    float32
-	maxScrollY    float32
-	scrollbarW    float32
-	scrollColor   color.Color
-	trackColor    color.Color
-	showScrollbar bool
+	content        *View
+	scrollX        float32
+	scrollY        float32
+	maxScrollX     float32
+	maxScrollY     float32
+	scrollbarWidth float32
+	scrollbarColor color.Color
+	trackColor     color.Color
+	backgroundColor color.Color
+	dragging       bool
+	lastMouseX     float32
+	lastMouseY     float32
+	velocityY      float32
+	flinging       bool
+	lastDragY      float32
+	lastDragTime   time.Time
 }
 
 // NewScrollView creates a scrollable container.
 func NewScrollView() *ScrollView {
+	theme := core.GetTheme()
 	sv := &ScrollView{
-		scrollbarW:    6,
-		scrollColor:   color.RGBA{R: 150, G: 150, B: 150, A: 200},
-		trackColor:    color.RGBA{R: 230, G: 230, B: 230, A: 100},
-		showScrollbar: true,
+		scrollbarWidth: 6,
+		scrollbarColor: theme.ScrollbarColor,
+		trackColor:     theme.ScrollbarTrackColor,
 	}
 	sv.Init(sv)
-	sv.BaseElement.SetOverflow(yoga.OverflowHidden)
+	sv.SetFlag(core.FlagFocusable | core.FlagClipChildren)
+	sv.SetFlexDirection(yoga.FlexDirectionColumn)
+	sv.SetOverflow(yoga.OverflowHidden)
 
 	// Inner content view
 	sv.content = NewView()
@@ -49,7 +59,7 @@ func (sv *ScrollView) ElementType() string { return "ScrollView" }
 // Content returns the inner content container.
 func (sv *ScrollView) Content() *View { return sv.content }
 
-// Draw renders the scrollview with optional scrollbar.
+// Draw renders the background, scrollbar track and thumb.
 func (sv *ScrollView) Draw(screen *ebiten.Image) {
 	if !sv.IsVisible() {
 		return
@@ -59,51 +69,126 @@ func (sv *ScrollView) Draw(screen *ebiten.Image) {
 		return
 	}
 
-	// Draw track
-	if sv.showScrollbar && sv.maxScrollY > 0 {
-		trackX := bounds.X + bounds.Width - sv.scrollbarW
-		vector.FillRect(screen, trackX, bounds.Y, sv.scrollbarW, bounds.Height, sv.trackColor, false)
+	// Background - align to integer pixels to avoid gaps with SubImage clipping
+	if sv.backgroundColor != nil {
+		x := float32(int(bounds.X))
+		y := float32(int(bounds.Y))
+		w := bounds.X + bounds.Width - x
+		h := bounds.Y + bounds.Height - y
+		vector.FillRect(screen, x, y, w, h, sv.backgroundColor, false)
+	}
 
-		// Draw thumb
-		viewHeight := bounds.Height
-		contentHeight := viewHeight + sv.maxScrollY
-		thumbRatio := viewHeight / contentHeight
-		thumbHeight := math.Max(float64(thumbRatio*viewHeight), 20)
-		scrollRatio := float64(0)
-		if sv.maxScrollY > 0 {
-			scrollRatio = float64(sv.scrollY) / float64(sv.maxScrollY)
+	// Vertical scrollbar
+	if sv.maxScrollY > 0 {
+		sv.drawVerticalScrollbar(screen, bounds)
+	}
+}
+
+func (sv *ScrollView) drawVerticalScrollbar(screen *ebiten.Image, bounds core.LayoutBounds) {
+	trackX := bounds.X + bounds.Width - sv.scrollbarWidth - 2
+	trackY := bounds.Y + 2
+	trackH := bounds.Height - 4
+
+	// Track
+	vector.FillRect(screen, trackX, trackY, sv.scrollbarWidth, trackH, sv.trackColor, false)
+
+	// Thumb
+	contentH := sv.content.GetBounds().Height
+	viewportH := bounds.Height
+	if contentH > viewportH {
+		ratio := viewportH / contentH
+		thumbH := ratio * trackH
+		if thumbH < 10 {
+			thumbH = 10
 		}
-		thumbY := float64(bounds.Y) + scrollRatio*(float64(viewHeight)-thumbHeight)
-
-		vector.FillRect(screen, trackX, float32(thumbY), sv.scrollbarW, float32(thumbHeight), sv.scrollColor, false)
+		scrollRatio := sv.scrollY / sv.maxScrollY
+		thumbY := trackY + scrollRatio*(trackH-thumbH)
+		vector.FillRect(screen, trackX, thumbY, sv.scrollbarWidth, thumbH, sv.scrollbarColor, false)
 	}
 }
 
-// HandleEvent processes scroll events.
+// HandleEvent processes wheel and drag events.
 func (sv *ScrollView) HandleEvent(e *core.Event) bool {
-	if e.Type == core.EventScroll {
-		// Vertical scroll
-		sv.scrollY += e.DeltaY * 20
-		sv.clampScroll()
-		sv.updateContentPosition()
-		sv.Mark(core.FlagNeedDraw)
-		return true
-	}
-	return false
-}
-
-// Update recalculates max scroll after layout.
-func (sv *ScrollView) Update() error {
 	bounds := sv.GetBounds()
-	contentBounds := sv.content.GetBounds()
 
-	// Calculate max scroll based on content size vs viewport size
-	sv.maxScrollY = float32(math.Max(0, float64(contentBounds.Height-bounds.Height)))
-	sv.maxScrollX = float32(math.Max(0, float64(contentBounds.Width-bounds.Width)))
+	switch e.Type {
+	case core.EventScroll:
+		// Cap wheel delta to prevent touchpad/large deltas from jumping too far.
+		deltaY := e.DeltaY
+		if deltaY > 1 {
+			deltaY = 1
+		} else if deltaY < -1 {
+			deltaY = -1
+		}
+		sv.scrollY -= deltaY * 20
+		// Prevent negative scroll immediately; upper bound clamped in Update().
+		if sv.scrollY < 0 {
+			sv.scrollY = 0
+		}
+		sv.applyScrollToContent()
+		sv.Mark(core.FlagNeedDraw)
+		core.LogDebug("[ScrollView] EventScroll", "rawDeltaY", e.DeltaY, "cappedDeltaY", deltaY, "scrollY", sv.scrollY, "maxScrollY", sv.maxScrollY)
+		return true
 
-	sv.clampScroll()
-	sv.updateContentPosition()
-	return nil
+	case core.EventMouseDown:
+		sv.flinging = false
+		sv.velocityY = 0
+		if sv.maxScrollY > 0 {
+			trackX := bounds.X + bounds.Width - sv.scrollbarWidth - 2
+			trackY := bounds.Y + 2
+			trackH := bounds.Height - 4
+			if e.X >= trackX && e.X <= trackX+sv.scrollbarWidth+4 &&
+				e.Y >= trackY && e.Y <= trackY+trackH {
+				sv.dragging = true
+				sv.lastMouseX = e.X
+				sv.lastMouseY = e.Y
+				sv.lastDragY = e.Y
+				sv.lastDragTime = time.Now()
+				return true
+			}
+		}
+		if e.X >= bounds.X && e.X <= bounds.X+bounds.Width &&
+			e.Y >= bounds.Y && e.Y <= bounds.Y+bounds.Height {
+			sv.dragging = true
+			sv.lastMouseX = e.X
+			sv.lastMouseY = e.Y
+			sv.lastDragY = e.Y
+			sv.lastDragTime = time.Now()
+			return true
+		}
+
+	case core.EventMouseUp:
+		if sv.dragging {
+			sv.dragging = false
+			if math.Abs(float64(sv.velocityY)) > 50 {
+				sv.flinging = true
+			}
+		}
+
+	case core.EventMouseMove:
+		if sv.dragging {
+			dy := e.Y - sv.lastMouseY
+			sv.scrollY += dy
+			// Prevent negative scroll immediately; upper bound clamped in Update().
+			if sv.scrollY < 0 {
+				sv.scrollY = 0
+			}
+			sv.applyScrollToContent()
+			now := time.Now()
+			dt := float32(now.Sub(sv.lastDragTime).Seconds())
+			if dt > 0 {
+				sv.velocityY = (e.Y - sv.lastDragY) / dt
+			}
+			sv.lastDragY = e.Y
+			sv.lastDragTime = now
+			sv.lastMouseX = e.X
+			sv.lastMouseY = e.Y
+			sv.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+			return true
+		}
+	}
+
+	return false
 }
 
 func (sv *ScrollView) clampScroll() {
@@ -121,23 +206,88 @@ func (sv *ScrollView) clampScroll() {
 	}
 }
 
-func (sv *ScrollView) updateContentPosition() {
-	// Apply scroll offset to content via yoga position
-	if y := sv.content.GetYoga(); y != nil {
-		y.StyleSetPosition(yoga.EdgeTop, -sv.scrollY)
+func (sv *ScrollView) applyScrollToContent() {
+	svBounds := sv.GetBounds()
+	contentBounds := sv.content.GetBounds()
+	targetY := svBounds.Y - sv.scrollY
+	dy := targetY - contentBounds.Y
+	if dy == 0 {
+		return
+	}
+	sv.applyOffsetRecursive(sv.content, 0, dy)
+}
+
+func (sv *ScrollView) applyOffsetRecursive(el core.Element, dx, dy float32) {
+	if el == nil {
+		return
+	}
+	b := el.GetBounds()
+	b.X += dx
+	b.Y += dy
+	el.SetBounds(b)
+	for _, child := range el.GetChildren() {
+		sv.applyOffsetRecursive(child, dx, dy)
 	}
 }
 
-// Chain API
+// Update recalculates max scroll and handles fling.
+func (sv *ScrollView) Update() error {
+	contentH := sv.content.GetBounds().Height
+	viewportH := sv.GetBounds().Height
+	if contentH > viewportH {
+		sv.maxScrollY = contentH - viewportH
+		// Reserve right margin for scrollbar so content doesn't cover it.
+		if y := sv.content.GetYoga(); y != nil {
+			y.StyleSetMargin(yoga.EdgeRight, sv.scrollbarWidth+4)
+		}
+	} else {
+		sv.maxScrollY = 0
+		sv.scrollY = 0
+		// No scrollbar needed, remove right margin.
+		if y := sv.content.GetYoga(); y != nil {
+			y.StyleSetMargin(yoga.EdgeRight, 0)
+		}
+	}
 
+	if sv.flinging {
+		sv.scrollY += sv.velocityY * (1.0 / 60.0)
+		sv.velocityY *= 0.9
+		if math.Abs(float64(sv.velocityY)) < 10 {
+			sv.flinging = false
+			sv.velocityY = 0
+		}
+		sv.Mark(core.FlagNeedDraw)
+	}
+
+	sv.clampScroll()
+	sv.applyScrollToContent()
+	return nil
+}
+
+// SetScrollbarWidth sets the scrollbar width.
 func (sv *ScrollView) SetScrollbarWidth(w float32) *ScrollView {
-	sv.scrollbarW = w
+	sv.scrollbarWidth = w
 	sv.Mark(core.FlagNeedDraw)
 	return sv
 }
 
-func (sv *ScrollView) SetShowScrollbar(show bool) *ScrollView {
-	sv.showScrollbar = show
+// SetScrollbarColor sets the thumb color.
+func (sv *ScrollView) SetScrollbarColor(clr color.Color) *ScrollView {
+	sv.scrollbarColor = clr
+	sv.Mark(core.FlagNeedDraw)
+	return sv
+}
+
+// SetBackgroundColor sets the scrollview background color.
+func (sv *ScrollView) SetBackgroundColor(clr color.Color) *ScrollView {
+	sv.backgroundColor = clr
+	sv.Mark(core.FlagNeedDraw)
+	return sv
+}
+
+// SetTrackColor sets the track background color.
+func (sv *ScrollView) SetTrackColor(clr color.Color) *ScrollView {
+	sv.trackColor = clr
 	sv.Mark(core.FlagNeedDraw)
 	return sv
 }

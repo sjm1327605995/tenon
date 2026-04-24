@@ -2,7 +2,6 @@ package components
 
 import (
 	"image/color"
-	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -39,6 +38,43 @@ func (v *View) Draw(screen *ebiten.Image) {
 	}
 	bounds := v.GetBounds()
 	if bounds.Width <= 0 || bounds.Height <= 0 {
+		return
+	}
+
+	t := v.GetTransform()
+	if !t.IsIdentity() {
+		// 需要包含 shadow 的边距
+		margin := v.shadowBlur + max(v.shadowOffsetX, v.shadowOffsetY)
+		if margin < 0 {
+			margin = 0
+		}
+		mw := int(bounds.Width + margin*2)
+		mh := int(bounds.Height + margin*2)
+		if mw <= 0 {
+			mw = 1
+		}
+		if mh <= 0 {
+			mh = 1
+		}
+		tmp := ebiten.NewImage(mw, mh)
+		defer tmp.Dispose()
+		localBounds := core.LayoutBounds{
+			X:      margin,
+			Y:      margin,
+			Width:  bounds.Width,
+			Height: bounds.Height,
+		}
+		v.drawShadow(tmp, localBounds)
+		if v.backgroundColor != nil {
+			v.drawBackground(tmp, localBounds)
+		}
+		if v.borderColor != nil {
+			v.drawBorder(tmp, localBounds)
+		}
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Concat(core.BuildTransformGeoM(bounds, t))
+		core.ApplyColorScaleAlpha(&op.ColorScale, t.Alpha)
+		screen.DrawImage(tmp, op)
 		return
 	}
 
@@ -141,62 +177,3 @@ func (v *View) SetShadow(c color.Color, blur, offsetX, offsetY float32) *View {
 }
 
 // Utility functions
-
-func hasRadius(r core.BorderRadius) bool {
-	return r.TopLeft > 0 || r.TopRight > 0 || r.BottomRight > 0 || r.BottomLeft > 0
-}
-
-func drawRoundedRectFill(screen *ebiten.Image, x, y, w, h float32, r core.BorderRadius, clr color.Color) {
-	var path vector.Path
-	buildRoundedRectPath(&path, x, y, w, h, r)
-	op := &vector.DrawPathOptions{}
-	op.ColorScale.ScaleWithColor(clr)
-	op.AntiAlias = true
-	vector.FillPath(screen, &path, &vector.FillOptions{}, op)
-}
-
-func drawRoundedRectStroke(screen *ebiten.Image, x, y, w, h float32, r core.BorderRadius, stroke float32, clr color.Color) {
-	var path vector.Path
-	buildRoundedRectPath(&path, x, y, w, h, r)
-	strokeOp := &vector.StrokeOptions{Width: stroke, MiterLimit: 10}
-	op := &vector.DrawPathOptions{}
-	op.ColorScale.ScaleWithColor(clr)
-	op.AntiAlias = true
-	vector.StrokePath(screen, &path, strokeOp, op)
-}
-
-func buildRoundedRectPath(path *vector.Path, x, y, w, h float32, r core.BorderRadius) {
-	path.MoveTo(x+r.TopLeft, y)
-	path.LineTo(x+w-r.TopRight, y)
-	if r.TopRight > 0 {
-		path.Arc(x+w-r.TopRight, y+r.TopRight, r.TopRight, -math.Pi/2, 0, vector.Clockwise)
-	} else {
-		path.LineTo(x+w, y)
-	}
-	path.LineTo(x+w, y+h-r.BottomRight)
-	if r.BottomRight > 0 {
-		path.Arc(x+w-r.BottomRight, y+h-r.BottomRight, r.BottomRight, 0, math.Pi/2, vector.Clockwise)
-	} else {
-		path.LineTo(x+w, y+h)
-	}
-	path.LineTo(x+r.BottomLeft, y+h)
-	if r.BottomLeft > 0 {
-		path.Arc(x+r.BottomLeft, y+h-r.BottomLeft, r.BottomLeft, math.Pi/2, math.Pi, vector.Clockwise)
-	} else {
-		path.LineTo(x, y+h)
-	}
-	path.LineTo(x, y+r.TopLeft)
-	if r.TopLeft > 0 {
-		path.Arc(x+r.TopLeft, y+r.TopLeft, r.TopLeft, math.Pi, 3*math.Pi/2, vector.Clockwise)
-	} else {
-		path.LineTo(x, y)
-	}
-	path.Close()
-}
-
-func max(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}

@@ -80,6 +80,19 @@ type Element interface {
 	// === Engine ===
 	SetEngine(engine *Engine)
 	GetEngine() *Engine
+
+	// === Transform ===
+	GetTransform() Transform
+	SetTransform(t Transform)
+	SetRotation(deg float32) Element
+	SetScale(x, y float32) Element
+	SetSkew(x, y float32) Element
+	SetAlpha(a float32) Element
+	SetOrigin(x, y float32) Element
+
+	// === Context ===
+	SetContext(key string, val interface{})
+	GetContext(key string) interface{}
 }
 
 // ElementFlags 使用 uint64 bitmap 打包所有状态标志。
@@ -110,6 +123,29 @@ type BorderRadius struct {
 	TopLeft, TopRight, BottomRight, BottomLeft float32
 }
 
+// Transform 定义 2D 仿射变换参数，用于模拟 3D 倾斜、旋转和缩放效果。
+type Transform struct {
+	Rotation float32 // 旋转角度（度），顺时针为正
+	ScaleX   float32 // X 轴缩放，默认 1
+	ScaleY   float32 // Y 轴缩放，默认 1
+	SkewX    float32 // X 轴倾斜（度），用于模拟透视
+	SkewY    float32 // Y 轴倾斜（度）
+	OriginX  float32 // 变换原点 X 比例（0=左, 0.5=中心, 1=右），默认 0.5
+	OriginY  float32 // 变换原点 Y 比例（0=上, 0.5=中心, 1=下），默认 0.5
+	Alpha    float32 // 透明度 0-1，默认 1
+}
+
+// DefaultTransform 返回无变换的默认值。
+func DefaultTransform() Transform {
+	return Transform{ScaleX: 1, ScaleY: 1, OriginX: 0.5, OriginY: 0.5, Alpha: 1}
+}
+
+// IsIdentity 检查是否接近无变换状态。
+func (t Transform) IsIdentity() bool {
+	return t.Rotation == 0 && t.ScaleX == 1 && t.ScaleY == 1 &&
+		t.SkewX == 0 && t.SkewY == 0 && t.Alpha == 1
+}
+
 // PointerEvents 控制组件是否响应指针事件。
 type PointerEvents int
 
@@ -133,6 +169,8 @@ type BaseElement struct {
 	key       string
 	tag       string
 	classes   []string
+	context   map[string]interface{}
+	transform Transform
 }
 
 // Init 初始化 BaseElement，必须在子类构造函数中调用。
@@ -140,6 +178,7 @@ func (b *BaseElement) Init(self Element) {
 	b.self = self
 	b.yoga = yoga.NewNode()
 	b.flags = FlagVisible // 默认可见
+	b.transform = DefaultTransform()
 }
 
 // === 树关系 ===
@@ -209,6 +248,9 @@ func (b *BaseElement) Mark(flags ElementFlags) {
 		b.engine.markDirty(b.self)
 	}
 	b.flags |= flags
+	if b.self != nil && (b.self.ElementType() == "ScrollView" || b.self.ElementType() == "Button") {
+		LogDebug("[Element] Mark", "type", b.self.ElementType(), "flags", flags, "engine", b.engine != nil)
+	}
 }
 
 // HasFlag 检查是否包含指定标志。
@@ -243,6 +285,70 @@ func (b *BaseElement) GetClass() []string    { return b.classes }
 
 func (b *BaseElement) SetEngine(e *Engine) { b.engine = e }
 func (b *BaseElement) GetEngine() *Engine  { return b.engine }
+
+// === Transform ===
+
+func (b *BaseElement) GetTransform() Transform { return b.transform }
+
+func (b *BaseElement) SetTransform(t Transform) {
+	b.transform = t
+	b.Mark(FlagNeedDraw)
+}
+
+func (b *BaseElement) SetRotation(deg float32) Element {
+	b.transform.Rotation = deg
+	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+func (b *BaseElement) SetScale(x, y float32) Element {
+	b.transform.ScaleX = x
+	b.transform.ScaleY = y
+	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+func (b *BaseElement) SetSkew(x, y float32) Element {
+	b.transform.SkewX = x
+	b.transform.SkewY = y
+	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+func (b *BaseElement) SetAlpha(a float32) Element {
+	if a < 0 { a = 0 }
+	if a > 1 { a = 1 }
+	b.transform.Alpha = a
+	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+func (b *BaseElement) SetOrigin(x, y float32) Element {
+	b.transform.OriginX = x
+	b.transform.OriginY = y
+	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+// SetContext mounts a context value on this node.
+func (b *BaseElement) SetContext(key string, val interface{}) {
+	if b.context == nil {
+		b.context = make(map[string]interface{})
+	}
+	b.context[key] = val
+}
+
+// GetContext looks up a context value along the Parent chain.
+func (b *BaseElement) GetContext(key string) interface{} {
+	for el := b.self; el != nil; el = el.GetParent() {
+		if be, ok := el.(*BaseElement); ok && be.context != nil {
+			if v, exists := be.context[key]; exists {
+				return v
+			}
+		}
+	}
+	return nil
+}
 
 // ==================== 链式 API（布局）====================
 

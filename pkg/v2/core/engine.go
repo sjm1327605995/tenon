@@ -1,7 +1,9 @@
 package core
 
 import (
+	"image"
 	"image/color"
+	"math"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -19,8 +21,9 @@ type Engine struct {
 	buildQueue    []Widget
 
 	// 窗口
-	screenWidth  int
-	screenHeight int
+	screenWidth   int
+	screenHeight  int
+	pendingResize bool
 
 	// 输入状态
 	lastMouseX      float32
@@ -34,6 +37,9 @@ type Engine struct {
 
 	// 时间
 	lastFrameTime time.Time
+
+	// 动画
+	animations []Animation
 }
 
 // NewEngine 创建引擎。
@@ -48,7 +54,12 @@ func NewEngine(rootWidget Widget, width, height int) *Engine {
 
 // Layout implements ebiten.Game interface.
 func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return e.screenWidth, e.screenHeight
+	if outsideWidth != e.screenWidth || outsideHeight != e.screenHeight {
+		e.screenWidth = outsideWidth
+		e.screenHeight = outsideHeight
+		e.pendingResize = true
+	}
+	return outsideWidth, outsideHeight
 }
 
 // Mount 执行首次挂载，调用 Widget.Build() 并构建 Element 树。
@@ -70,6 +81,7 @@ func (e *Engine) onElementMounted(el Element) {
 		return
 	}
 	el.SetEngine(e)
+	applyStyles(el)
 	el.OnMount(e)
 	for _, child := range el.GetChildren() {
 		e.onElementMounted(child)
@@ -79,6 +91,19 @@ func (e *Engine) onElementMounted(el Element) {
 // ==================== 帧循环 ====================
 
 func (e *Engine) Update() error {
+	// 0. 窗口大小变化：重新布局并广播事件
+	if e.pendingResize {
+		e.pendingResize = false
+		e.calculateLayout()
+		if e.rootElement != nil {
+			e.broadcastEvent(e.rootElement, &Event{
+				Type:   EventResize,
+				Width:  float32(e.screenWidth),
+				Height: float32(e.screenHeight),
+			})
+		}
+	}
+
 	now := time.Now()
 	deltaTime := float32(now.Sub(e.lastFrameTime).Seconds())
 	e.lastFrameTime = now
@@ -86,25 +111,48 @@ func (e *Engine) Update() error {
 	// 1. 处理请求重建的 Widget（结构变化）
 	e.flushBuildQueue()
 
-	// 2. 批量刷新脏 Element（测量 → 布局 → 清除标记）
-	e.flushDirtyElements()
-
-	// 3. 事件处理
+	// 2. 事件处理（可能标记 Element 为 dirty）
 	e.handleEvents()
 
-	// 4. 每帧更新 Element（动画等）
+	// 3. 批量刷新脏 Element（测量 → 布局 → 清除标记）
+	// 放在事件之后，确保同一帧内响应交互带来的布局变化
+	e.flushDirtyElements()
+
+	// 4. 更新动画
+	e.updateAnimations(deltaTime)
+
+	// 5. 每帧更新 Element（动画等）
 	if e.rootElement != nil {
 		e.updateElements(e.rootElement)
 	}
 
-	_ = deltaTime
 	return nil
+}
+
+// AddAnimation 注册一个动画到引擎。
+func (e *Engine) AddAnimation(a Animation) {
+	e.animations = append(e.animations, a)
+}
+
+// updateAnimations 更新所有动画，移除已完成的。
+func (e *Engine) updateAnimations(deltaTime float32) {
+	const maxDelta = 1.0 / 30.0
+	if deltaTime > maxDelta {
+		deltaTime = maxDelta
+	}
+	alive := e.animations[:0]
+	for _, a := range e.animations {
+		if a.Update(deltaTime) {
+			alive = append(alive, a)
+		}
+	}
+	e.animations = alive
 }
 
 func (e *Engine) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 245, G: 245, B: 245, A: 255})
 	if e.rootElement != nil {
-		e.drawElement(screen, e.rootElement)
+		e.drawElement(screen, e.rootElement, 0, 0)
 	}
 }
 
@@ -126,12 +174,30 @@ func (e *Engine) flushBuildQueue() {
 		if newRoot == nil {
 			continue
 		}
-		if e.rootElement == nil {
-			e.rootElement = newRoot
+
+		var oldRoot Element
+		if w == e.rootWidget {
+			oldRoot = e.rootElement
+		} else if bw, ok := w.(interface{ GetRootElement() Element }); ok {
+			oldRoot = bw.GetRootElement()
+		}
+
+		if oldRoot == nil {
+			if w == e.rootWidget {
+				e.rootElement = newRoot
+			}
+			if bw, ok := w.(interface{ SetRootElement(Element) }); ok {
+				bw.SetRootElement(newRoot)
+			}
 			e.onElementMounted(newRoot)
 		} else {
-			// 同级浅 Diff：复用或替换根节点
-			e.patchElement(e.rootElement, newRoot)
+			finalRoot := e.patchElement(oldRoot, newRoot)
+			if w == e.rootWidget {
+				e.rootElement = finalRoot
+			}
+			if bw, ok := w.(interface{ SetRootElement(Element) }); ok {
+				bw.SetRootElement(finalRoot)
+			}
 		}
 	}
 
@@ -142,24 +208,59 @@ func (e *Engine) flushBuildQueue() {
 }
 
 // patchElement 对新旧 Element 做同级浅对比。
-// 目前只处理根级别替换，完整 Diff 后续扩展。
-func (e *Engine) patchElement(oldEl, newEl Element) {
+// 同类型复用旧节点并递归同步子节点，不同类型替换根节点。
+func (e *Engine) patchElement(oldEl, newEl Element) Element {
 	if oldEl.ElementType() == newEl.ElementType() {
 		// 同类型：复用旧节点，同步 Yoga 样式
 		if oldYoga, newYoga := oldEl.GetYoga(), newEl.GetYoga(); oldYoga != nil && newYoga != nil {
 			oldYoga.CopyStyleFrom(newYoga)
 		}
-		// TODO: 同步子节点
+		e.patchChildren(oldEl, newEl)
 		oldEl.Mark(FlagNeedLayout | FlagNeedDraw)
+		return oldEl
+	}
+	// 类型不同：替换根节点
+	if oldEl.GetParent() != nil {
+		parent := oldEl.GetParent()
+		parent.RemoveChild(oldEl)
+		parent.AppendChild(newEl)
 	} else {
-		// 类型不同：替换根节点
-		if oldEl.GetParent() != nil {
-			parent := oldEl.GetParent()
-			parent.RemoveChild(oldEl)
-			parent.AppendChild(newEl)
-		} else {
-			e.rootElement = newEl
-			e.onElementMounted(newEl)
+		e.rootElement = newEl
+		e.onElementMounted(newEl)
+	}
+	return newEl
+}
+
+// patchChildren 对两个同类型 Element 的子节点做轻量同级对比。
+// 前 minLen 个递归 patch，多余旧节点移除，多余新节点挂载。
+func (e *Engine) patchChildren(oldParent, newParent Element) {
+	oldChildren := oldParent.GetChildren()
+	newChildren := newParent.GetChildren()
+
+	minLen := len(oldChildren)
+	if len(newChildren) < minLen {
+		minLen = len(newChildren)
+	}
+
+	// 1. 同步前 minLen 个子节点（递归复用）
+	for i := 0; i < minLen; i++ {
+		e.patchElement(oldChildren[i], newChildren[i])
+	}
+
+	// 2. 移除多余的旧节点
+	for i := len(newChildren); i < len(oldChildren); i++ {
+		oldParent.RemoveChild(oldChildren[i])
+	}
+
+	// 3. 挂载多余的新节点（先从 newParent 解除 Yoga 关系，再挂到 oldParent）
+	if len(newChildren) > len(oldChildren) {
+		toAdd := newChildren[len(oldChildren):]
+		// 倒序从 newParent 移除，避免索引漂移
+		for i := len(toAdd) - 1; i >= 0; i-- {
+			newParent.RemoveChild(toAdd[i])
+		}
+		for _, child := range toAdd {
+			oldParent.AppendChild(child)
 		}
 	}
 }
@@ -235,12 +336,13 @@ func (e *Engine) updateBounds(el Element, parentX, parentY float32) {
 		return
 	}
 	y := el.GetYoga()
-	el.SetBounds(LayoutBounds{
+	b := LayoutBounds{
 		X:      parentX + y.LayoutLeft(),
 		Y:      parentY + y.LayoutTop(),
 		Width:  y.LayoutWidth(),
 		Height: y.LayoutHeight(),
-	})
+	}
+	el.SetBounds(b)
 	for _, child := range el.GetChildren() {
 		e.updateBounds(child, el.GetBounds().X, el.GetBounds().Y)
 	}
@@ -248,8 +350,8 @@ func (e *Engine) updateBounds(el Element, parentX, parentY float32) {
 
 // ==================== 绘制 ====================
 
-func (e *Engine) drawElement(screen *ebiten.Image, el Element) {
-	if el == nil {
+func (e *Engine) drawElement(screen *ebiten.Image, el Element, offsetX, offsetY float32) {
+	if el == nil || !el.IsVisible() {
 		return
 	}
 	bounds := el.GetBounds()
@@ -257,11 +359,37 @@ func (e *Engine) drawElement(screen *ebiten.Image, el Element) {
 		return
 	}
 
-	// TODO: clip
-	el.Draw(screen)
+	// 若标记了 ClipChildren，子节点绘制在裁剪后的子图上
+	var childScreen *ebiten.Image = screen
+	childOffsetX := offsetX
+	childOffsetY := offsetY
+	if el.HasFlag(FlagClipChildren) {
+		sub := screen.SubImage(image.Rect(
+			int(bounds.X), int(bounds.Y),
+			int(bounds.X+bounds.Width), int(bounds.Y+bounds.Height),
+		))
+		if subImg, ok := sub.(*ebiten.Image); ok {
+			childScreen = subImg
+			// SubImage uses the same coordinate system as the original image;
+			// it only acts as a clip mask. Children should use screen coordinates.
+			childOffsetX = 0
+			childOffsetY = 0
+		}
+	}
+
+	// Use screen coordinates for drawing. SubImage will clip automatically.
+	relBounds := LayoutBounds{
+		X:      bounds.X - childOffsetX,
+		Y:      bounds.Y - childOffsetY,
+		Width:  bounds.Width,
+		Height: bounds.Height,
+	}
+	el.SetBounds(relBounds)
+	el.Draw(childScreen)
+	el.SetBounds(bounds)
 
 	for _, child := range el.GetChildren() {
-		e.drawElement(screen, child)
+		e.drawElement(childScreen, child, childOffsetX, childOffsetY)
 	}
 }
 
@@ -300,7 +428,7 @@ func (e *Engine) handleEvents() {
 
 	// 2. Mouse wheel
 	dx, dy := ebiten.Wheel()
-	if dx != 0 || dy != 0 {
+	if math.Abs(dx) >= 0.5 || math.Abs(dy) >= 0.5 {
 		e.handleScroll(fx, fy, float32(dx), float32(dy))
 	}
 
@@ -346,6 +474,16 @@ func (e *Engine) handleMouseMove(x, y float32) {
 func (e *Engine) handleMouseDown(x, y float32, btn ebiten.MouseButton) {
 	target := e.hitTest(e.rootElement, x, y)
 	if target != nil {
+		LogDebug("[Engine] handleMouseDown", "target", target.ElementType(), "bounds", target.GetBounds(), "x", x, "y", y)
+		// Debug: log target hierarchy and children
+		parentType := "nil"
+		if target.GetParent() != nil {
+			parentType = target.GetParent().ElementType()
+		}
+		LogDebug("[Engine] handleMouseDown debug", "target", target.ElementType(), "parent", parentType, "childrenCount", len(target.GetChildren()))
+		for i, c := range target.GetChildren() {
+			LogDebug("[Engine] handleMouseDown child", "index", i, "type", c.ElementType(), "bounds", c.GetBounds())
+		}
 		b := target.GetBounds()
 		e.mouseDownTarget = target
 		e.mouseDownX = x
@@ -402,6 +540,7 @@ func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
 
 func (e *Engine) handleScroll(x, y float32, dx, dy float32) {
 	target := e.hitTest(e.rootElement, x, y)
+	LogDebug("[Engine] handleScroll", "target", target.ElementType())
 	if target != nil {
 		b := target.GetBounds()
 		e.dispatchEvent(target, &Event{
@@ -462,6 +601,22 @@ func (e *Engine) dispatchEvent(target Element, event *Event) {
 		}
 		el = el.GetParent()
 	}
+}
+
+// broadcastEvent 递归广播事件给元素及其所有后代。
+func (e *Engine) broadcastEvent(el Element, event *Event) {
+	if el == nil {
+		return
+	}
+	el.HandleEvent(event)
+	for _, child := range el.GetChildren() {
+		e.broadcastEvent(child, event)
+	}
+}
+
+// GetFocusTarget returns the currently focused element.
+func (e *Engine) GetFocusTarget() Element {
+	return e.focusTarget
 }
 
 // setFocus changes focused element.
