@@ -195,7 +195,21 @@ func (s *Style) position(edge Edge) CompactValue {
 
 // setPosition
 func (s *Style) setPosition(edge Edge, value CompactValue) {
-	s.position_[edge] = value
+	switch edge {
+	case EdgeAll:
+		s.position_[EdgeLeft] = value
+		s.position_[EdgeTop] = value
+		s.position_[EdgeRight] = value
+		s.position_[EdgeBottom] = value
+	case EdgeHorizontal:
+		s.position_[EdgeLeft] = value
+		s.position_[EdgeRight] = value
+	case EdgeVertical:
+		s.position_[EdgeTop] = value
+		s.position_[EdgeBottom] = value
+	default:
+		s.position_[edge] = value
+	}
 }
 
 func (s *Style) padding(edge Edge) CompactValue {
@@ -204,7 +218,21 @@ func (s *Style) padding(edge Edge) CompactValue {
 
 // setPadding
 func (s *Style) setPadding(edge Edge, value CompactValue) {
-	s.padding_[edge] = value
+	switch edge {
+	case EdgeAll:
+		s.padding_[EdgeLeft] = value
+		s.padding_[EdgeTop] = value
+		s.padding_[EdgeRight] = value
+		s.padding_[EdgeBottom] = value
+	case EdgeHorizontal:
+		s.padding_[EdgeLeft] = value
+		s.padding_[EdgeRight] = value
+	case EdgeVertical:
+		s.padding_[EdgeTop] = value
+		s.padding_[EdgeBottom] = value
+	default:
+		s.padding_[edge] = value
+	}
 }
 
 func (s *Style) border(edge Edge) CompactValue {
@@ -213,7 +241,21 @@ func (s *Style) border(edge Edge) CompactValue {
 
 // setBorder
 func (s *Style) setBorder(edge Edge, value CompactValue) {
-	s.border_[edge] = value
+	switch edge {
+	case EdgeAll:
+		s.border_[EdgeLeft] = value
+		s.border_[EdgeTop] = value
+		s.border_[EdgeRight] = value
+		s.border_[EdgeBottom] = value
+	case EdgeHorizontal:
+		s.border_[EdgeLeft] = value
+		s.border_[EdgeRight] = value
+	case EdgeVertical:
+		s.border_[EdgeTop] = value
+		s.border_[EdgeBottom] = value
+	default:
+		s.border_[edge] = value
+	}
 }
 
 func (s *Style) gap(gutter Gutter) CompactValue {

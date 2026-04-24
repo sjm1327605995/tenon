@@ -182,5 +182,5 @@ func vprint(node *Node, printOptions PrintOptions) {
 	var str strings.Builder
 	str.Reset()
 	nodeToString(&str, node, printOptions, 0)
-	vlog(node.GetConfig(), node, LogLevelDebug, str.String())
+	vlog(node.GetConfig(), node, LogLevelDebug, "%s", str.String())
 }
