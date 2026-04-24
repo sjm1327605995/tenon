@@ -1,2 +1,28 @@
 .vscode
 .idea
+
+# Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+
+# Go workspace
+go.work
+go.work.sum
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+*.swp
+*.swo
+*~
+
+# Local env
+.env
+.env.local
