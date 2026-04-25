@@ -24,7 +24,7 @@ func NewRadioGroup(options []string) *RadioGroup {
 	}
 	rg.Init(rg)
 	rg.SetFlexDirection(yoga.FlexDirectionColumn)
-	rg.SetGap(yoga.GutterAll, rg.gap)
+	rg.BaseElement.SetGap(yoga.GutterAll, rg.gap)
 	rg.buildRadios()
 	return rg
 }
@@ -105,10 +105,10 @@ func (rg *RadioGroup) SetOptions(options []string) *RadioGroup {
 	return rg
 }
 
-// SetGap sets the spacing between radio items.
-func (rg *RadioGroup) SetGap(gap float32) *RadioGroup {
+// SetItemGap sets the spacing between radio items.
+func (rg *RadioGroup) SetItemGap(gap float32) *RadioGroup {
 	rg.gap = gap
-	rg.SetGap(yoga.GutterAll, gap)
+	rg.BaseElement.SetGap(yoga.GutterAll, gap)
 	return rg
 }
 

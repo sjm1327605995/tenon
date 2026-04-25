@@ -1,8 +1,6 @@
 package components
 
 import (
-	"image/color"
-
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -36,13 +34,14 @@ func (dd *Dropdown) setupUI() {
 	dd.trigger = NewButton("").SetOnClick(func() { dd.toggle() })
 	dd.BaseElement.AppendChild(dd.trigger)
 
+	th := core.GetTheme()
 	dd.panel = NewView()
 	dd.panel.SetFlexDirection(yoga.FlexDirectionColumn)
 	dd.panel.SetDisplay(yoga.DisplayNone)
-	dd.panel.SetBackgroundColor(color.White)
+	dd.panel.SetBackgroundColor(th.SurfaceColor)
 	dd.panel.SetBorder(yoga.EdgeAll, 1)
-	dd.panel.SetBorderColor(color.RGBA{200, 200, 200, 255})
-	dd.panel.SetShadow(color.RGBA{0, 0, 0, 64}, 8, 0, 4)
+	dd.panel.SetBorderColor(th.BorderColor)
+	dd.panel.SetShadow(th.ShadowColor, 8, 0, 4)
 
 	dd.listView = NewListView()
 	dd.listView.OnSelect(func(idx int) {

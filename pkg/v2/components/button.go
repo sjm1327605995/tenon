@@ -35,15 +35,18 @@ type Button struct {
 
 // NewButton creates a button.
 func NewButton(label string) *Button {
+	theme := core.GetTheme()
 	b := &Button{
 		state:        ButtonNormal,
-		normalColor:  color.RGBA{R: 240, G: 240, B: 240, A: 255},
-		hoverColor:   color.RGBA{R: 220, G: 220, B: 220, A: 255},
-		pressedColor: color.RGBA{R: 200, G: 200, B: 200, A: 255},
-		textColor:    color.Black,
+		normalColor:  theme.ButtonNormalColor,
+		hoverColor:   theme.ButtonHoverColor,
+		pressedColor: theme.ButtonPressedColor,
+		textColor:    theme.ButtonTextColor,
 	}
 	b.Init(b)
 	b.BaseElement.SetPadding(yoga.EdgeAll, 8)
+	b.SetJustifyContent(yoga.JustifyCenter)
+	b.SetAlignItems(yoga.AlignCenter)
 	b.labelEl = NewText(label).SetColor(b.textColor)
 	b.AppendChild(b.labelEl)
 	return b
@@ -93,7 +96,7 @@ func (b *Button) Update() error {
 	newState := ButtonNormal
 	if b.state == ButtonPressed && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		newState = ButtonPressed
-	} else if b.engine != nil && b.engine.GetHoverTarget() == b.self {
+	} else if b.GetEngine() != nil && b.GetEngine().GetHoverTarget() == b {
 		newState = ButtonHover
 	}
 	if newState != b.state {

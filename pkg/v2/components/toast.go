@@ -38,7 +38,7 @@ type Toast struct {
 
 // NewToast creates a toast notification.
 func NewToast() *Toast {
-	theme := core.GetTheme()
+	_ = core.GetTheme()
 	t := &Toast{
 		duration: 3 * time.Second,
 		radius:   8,
