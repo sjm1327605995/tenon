@@ -8,6 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/sjm1327605995/tenon/pkg/fonts"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -64,6 +65,11 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 // Mount 执行首次挂载，调用 Widget.Build() 并构建 Element 树。
 func (e *Engine) Mount() {
+	// Auto-init default font if not already loaded
+	if !fonts.HasFontFamily(fonts.FontFamilyDefault) {
+		_ = fonts.InitDefaultFont()
+	}
+
 	if e.rootWidget == nil {
 		return
 	}
@@ -329,6 +335,7 @@ func (e *Engine) calculateLayout() {
 	if e.rootElement != nil {
 		e.updateBounds(e.rootElement, 0, 0)
 	}
+
 }
 
 func (e *Engine) updateBounds(el Element, parentX, parentY float32) {

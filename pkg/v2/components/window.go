@@ -41,14 +41,16 @@ func NewWindow(title string, width, height float32) *Window {
 	w.titleBar = NewView()
 	w.titleBar.SetHeight(w.titleHeight)
 	w.titleBar.SetWidthPercent(100)
-	w.titleBar.SetBackgroundColor(theme.BackgroundColor)
+	w.titleBar.SetBackgroundColor(theme.SurfaceColor)
+	w.titleBar.SetBorder(yoga.EdgeBottom, 1)
+	w.titleBar.SetBorderColor(theme.BorderColor)
 	w.titleBar.SetFlexDirection(yoga.FlexDirectionRow)
 	w.titleBar.SetAlignItems(yoga.AlignCenter)
 	w.titleBar.SetPadding(yoga.EdgeHorizontal, 12)
 	w.AppendChild(w.titleBar)
 
 	// Title text
-	w.titleEl = NewText(title).SetColor(theme.TextColor)
+	w.titleEl = NewText(title).SetColor(theme.TextMutedColor)
 	w.titleBar.AppendChild(w.titleEl)
 
 	// Spacer to push close button to right

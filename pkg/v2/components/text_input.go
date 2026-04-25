@@ -85,7 +85,8 @@ func (ti *TextInput) Draw(screen *ebiten.Image) {
 	isFocused := ti.isFocused()
 
 	// Background
-	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, core.BorderRadius{TopLeft: 4, TopRight: 4, BottomRight: 4, BottomLeft: 4}, ti.bgColor)
+	br := core.GetTheme().InputBorderRadius
+	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, core.BorderRadius{TopLeft: br, TopRight: br, BottomRight: br, BottomLeft: br}, ti.bgColor)
 
 	// Border
 	borderClr := ti.borderColor
