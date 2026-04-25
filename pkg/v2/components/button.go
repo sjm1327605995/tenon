@@ -93,7 +93,7 @@ func (b *Button) Update() error {
 	newState := ButtonNormal
 	if b.state == ButtonPressed && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		newState = ButtonPressed
-	} else if b.engine != nil && b.engine.GetHoverTarget() == b.self {
+	} else if b.GetEngine() != nil && b.GetEngine().GetHoverTarget() == b {
 		newState = ButtonHover
 	}
 	if newState != b.state {

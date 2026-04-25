@@ -46,10 +46,10 @@ func NewTab(items []TabItem) *Tab {
 	t.SetFlexDirection(yoga.FlexDirectionColumn)
 
 	// Tab bar
-	t.tabBar = NewView().
-		SetFlexDirection(yoga.FlexDirectionRow).
-		SetAlignItems(yoga.AlignCenter).
-		SetBackgroundColor(t.barBgColor)
+	t.tabBar = NewView()
+	t.tabBar.SetFlexDirection(yoga.FlexDirectionRow)
+	t.tabBar.SetAlignItems(yoga.AlignCenter)
+	t.tabBar.SetBackgroundColor(t.barBgColor)
 	t.tabBar.SetBorder(yoga.EdgeBottom, 1)
 	t.tabBar.SetBorderColor(theme.BorderColor)
 
@@ -59,8 +59,8 @@ func NewTab(items []TabItem) *Tab {
 	t.contentArea.SetWidthPercent(100)
 
 	// Underline indicator
-	t.underline = NewView().
-		SetBackgroundColor(t.indicatorColor)
+	t.underline = NewView()
+	t.underline.SetBackgroundColor(t.indicatorColor)
 	t.underline.SetHeight(2)
 	t.underline.SetPositionType(yoga.PositionTypeAbsolute)
 	t.underline.SetPosition(yoga.EdgeBottom, 0)
@@ -119,7 +119,7 @@ func (t *Tab) buildTabs() {
 		btn.SetOnClick(func() {
 			t.setActive(idx)
 		})
-		btn.SetBorderRadius(0)
+		// btn.SetBorderRadius(0) // Button does not have SetBorderRadius
 		btn.SetPadding(yoga.EdgeHorizontal, 16)
 		btn.SetPadding(yoga.EdgeVertical, 12)
 		btn.SetBorder(yoga.EdgeBottom, 0)
