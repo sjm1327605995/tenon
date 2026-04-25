@@ -731,6 +731,9 @@ func (node *Node) removeChildIdx(index uint32) {
 
 // RemoveAllChildren
 func (node *Node) RemoveAllChildren() {
+	if node.GetChildCount() == 0 {
+		return
+	}
 	firstChild := node.GetChild(0)
 	if firstChild.GetOwner() == node {
 		for _, child := range node.children_ {
