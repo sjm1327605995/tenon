@@ -72,6 +72,24 @@ func NewTextInput() *TextInput {
 // ElementType returns type identifier.
 func (ti *TextInput) ElementType() string { return "TextInput" }
 
+func (ti *TextInput) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["placeholder"] = ti.placeholder
+	props["fontSize"] = ti.fontSize
+	props["padding"] = ti.padding
+	if ti.textColor != nil {
+		props["textColor"] = colorToCSS(ti.textColor)
+	}
+	if ti.borderColor != nil {
+		props["borderColor"] = colorToCSS(ti.borderColor)
+	}
+	if ti.bgColor != nil {
+		props["backgroundColor"] = colorToCSS(ti.bgColor)
+	}
+	props["isMultiline"] = ti.isMultiline
+	return props
+}
+
 // Draw renders the input field.
 func (ti *TextInput) Draw(screen *ebiten.Image) {
 	if !ti.IsVisible() {

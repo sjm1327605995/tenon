@@ -488,5 +488,5 @@ func main() {
 	core.SetTheme(core.DefaultShadcnLightTheme())
 
 	app := NewGalleryApp()
-	tenon.Run(app, 1200, 800)
+	tenon.RunWithDebug(app, 1200, 800, 8765)
 }

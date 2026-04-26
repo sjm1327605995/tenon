@@ -72,6 +72,17 @@ func (v Value) IsUndefined() bool {
 	return v.unit == UnitUndefined
 }
 
+func (v Value) GetValue() float32 {
+	if v.unit == UnitUndefined || v.unit == UnitAuto {
+		return Undefined
+	}
+	return v.value
+}
+
+func (v Value) GetUnit() Unit {
+	return v.unit
+}
+
 func (v Value) Equal(other Value) bool {
 	if v.unit != other.unit {
 		return false

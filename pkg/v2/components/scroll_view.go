@@ -51,9 +51,9 @@ func NewScrollView() *ScrollView {
 	sv.SetFlexDirection(yoga.FlexDirectionColumn)
 	sv.SetOverflow(yoga.OverflowHidden)
 
-	// Inner content view - use a container that wraps content width
 	sv.content = NewView()
 	sv.content.SetWidthPercent(100)
+	sv.content.SetFlexShrink(0)
 	sv.BaseElement.AppendChild(sv.content)
 
 	return sv
@@ -426,4 +426,23 @@ func (sv *ScrollView) SetTrackColor(clr color.Color) *ScrollView {
 	sv.trackColor = clr
 	sv.Mark(core.FlagNeedDraw)
 	return sv
+}
+
+func (sv *ScrollView) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["scrollX"] = sv.scrollX
+	props["scrollY"] = sv.scrollY
+	props["maxScrollX"] = sv.maxScrollX
+	props["maxScrollY"] = sv.maxScrollY
+	if sv.backgroundColor != nil {
+		props["backgroundColor"] = colorToCSS(sv.backgroundColor)
+	}
+	if sv.scrollbarColor != nil {
+		props["scrollbarColor"] = colorToCSS(sv.scrollbarColor)
+	}
+	if sv.trackColor != nil {
+		props["trackColor"] = colorToCSS(sv.trackColor)
+	}
+	props["scrollbarWidth"] = sv.scrollbarWidth
+	return props
 }

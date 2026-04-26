@@ -1,6 +1,7 @@
 package components
 
 import (
+	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -177,3 +178,35 @@ func (v *View) SetShadow(c color.Color, blur, offsetX, offsetY float32) *View {
 }
 
 // Utility functions
+
+func (v *View) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	if v.backgroundColor != nil {
+		props["backgroundColor"] = colorToCSS(v.backgroundColor)
+	}
+	if v.borderColor != nil {
+		props["borderColor"] = colorToCSS(v.borderColor)
+	}
+	if v.borderRadius.TopLeft != 0 || v.borderRadius.TopRight != 0 || v.borderRadius.BottomRight != 0 || v.borderRadius.BottomLeft != 0 {
+		props["borderRadius"] = map[string]float32{
+			"topLeft":     v.borderRadius.TopLeft,
+			"topRight":    v.borderRadius.TopRight,
+			"bottomRight": v.borderRadius.BottomRight,
+			"bottomLeft":  v.borderRadius.BottomLeft,
+		}
+	}
+	if v.shadowColor != nil {
+		props["shadow"] = map[string]interface{}{
+			"color":   colorToCSS(v.shadowColor),
+			"blur":    v.shadowBlur,
+			"offsetX": v.shadowOffsetX,
+			"offsetY": v.shadowOffsetY,
+		}
+	}
+	return props
+}
+
+func colorToCSS(c color.Color) string {
+	r, g, b, a := c.RGBA()
+	return fmt.Sprintf("rgba(%d,%d,%d,%.2f)", r>>8, g>>8, b>>8, float64(a>>8)/255.0)
+}
