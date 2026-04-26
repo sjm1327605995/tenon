@@ -44,6 +44,9 @@ type Engine struct {
 
 	// 动画
 	animations []Animation
+
+	// 事件注册表
+	eventRegistry *EventRegistry
 }
 
 // NewEngine 创建引擎。
@@ -53,6 +56,7 @@ func NewEngine(rootWidget Widget, width, height int) *Engine {
 		screenWidth:   width,
 		screenHeight:  height,
 		lastFrameTime: time.Now(),
+		eventRegistry: NewEventRegistry(),
 	}
 }
 
@@ -123,6 +127,10 @@ func (e *Engine) onElementMounted(el Element) {
 	el.SetEngine(e)
 	applyStyles(el)
 	el.OnMount(e)
+	// 刷新延迟注册的事件监听器
+	if be, ok := el.(*BaseElement); ok {
+		be.flushDelayedListeners()
+	}
 	for _, child := range el.GetChildren() {
 		if child.GetEngine() == nil {
 			e.onElementMounted(child)
@@ -652,7 +660,16 @@ func (e *Engine) handleKeyboard() {
 }
 
 // dispatchEvent sends event to target and bubbles up until consumed.
+// 优先使用注册表分发，如果注册表没有消费事件，再调用 HandleEvent。
 func (e *Engine) dispatchEvent(target Element, event *Event) {
+	// 1. 先通过注册表分发（支持冒泡）
+	if e.eventRegistry != nil {
+		if e.eventRegistry.Dispatch(event) {
+			return // consumed by registry
+		}
+	}
+
+	// 2. 回退到 HandleEvent（兼容旧组件）
 	el := target
 	for el != nil {
 		if el.HandleEvent(event) {
@@ -663,10 +680,18 @@ func (e *Engine) dispatchEvent(target Element, event *Event) {
 }
 
 // broadcastEvent 递归广播事件给元素及其所有后代。
+// 优先使用注册表分发，再回退到 HandleEvent。
 func (e *Engine) broadcastEvent(el Element, event *Event) {
 	if el == nil {
 		return
 	}
+	// 先尝试注册表
+	if e.eventRegistry != nil {
+		if e.eventRegistry.DispatchToTarget(el, event) {
+			return
+		}
+	}
+	// 回退到 HandleEvent
 	el.HandleEvent(event)
 	for _, child := range el.GetChildren() {
 		e.broadcastEvent(child, event)
@@ -684,11 +709,11 @@ func (e *Engine) setFocus(target Element) {
 		return
 	}
 	if e.focusTarget != nil {
-		e.focusTarget.HandleEvent(&Event{Type: EventFocusOut, Target: e.focusTarget})
+		e.dispatchEvent(e.focusTarget, &Event{Type: EventFocusOut, Target: e.focusTarget})
 	}
 	e.focusTarget = target
 	if target != nil {
-		target.HandleEvent(&Event{Type: EventFocusIn, Target: target})
+		e.dispatchEvent(target, &Event{Type: EventFocusIn, Target: target})
 	}
 }
 

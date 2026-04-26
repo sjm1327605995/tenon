@@ -51,7 +51,7 @@ func NewScrollView() *ScrollView {
 	sv.SetFlexDirection(yoga.FlexDirectionColumn)
 	sv.SetOverflow(yoga.OverflowHidden)
 
-	// Inner content view
+	// Inner content view - use a container that wraps content width
 	sv.content = NewView()
 	sv.content.SetWidthPercent(100)
 	sv.BaseElement.AppendChild(sv.content)
