@@ -8,12 +8,23 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
+// BadgeVariant defines the visual style of a badge.
+type BadgeVariant int
+
+const (
+	BadgeDefault BadgeVariant = iota
+	BadgeSecondary
+	BadgeOutline
+	BadgeDestructive
+)
+
 // Badge is a small status indicator, typically attached to another element.
 type Badge struct {
 	View
 	textEl   *Text
 	dotMode  bool
 	maxCount int
+	variant  BadgeVariant
 }
 
 // NewBadge creates a badge with numeric or text content.
@@ -22,12 +33,13 @@ func NewBadge(content string) *Badge {
 	theme := core.GetTheme()
 	b := &Badge{
 		maxCount: 99,
+		variant:  BadgeDefault,
 	}
 	b.Init(b)
 	b.SetFlexDirection(yoga.FlexDirectionRow)
 	b.SetJustifyContent(yoga.JustifyCenter)
 	b.SetAlignItems(yoga.AlignCenter)
-	b.SetBackgroundColor(theme.PrimaryColor)
+	b.applyVariantStyles(theme)
 
 	if content == "" {
 		b.dotMode = true
@@ -35,11 +47,11 @@ func NewBadge(content string) *Badge {
 		b.SetHeight(8)
 		b.SetBorderRadius(4)
 	} else {
-		b.SetPadding(yoga.EdgeHorizontal, 6)
-		b.SetPadding(yoga.EdgeVertical, 2)
+		b.SetPadding(yoga.EdgeHorizontal, 10)
+		b.SetPadding(yoga.EdgeVertical, 4)
 		b.SetBorderRadius(999) // pill shape
-		b.textEl = NewText(content).SetColor(color.White)
-		b.textEl.SetFontSize(10)
+		b.textEl = NewText(content).SetColor(theme.PrimaryForegroundColor)
+		b.textEl.SetFontSize(12)
 		b.AppendChild(b.textEl)
 	}
 	return b
@@ -47,6 +59,39 @@ func NewBadge(content string) *Badge {
 
 // ElementType returns type identifier.
 func (b *Badge) ElementType() string { return "Badge" }
+
+// SetVariant changes the badge style.
+func (b *Badge) SetVariant(v BadgeVariant) *Badge {
+	b.variant = v
+	b.applyVariantStyles(core.GetTheme())
+	return b
+}
+
+func (b *Badge) applyVariantStyles(theme *core.Theme) {
+	switch b.variant {
+	case BadgeDefault:
+		b.SetBackgroundColor(theme.PrimaryColor)
+		if b.textEl != nil {
+			b.textEl.SetColor(theme.PrimaryForegroundColor)
+		}
+	case BadgeSecondary:
+		b.SetBackgroundColor(theme.SecondaryColor)
+		if b.textEl != nil {
+			b.textEl.SetColor(theme.SecondaryForegroundColor)
+		}
+	case BadgeOutline:
+		b.SetBackgroundColor(nil)
+		b.SetBorderColor(theme.BorderColor)
+		if b.textEl != nil {
+			b.textEl.SetColor(theme.TextColor)
+		}
+	case BadgeDestructive:
+		b.SetBackgroundColor(theme.DestructiveColor)
+		if b.textEl != nil {
+			b.textEl.SetColor(theme.DestructiveForegroundColor)
+		}
+	}
+}
 
 // SetCount sets numeric content with optional "99+" overflow.
 func (b *Badge) SetCount(count int) *Badge {

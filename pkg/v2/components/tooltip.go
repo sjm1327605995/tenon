@@ -3,6 +3,7 @@ package components
 import (
 	"image/color"
 
+	"github.com/sjm1327605995/tenon/pkg/v2/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -15,16 +16,18 @@ type Tooltip struct {
 
 // NewTooltip creates a tooltip with the given content.
 func NewTooltip(content string) *Tooltip {
+	theme := core.GetTheme()
 	tt := &Tooltip{}
 	tt.Init(tt)
-	tt.SetPadding(yoga.EdgeAll, 6)
-	tt.SetBackgroundColor(color.RGBA{R: 50, G: 50, B: 50, A: 230})
-	tt.SetBorderRadius(4)
+	tt.SetPadding(yoga.EdgeHorizontal, 10)
+	tt.SetPadding(yoga.EdgeVertical, 6)
+	tt.SetBackgroundColor(theme.TextColor)
+	tt.SetBorderRadius(theme.BorderRadius / 2)
 	tt.SetPositionType(yoga.PositionTypeAbsolute)
 	tt.SetVisible(false)
 
-	tt.textEl = NewText(content).SetColor(color.White)
-	tt.textEl.SetFontSize(10)
+	tt.textEl = NewText(content).SetColor(theme.BackgroundColor)
+	tt.textEl.SetFontSize(12)
 	tt.AppendChild(tt.textEl)
 	return tt
 }
@@ -41,17 +44,25 @@ func (tt *Tooltip) SetContent(content string) *Tooltip {
 // Show makes the tooltip visible.
 func (tt *Tooltip) Show() *Tooltip {
 	tt.SetVisible(true)
+	if eng := tt.GetEngine(); eng != nil {
+		eng.AddOverlay(tt)
+	}
 	return tt
 }
 
 // Hide makes the tooltip invisible.
 func (tt *Tooltip) Hide() *Tooltip {
 	tt.SetVisible(false)
+	if eng := tt.GetEngine(); eng != nil {
+		eng.RemoveOverlay(tt)
+	}
 	return tt
 }
 
 // SetTextColor sets the tooltip text color.
 func (tt *Tooltip) SetTextColor(clr color.Color) *Tooltip {
-	tt.textEl.SetColor(clr)
+	if tt.textEl != nil {
+		tt.textEl.SetColor(clr)
+	}
 	return tt
 }

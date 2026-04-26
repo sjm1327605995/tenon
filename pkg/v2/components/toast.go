@@ -140,6 +140,7 @@ func (t *Toast) SetDuration(d time.Duration) *Toast {
 }
 
 func (t *Toast) setTypeColors(tt ToastType) {
+	theme := core.GetTheme()
 	switch tt {
 	case ToastSuccess:
 		t.bgColor = color.RGBA{R: 82, G: 196, B: 26, A: 230}
@@ -150,16 +151,22 @@ func (t *Toast) setTypeColors(tt ToastType) {
 		t.iconColor = color.RGBA{R: 255, G: 255, B: 255, A: 255}
 		t.borderColor = color.RGBA{R: 250, G: 173, B: 20, A: 255}
 	case ToastError:
-		t.bgColor = color.RGBA{R: 255, G: 77, B: 79, A: 230}
-		t.iconColor = color.RGBA{R: 255, G: 255, B: 255, A: 255}
-		t.borderColor = color.RGBA{R: 255, G: 77, B: 79, A: 255}
+		t.bgColor = theme.DestructiveColor
+		if c, ok := t.bgColor.(color.RGBA); ok {
+			t.bgColor = color.RGBA{R: c.R, G: c.G, B: c.B, A: 230}
+		}
+		t.iconColor = theme.DestructiveForegroundColor
+		t.borderColor = theme.DestructiveColor
 	default: // Info
-		t.bgColor = color.RGBA{R: 22, G: 119, B: 255, A: 230}
-		t.iconColor = color.RGBA{R: 255, G: 255, B: 255, A: 255}
-		t.borderColor = color.RGBA{R: 22, G: 119, B: 255, A: 255}
+		t.bgColor = theme.PrimaryColor
+		if c, ok := t.bgColor.(color.RGBA); ok {
+			t.bgColor = color.RGBA{R: c.R, G: c.G, B: c.B, A: 230}
+		}
+		t.iconColor = theme.PrimaryForegroundColor
+		t.borderColor = theme.PrimaryColor
 	}
 	if t.textEl != nil {
-		t.textEl.SetColor(color.White)
+		t.textEl.SetColor(theme.PrimaryForegroundColor)
 	}
 	t.Mark(core.FlagNeedDraw)
 }

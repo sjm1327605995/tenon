@@ -1,17 +1,15 @@
 package core
 
-
-
 // Switch 是声明式路由/页面切换组件。
 // 它根据 State 的值自动切换显示的子 Element，用户不需要写 switch 或手动管理子节点。
 // Switch 本身是 Element，可以像 View、Text 一样被挂载到树中。
 type Switch[T comparable] struct {
 	BaseElement
-	state      *State[T]
-	cases      map[T]func() Element
-	defaultFn  func() Element
-	current    Element
-	cleanup    func()
+	state     *State[T]
+	cases     map[T]func() Element
+	defaultFn func() Element
+	current   Element
+	cleanup   func()
 }
 
 // NewSwitch 创建声明式切换容器。
@@ -62,15 +60,12 @@ func (s *Switch[T]) OnUnmount() {
 	s.BaseElement.OnUnmount()
 }
 
-// show 切换到指定分支。
 func (s *Switch[T]) show(key T) {
-	// 查找对应的创建函数
 	fn, ok := s.cases[key]
 	if !ok && s.defaultFn != nil {
 		fn = s.defaultFn
 	}
 	if fn == nil {
-		// 没有匹配，清空
 		if s.current != nil {
 			s.RemoveChild(s.current)
 			s.current = nil
@@ -78,28 +73,15 @@ func (s *Switch[T]) show(key T) {
 		return
 	}
 
-	// 如果当前显示的已经是这个分支，跳过
-	// TODO: 如果需要支持 Key 复用，可以在这里扩展
-
-	// 卸载旧的
 	if s.current != nil {
 		s.RemoveChild(s.current)
 		s.current = nil
 	}
 
-	// 创建并挂载新的
 	newEl := fn()
 	if newEl != nil {
 		s.current = newEl
 		s.AppendChild(newEl)
-		// 递归注入 engine，确保新子树能正常 Mark dirty、接收事件
-		if s.engine != nil {
-			LogDebug("[Switch] onElementMounted", "type", newEl.ElementType())
-			s.engine.onElementMounted(newEl)
-		} else {
-			LogDebug("[Switch] WARNING: engine is nil, cannot mount newEl")
-		}
-		// 新子节点加入后需要重新布局
 		s.Mark(FlagNeedLayout)
 	}
 }

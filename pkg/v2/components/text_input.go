@@ -16,11 +16,11 @@ import (
 // TextInput is a text input field with IME support.
 type TextInput struct {
 	core.BaseElement
-	field            *textinput.Field
-	onChange         func(string)
-	onSubmit         func(string)
-	placeholder      string
-	isMultiline      bool
+	field       *textinput.Field
+	onChange    func(string)
+	onSubmit    func(string)
+	placeholder string
+	isMultiline bool
 
 	// Styles
 	textColor        color.Color
@@ -36,12 +36,12 @@ type TextInput struct {
 	padding          float32
 
 	// Cursor blink
-	cursorVisible    bool
-	blinkTimer       float32
+	cursorVisible bool
+	blinkTimer    float32
 
 	// Mouse selection
-	selecting        bool
-	selectAnchor     int
+	selecting    bool
+	selectAnchor int
 }
 
 // NewTextInput creates a text input.
@@ -86,14 +86,17 @@ func (ti *TextInput) Draw(screen *ebiten.Image) {
 
 	// Background
 	br := core.GetTheme().InputBorderRadius
-	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, core.BorderRadius{TopLeft: br, TopRight: br, BottomRight: br, BottomLeft: br}, ti.bgColor)
+	brAll := core.BorderRadius{TopLeft: br, TopRight: br, BottomRight: br, BottomLeft: br}
+	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, brAll, ti.bgColor)
 
 	// Border
 	borderClr := ti.borderColor
 	if isFocused {
 		borderClr = ti.focusBorderColor
 	}
-	vector.StrokeLine(screen, bounds.X, bounds.Y+bounds.Height-1, bounds.X+bounds.Width, bounds.Y+bounds.Height-1, 1.5, borderClr, false)
+	if borderClr != nil {
+		drawRoundedRectStroke(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, brAll, 1, borderClr)
+	}
 
 	face := ti.getFace()
 	if face == nil {

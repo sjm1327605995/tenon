@@ -37,11 +37,11 @@ func (dd *Dropdown) setupUI() {
 	th := core.GetTheme()
 	dd.panel = NewView()
 	dd.panel.SetFlexDirection(yoga.FlexDirectionColumn)
-	dd.panel.SetDisplay(yoga.DisplayNone)
 	dd.panel.SetBackgroundColor(th.SurfaceColor)
 	dd.panel.SetBorder(yoga.EdgeAll, 1)
 	dd.panel.SetBorderColor(th.BorderColor)
 	dd.panel.SetShadow(th.ShadowColor, 8, 0, 4)
+	dd.panel.SetVisible(false)
 
 	dd.listView = NewListView()
 	dd.listView.OnSelect(func(idx int) {
@@ -56,8 +56,6 @@ func (dd *Dropdown) setupUI() {
 	})
 	dd.listView.ScrollView().SetMaxHeight(200)
 	dd.panel.Add(dd.listView)
-
-	dd.BaseElement.AppendChild(dd.panel)
 }
 
 func (dd *Dropdown) toggle() {
@@ -73,8 +71,16 @@ func (dd *Dropdown) open() {
 		return
 	}
 	dd.isOpen = true
-	dd.panel.SetDisplay(yoga.DisplayFlex)
+	tb := dd.trigger.GetBounds()
+	dd.panel.SetPositionType(yoga.PositionTypeAbsolute)
+	dd.panel.SetPosition(yoga.EdgeLeft, tb.X)
+	dd.panel.SetPosition(yoga.EdgeTop, tb.Y+tb.Height)
+	dd.panel.SetMinWidth(tb.Width)
+	dd.panel.SetVisible(true)
 	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	if eng := dd.GetEngine(); eng != nil {
+		eng.AddOverlay(dd.panel)
+	}
 }
 
 func (dd *Dropdown) close() {
@@ -82,8 +88,11 @@ func (dd *Dropdown) close() {
 		return
 	}
 	dd.isOpen = false
-	dd.panel.SetDisplay(yoga.DisplayNone)
+	dd.panel.SetVisible(false)
 	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	if eng := dd.GetEngine(); eng != nil {
+		eng.RemoveOverlay(dd.panel)
+	}
 }
 
 // SetItems replaces all options.
@@ -158,10 +167,9 @@ func (dd *Dropdown) IsOpen() bool { return dd.isOpen }
 // HandleEvent closes the dropdown on outside clicks.
 func (dd *Dropdown) HandleEvent(e *core.Event) bool {
 	if e.Type == core.EventClick && dd.isOpen {
-		// If the click target is not inside this dropdown, close it.
 		target := e.Target
 		for target != nil {
-			if target == dd {
+			if target == dd || target == dd.panel {
 				return false
 			}
 			target = target.GetParent()
