@@ -298,3 +298,31 @@ func (b *Button) drawLoading(screen *ebiten.Image, bounds core.LayoutBounds) {
 	op.ColorScale.ScaleWithColor(clr)
 	vector.StrokePath(screen, &path, strokeOp, op)
 }
+
+func (b *Button) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	variantNames := []string{"default", "secondary", "outline", "ghost", "destructive", "link"}
+	if int(b.variant) < len(variantNames) {
+		props["variant"] = variantNames[b.variant]
+	}
+	stateNames := []string{"normal", "hover", "pressed"}
+	if int(b.state) < len(stateNames) {
+		props["state"] = stateNames[b.state]
+	}
+	if b.labelEl != nil {
+		props["label"] = b.labelEl.content
+	}
+	if b.normalColor != nil {
+		props["normalColor"] = colorToCSS(b.normalColor)
+	}
+	if b.textColor != nil {
+		props["textColor"] = colorToCSS(b.textColor)
+	}
+	if b.borderColor != nil {
+		props["borderColor"] = colorToCSS(b.borderColor)
+	}
+	props["borderRadius"] = b.borderRadius
+	props["disabled"] = b.disabled
+	props["loading"] = b.loading
+	return props
+}

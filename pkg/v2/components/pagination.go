@@ -98,3 +98,10 @@ func (p *Pagination) SetOnChange(fn func(page int)) *Pagination {
 	p.onChange = fn
 	return p
 }
+
+func (p *Pagination) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["totalPages"] = p.totalPages
+	props["current"] = p.current
+	return props
+}

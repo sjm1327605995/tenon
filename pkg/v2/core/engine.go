@@ -47,6 +47,12 @@ type Engine struct {
 
 	// 事件注册表
 	eventRegistry *EventRegistry
+
+	// 调试器
+	debugger interface {
+		CaptureLayout(trigger string)
+		IsEnabled() bool
+	}
 }
 
 // NewEngine 创建引擎。
@@ -71,6 +77,17 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 // Mount 执行首次挂载，调用 Widget.Build() 并构建 Element 树。
+func (e *Engine) SetDebugger(d interface {
+	CaptureLayout(trigger string)
+	IsEnabled() bool
+}) {
+	e.debugger = d
+}
+
+func (e *Engine) GetRootElement() Element {
+	return e.rootElement
+}
+
 func (e *Engine) Mount() {
 	// Auto-init default font if not already loaded
 	if !fonts.HasFontFamily(fonts.FontFamilyDefault) {
@@ -390,6 +407,9 @@ func (e *Engine) calculateLayout() {
 		e.updateBounds(e.rootElement, 0, 0)
 	}
 
+	if e.debugger != nil && e.debugger.IsEnabled() {
+		e.debugger.CaptureLayout("calculateLayout")
+	}
 }
 
 func (e *Engine) updateBounds(el Element, parentX, parentY float32) {

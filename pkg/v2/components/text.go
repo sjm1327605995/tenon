@@ -227,3 +227,13 @@ func (t *Text) SetLineHeight(height float32) *Text {
 	t.invalidateCache()
 	return t
 }
+
+func (t *Text) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["content"] = t.content
+	props["fontSize"] = t.fontSize
+	if t.color != nil {
+		props["color"] = colorToCSS(t.color)
+	}
+	return props
+}

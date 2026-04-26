@@ -105,6 +105,10 @@ type Element interface {
 	OnKeyDown(callback EventCallback) Element
 	OnKeyUp(callback EventCallback) Element
 	RemoveOnClick(callback EventCallback) Element
+
+	// === 调试 ===
+	DebugInfo() DebugNode
+	DebugProps() map[string]interface{}
 }
 
 // ElementFlags 使用 uint64 bitmap 打包所有状态标志。
@@ -165,6 +169,48 @@ const (
 	PointerEventsAuto PointerEvents = iota
 	PointerEventsNone
 )
+
+type DebugNode struct {
+	Type         string                 `json:"type"`
+	Key          string                 `json:"key,omitempty"`
+	Tag          string                 `json:"tag,omitempty"`
+	Classes      []string               `json:"classes,omitempty"`
+	Bounds       LayoutBounds           `json:"bounds"`
+	Visible      bool                   `json:"visible"`
+	ClipChildren bool                   `json:"clipChildren"`
+	Yoga         DebugYoga              `json:"yoga"`
+	Transform    Transform              `json:"transform"`
+	Props        map[string]interface{} `json:"props,omitempty"`
+	Children     []*DebugNode           `json:"children,omitempty"`
+}
+
+type DebugYoga struct {
+	FlexDirection  string  `json:"flexDirection,omitempty"`
+	JustifyContent string  `json:"justifyContent,omitempty"`
+	AlignItems     string  `json:"alignItems,omitempty"`
+	AlignSelf      string  `json:"alignSelf,omitempty"`
+	FlexGrow       float32 `json:"flexGrow"`
+	FlexShrink     float32 `json:"flexShrink"`
+	FlexWrap       string  `json:"flexWrap,omitempty"`
+	PositionType   string  `json:"positionType,omitempty"`
+	Display        string  `json:"display,omitempty"`
+	Width          float32 `json:"width"`
+	Height         float32 `json:"height"`
+	PaddingTop     float32 `json:"paddingTop"`
+	PaddingRight   float32 `json:"paddingRight"`
+	PaddingBottom  float32 `json:"paddingBottom"`
+	PaddingLeft    float32 `json:"paddingLeft"`
+	MarginTop      float32 `json:"marginTop"`
+	MarginRight    float32 `json:"marginRight"`
+	MarginBottom   float32 `json:"marginBottom"`
+	MarginLeft     float32 `json:"marginLeft"`
+	BorderTop      float32 `json:"borderTop"`
+	BorderRight    float32 `json:"borderRight"`
+	BorderBottom   float32 `json:"borderBottom"`
+	BorderLeft     float32 `json:"borderLeft"`
+	Gap            float32 `json:"gap"`
+	AspectRatio    float32 `json:"aspectRatio"`
+}
 
 // ==================== BaseElement ====================
 
@@ -564,3 +610,58 @@ func (b *BaseElement) SetVisible(v bool) Element {
 
 // IsVisible checks visibility.
 func (b *BaseElement) IsVisible() bool { return b.flags&FlagVisible != 0 }
+
+func (b *BaseElement) DebugInfo() DebugNode {
+	node := DebugNode{
+		Type:         b.self.ElementType(),
+		Key:          b.key,
+		Tag:          b.tag,
+		Classes:      b.classes,
+		Bounds:       b.bounds,
+		Visible:      b.IsVisible(),
+		ClipChildren: b.HasFlag(FlagClipChildren),
+		Transform:    b.transform,
+		Props:        b.self.DebugProps(),
+	}
+
+	if b.yoga != nil {
+		node.Yoga = DebugYoga{
+			FlexDirection:  b.yoga.StyleGetFlexDirection().String(),
+			JustifyContent: b.yoga.StyleGetJustifyContent().String(),
+			AlignItems:     b.yoga.StyleGetAlignItems().String(),
+			AlignSelf:      b.yoga.StyleGetAlignSelf().String(),
+			FlexGrow:       b.yoga.StyleGetFlexGrow(),
+			FlexShrink:     b.yoga.StyleGetFlexShrink(),
+			FlexWrap:       b.yoga.StyleGetFlexWrap().String(),
+			PositionType:   b.yoga.StyleGetPositionType().String(),
+			Display:        b.yoga.StyleGetDisplay().String(),
+			Width:          b.yoga.StyleGetWidth(),
+			Height:         b.yoga.StyleGetHeight(),
+			PaddingTop:     b.yoga.StyleGetPadding(yoga.EdgeTop).GetValue(),
+			PaddingRight:   b.yoga.StyleGetPadding(yoga.EdgeRight).GetValue(),
+			PaddingBottom:  b.yoga.StyleGetPadding(yoga.EdgeBottom).GetValue(),
+			PaddingLeft:    b.yoga.StyleGetPadding(yoga.EdgeLeft).GetValue(),
+			MarginTop:      b.yoga.StyleGetMargin(yoga.EdgeTop).GetValue(),
+			MarginRight:    b.yoga.StyleGetMargin(yoga.EdgeRight).GetValue(),
+			MarginBottom:   b.yoga.StyleGetMargin(yoga.EdgeBottom).GetValue(),
+			MarginLeft:     b.yoga.StyleGetMargin(yoga.EdgeLeft).GetValue(),
+			BorderTop:      b.yoga.StyleGetBorder(yoga.EdgeTop),
+			BorderRight:    b.yoga.StyleGetBorder(yoga.EdgeRight),
+			BorderBottom:   b.yoga.StyleGetBorder(yoga.EdgeBottom),
+			BorderLeft:     b.yoga.StyleGetBorder(yoga.EdgeLeft),
+			Gap:            b.yoga.StyleGetGap(yoga.GutterAll),
+			AspectRatio:    b.yoga.StyleGetAspectRatio(),
+		}
+	}
+
+	for _, child := range b.children {
+		info := child.DebugInfo()
+		node.Children = append(node.Children, &info)
+	}
+
+	return node
+}
+
+func (b *BaseElement) DebugProps() map[string]interface{} {
+	return nil
+}
