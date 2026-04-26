@@ -460,9 +460,9 @@ func (a *GalleryApp) Build() core.Element {
 			return components.NewText("Select a page from the sidebar").SetColor(core.GetTheme().TextColor)
 		})
 
-	// Scrollable main area
+	// Scrollable main area - wrap in a flex container to prevent overflow
 	scroll := components.NewScrollView()
-	scroll.SetWidthPercent(100)
+	scroll.SetFlexGrow(1)
 	scroll.SetHeightPercent(100)
 	scroll.Content().Add(content)
 

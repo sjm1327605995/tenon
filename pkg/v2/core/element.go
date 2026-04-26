@@ -93,6 +93,18 @@ type Element interface {
 	// === Context ===
 	SetContext(key string, val interface{})
 	GetContext(key string) interface{}
+
+	// === 事件监听（注册器模式）===
+	OnClick(callback EventCallback) Element
+	OnMouseDown(callback EventCallback) Element
+	OnMouseUp(callback EventCallback) Element
+	OnMouseMove(callback EventCallback) Element
+	OnScroll(callback EventCallback) Element
+	OnFocusIn(callback EventCallback) Element
+	OnFocusOut(callback EventCallback) Element
+	OnKeyDown(callback EventCallback) Element
+	OnKeyUp(callback EventCallback) Element
+	RemoveOnClick(callback EventCallback) Element
 }
 
 // ElementFlags 使用 uint64 bitmap 打包所有状态标志。
@@ -159,18 +171,19 @@ const (
 // BaseElement 提供 Element 接口的默认实现。
 // 所有 Native 组件（View、Text、Button...）内嵌 BaseElement 即可。
 type BaseElement struct {
-	self      Element
-	engine    *Engine
-	yoga      *yoga.Node
-	parent    Element
-	children  []Element
-	bounds    LayoutBounds
-	flags     ElementFlags // uint64 bitmap：低32位持久状态，高32位脏标记
-	key       string
-	tag       string
-	classes   []string
-	context   map[string]interface{}
-	transform Transform
+	self             Element
+	engine           *Engine
+	yoga             *yoga.Node
+	parent           Element
+	children         []Element
+	bounds           LayoutBounds
+	flags            ElementFlags // uint64 bitmap：低32位持久状态，高32位脏标记
+	key              string
+	tag              string
+	classes          []string
+	context          map[string]interface{}
+	transform        Transform
+	delayedListeners []delayedListener // 延迟注册的事件监听器
 }
 
 // Init 初始化 BaseElement，必须在子类构造函数中调用。
@@ -249,6 +262,10 @@ func (b *BaseElement) HandleEvent(e *Event) bool { return false }
 func (b *BaseElement) Update() error             { return nil }
 func (b *BaseElement) OnMount(engine *Engine)    { b.engine = engine }
 func (b *BaseElement) OnUnmount() {
+	// 卸载时移除所有事件监听器
+	if b.engine != nil && b.engine.eventRegistry != nil {
+		b.engine.eventRegistry.RemoveAllListeners(b.self)
+	}
 	for _, c := range b.children {
 		c.OnUnmount()
 	}
