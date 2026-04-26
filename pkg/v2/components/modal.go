@@ -27,7 +27,7 @@ func NewModal() *Modal {
 	m := &Modal{
 		closeOnMask: true,
 		closeOnEsc:  true,
-		maskColor:   color.RGBA{R: 0, G: 0, B: 0, A: 180},
+		maskColor:   color.RGBA{R: 0, G: 0, B: 0, A: 120},
 	}
 	m.Init(m)
 	m.SetVisible(false)
@@ -43,8 +43,9 @@ func NewModal() *Modal {
 	m.panel = NewView()
 	m.panel.SetWidth(400)
 	m.panel.SetMinHeight(200)
-	m.panel.SetBackgroundColor(theme.SurfaceColor)
+	m.panel.SetBackgroundColor(theme.CardColor)
 	m.panel.SetBorderRadius(theme.BorderRadius)
+	m.panel.SetShadow(theme.ShadowColor, 16, 0, 4)
 	m.panel.SetPadding(yoga.EdgeAll, 24)
 	m.panel.SetFlexDirection(yoga.FlexDirectionColumn)
 	m.AppendChild(m.panel)
@@ -104,12 +105,18 @@ func (m *Modal) HandleEvent(e *core.Event) bool {
 // Open shows the modal.
 func (m *Modal) Open() *Modal {
 	m.SetVisible(true)
+	if eng := m.GetEngine(); eng != nil {
+		eng.AddOverlay(m)
+	}
 	return m
 }
 
 // Close hides the modal.
 func (m *Modal) Close() {
 	m.SetVisible(false)
+	if eng := m.GetEngine(); eng != nil {
+		eng.RemoveOverlay(m)
+	}
 	if m.onClose != nil {
 		m.onClose()
 	}

@@ -60,11 +60,12 @@ func (cb *Checkbox) Draw(screen *ebiten.Image) {
 	boxY := bounds.Y + (bounds.Height-cb.boxSize)/2
 	boxX := bounds.X
 
+	bgClr := core.GetTheme().BackgroundColor
 	if cb.checked {
 		cb.drawRoundedBox(screen, boxX, boxY, cb.boxSize, cb.boxSize, cb.fillColor)
 		cb.drawCheckmark(screen, boxX, boxY, cb.boxSize)
 	} else {
-		cb.drawRoundedBox(screen, boxX, boxY, cb.boxSize, cb.boxSize, color.White)
+		cb.drawRoundedBox(screen, boxX, boxY, cb.boxSize, cb.boxSize, bgClr)
 		cb.drawBoxBorder(screen, boxX, boxY, cb.boxSize, cb.boxSize, cb.borderColor)
 	}
 }

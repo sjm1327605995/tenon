@@ -66,8 +66,6 @@ func (i *If) show(cond bool) {
 		}
 		return
 	}
-	// Avoid recreating if already showing the same branch type
-	// TODO: add branch key comparison for smarter reuse
 	if i.current != nil {
 		i.RemoveChild(i.current)
 		i.current = nil

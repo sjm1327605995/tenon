@@ -101,9 +101,9 @@ type ElementFlags uint64
 
 const (
 	// === 持久状态（低 32 位，不会被 ClearDirty 清除）===
-	FlagVisible ElementFlags = 1 << iota // 是否可见
-	FlagFocusable                        // 是否可聚焦
-	FlagClipChildren                     // 是否裁剪子节点到自身边界
+	FlagVisible      ElementFlags = 1 << iota // 是否可见
+	FlagFocusable                             // 是否可聚焦
+	FlagClipChildren                          // 是否裁剪子节点到自身边界
 
 	_ = iota + 29 // 占位，确保脏标记从第 32 位开始
 
@@ -191,8 +191,15 @@ func (b *BaseElement) AppendChild(child Element) {
 	if child == nil {
 		return
 	}
-	b.children = append(b.children, child)
+	if child.GetParent() != nil {
+		child.GetParent().RemoveChild(child)
+	}
+	// 防御性检查：如果 yoga 节点仍有 owner，尝试从旧 owner 释放
+	if child.GetYoga() != nil && child.GetYoga().GetOwner() != nil {
+		child.GetYoga().GetOwner().RemoveChild(child.GetYoga())
+	}
 	child.SetParent(b.self)
+	b.children = append(b.children, child)
 	if b.yoga != nil && child.GetYoga() != nil {
 		b.yoga.InsertChild(child.GetYoga(), b.yoga.GetChildCount())
 	}
@@ -219,6 +226,9 @@ func (b *BaseElement) ClearChildren() {
 	for _, c := range b.children {
 		c.SetParent(nil)
 		c.OnUnmount()
+		if b.yoga != nil && c.GetYoga() != nil {
+			b.yoga.RemoveChild(c.GetYoga())
+		}
 	}
 	b.children = b.children[:0]
 	if b.yoga != nil {
@@ -228,17 +238,22 @@ func (b *BaseElement) ClearChildren() {
 
 // === Yoga / 布局 ===
 
-func (b *BaseElement) GetYoga() *yoga.Node      { return b.yoga }
+func (b *BaseElement) GetYoga() *yoga.Node       { return b.yoga }
 func (b *BaseElement) GetBounds() LayoutBounds   { return b.bounds }
 func (b *BaseElement) SetBounds(lb LayoutBounds) { b.bounds = lb }
 
 // === 绘制 / 事件 / 更新（默认空实现）===
 
-func (b *BaseElement) Draw(screen *ebiten.Image)     {}
-func (b *BaseElement) HandleEvent(e *Event) bool     { return false }
-func (b *BaseElement) Update() error                 { return nil }
-func (b *BaseElement) OnMount(engine *Engine)        { b.engine = engine }
-func (b *BaseElement) OnUnmount()                    {}
+func (b *BaseElement) Draw(screen *ebiten.Image) {}
+func (b *BaseElement) HandleEvent(e *Event) bool { return false }
+func (b *BaseElement) Update() error             { return nil }
+func (b *BaseElement) OnMount(engine *Engine)    { b.engine = engine }
+func (b *BaseElement) OnUnmount() {
+	for _, c := range b.children {
+		c.OnUnmount()
+	}
+	b.engine = nil
+}
 
 // === 标志位操作（uint64 bitmap）===
 
@@ -273,13 +288,16 @@ const FlagDirtyMask ElementFlags = 0xFFFFFFFF00000000
 
 // === 类型与标识 ===
 
-func (b *BaseElement) ElementType() string   { return "BaseElement" }
-func (b *BaseElement) SetKey(key string)     { b.key = key }
-func (b *BaseElement) GetKey() string        { return b.key }
-func (b *BaseElement) SetTag(tag string)     { b.tag = tag }
-func (b *BaseElement) GetTag() string        { return b.tag }
-func (b *BaseElement) SetClass(c ...string) Element { b.classes = append(b.classes[:0], c...); return b.self }
-func (b *BaseElement) GetClass() []string    { return b.classes }
+func (b *BaseElement) ElementType() string { return "BaseElement" }
+func (b *BaseElement) SetKey(key string)   { b.key = key }
+func (b *BaseElement) GetKey() string      { return b.key }
+func (b *BaseElement) SetTag(tag string)   { b.tag = tag }
+func (b *BaseElement) GetTag() string      { return b.tag }
+func (b *BaseElement) SetClass(c ...string) Element {
+	b.classes = append(b.classes[:0], c...)
+	return b.self
+}
+func (b *BaseElement) GetClass() []string { return b.classes }
 
 // === Engine ===
 
@@ -316,8 +334,12 @@ func (b *BaseElement) SetSkew(x, y float32) Element {
 }
 
 func (b *BaseElement) SetAlpha(a float32) Element {
-	if a < 0 { a = 0 }
-	if a > 1 { a = 1 }
+	if a < 0 {
+		a = 0
+	}
+	if a > 1 {
+		a = 1
+	}
 	b.transform.Alpha = a
 	b.Mark(FlagNeedDraw)
 	return b.self
@@ -514,10 +536,12 @@ func (b *BaseElement) Add(children ...Element) Element {
 func (b *BaseElement) SetVisible(v bool) Element {
 	if v {
 		b.flags |= FlagVisible
+		b.yoga.StyleSetDisplay(yoga.DisplayFlex)
 	} else {
 		b.flags &^= FlagVisible
+		b.yoga.StyleSetDisplay(yoga.DisplayNone)
 	}
-	b.Mark(FlagNeedDraw)
+	b.Mark(FlagNeedLayout | FlagNeedDraw)
 	return b.self
 }
 

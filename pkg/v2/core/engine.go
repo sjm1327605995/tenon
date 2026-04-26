@@ -14,8 +14,8 @@ import (
 
 // Engine 是 Tenon 核心，负责 Widget → Element 的构建、布局计算、绘制和事件。
 type Engine struct {
-	rootWidget   Widget
-	rootElement  Element
+	rootWidget  Widget
+	rootElement Element
 
 	// 帧调度
 	dirtyElements []Element
@@ -25,6 +25,9 @@ type Engine struct {
 	screenWidth   int
 	screenHeight  int
 	pendingResize bool
+
+	// 弹出层
+	overlays []Element
 
 	// 输入状态
 	lastMouseX      float32
@@ -77,8 +80,39 @@ func (e *Engine) Mount() {
 	e.rootElement = e.rootWidget.Build()
 	if e.rootElement != nil {
 		e.onElementMounted(e.rootElement)
+		e.initOverlayLayer()
 		e.calculateLayout()
 	}
+}
+
+func (e *Engine) initOverlayLayer() {
+}
+
+func (e *Engine) AddOverlay(el Element) {
+	for _, o := range e.overlays {
+		if o == el {
+			return
+		}
+	}
+	e.overlays = append(e.overlays, el)
+}
+
+func (e *Engine) RemoveOverlay(el Element) {
+	for i, o := range e.overlays {
+		if o == el {
+			e.overlays = append(e.overlays[:i], e.overlays[i+1:]...)
+			return
+		}
+	}
+}
+
+func (e *Engine) IsOverlay(el Element) bool {
+	for _, o := range e.overlays {
+		if o == el {
+			return true
+		}
+	}
+	return false
 }
 
 // onElementMounted 递归给新挂载的 Element 注入 Engine。
@@ -90,7 +124,9 @@ func (e *Engine) onElementMounted(el Element) {
 	applyStyles(el)
 	el.OnMount(e)
 	for _, child := range el.GetChildren() {
-		e.onElementMounted(child)
+		if child.GetEngine() == nil {
+			e.onElementMounted(child)
+		}
 	}
 }
 
@@ -131,6 +167,11 @@ func (e *Engine) Update() error {
 	if e.rootElement != nil {
 		e.updateElements(e.rootElement)
 	}
+	for _, overlay := range e.overlays {
+		if overlay != nil && overlay.IsVisible() {
+			e.updateElements(overlay)
+		}
+	}
 
 	return nil
 }
@@ -159,6 +200,11 @@ func (e *Engine) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 245, G: 245, B: 245, A: 255})
 	if e.rootElement != nil {
 		e.drawElement(screen, e.rootElement, 0, 0)
+	}
+	for _, overlay := range e.overlays {
+		if overlay != nil && overlay.IsVisible() {
+			e.drawElement(screen, overlay, 0, 0)
+		}
 	}
 }
 
@@ -396,6 +442,9 @@ func (e *Engine) drawElement(screen *ebiten.Image, el Element, offsetX, offsetY 
 	el.SetBounds(bounds)
 
 	for _, child := range el.GetChildren() {
+		if e.IsOverlay(child) {
+			continue
+		}
 		e.drawElement(childScreen, child, childOffsetX, childOffsetY)
 	}
 }
@@ -408,6 +457,9 @@ func (e *Engine) updateElements(el Element) {
 	}
 	_ = el.Update()
 	for _, child := range el.GetChildren() {
+		if e.IsOverlay(child) {
+			continue
+		}
 		e.updateElements(child)
 	}
 }
@@ -415,13 +467,13 @@ func (e *Engine) updateElements(el Element) {
 // ==================== 事件系统 ====================
 
 type eventState struct {
-	mouseX, mouseY     float32
-	mouseDownTarget    Element
-	mouseDownX         float32
-	mouseDownY         float32
-	hoverTarget        Element
-	focusTarget        Element
-	mouseDownButton    ebiten.MouseButton
+	mouseX, mouseY  float32
+	mouseDownTarget Element
+	mouseDownX      float32
+	mouseDownY      float32
+	hoverTarget     Element
+	focusTarget     Element
+	mouseDownButton ebiten.MouseButton
 }
 
 func (e *Engine) handleEvents() {
@@ -457,7 +509,7 @@ func (e *Engine) handleEvents() {
 }
 
 func (e *Engine) handleMouseMove(x, y float32) {
-	target := e.hitTest(e.rootElement, x, y)
+	target := e.hitTestWithOverlays(x, y)
 	if target != e.hoverTarget {
 		// MouseLeave old target
 		if e.hoverTarget != nil {
@@ -479,7 +531,7 @@ func (e *Engine) handleMouseMove(x, y float32) {
 }
 
 func (e *Engine) handleMouseDown(x, y float32, btn ebiten.MouseButton) {
-	target := e.hitTest(e.rootElement, x, y)
+	target := e.hitTestWithOverlays(x, y)
 	if target != nil {
 		LogDebug("[Engine] handleMouseDown", "target", target.ElementType(), "bounds", target.GetBounds(), "x", x, "y", y)
 		// Debug: log target hierarchy and children
@@ -529,7 +581,7 @@ func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
 		})
 
 		// Click = mouseDown + mouseUp on same target
-		target := e.hitTest(e.rootElement, x, y)
+		target := e.hitTestWithOverlays(x, y)
 		if target == e.mouseDownTarget {
 			e.dispatchEvent(target, &Event{
 				Type:   EventClick,
@@ -546,7 +598,7 @@ func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
 }
 
 func (e *Engine) handleScroll(x, y float32, dx, dy float32) {
-	target := e.hitTest(e.rootElement, x, y)
+	target := e.hitTestWithOverlays(x, y)
 	LogDebug("[Engine] handleScroll", "target", target.ElementType())
 	if target != nil {
 		b := target.GetBounds()
@@ -689,6 +741,17 @@ func (e *Engine) hitTest(el Element, x, y float32) Element {
 	return e.hitTestClipped(el, x, y, nil)
 }
 
+func (e *Engine) hitTestWithOverlays(x, y float32) Element {
+	for i := len(e.overlays) - 1; i >= 0; i-- {
+		if e.overlays[i] != nil && e.overlays[i].IsVisible() {
+			if h := e.hitTestClipped(e.overlays[i], x, y, nil); h != nil {
+				return h
+			}
+		}
+	}
+	return e.hitTestClipped(e.rootElement, x, y, nil)
+}
+
 func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBounds) Element {
 	if el == nil || !el.IsVisible() {
 		return nil
@@ -710,6 +773,9 @@ func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBoun
 		childClip = clipBounds
 	}
 	for i := len(children) - 1; i >= 0; i-- {
+		if e.IsOverlay(children[i]) {
+			continue
+		}
 		if h := e.hitTestClipped(children[i], x, y, childClip); h != nil {
 			return h
 		}

@@ -77,7 +77,7 @@ func (s *Slider) Draw(screen *ebiten.Image) {
 		thumbX = bounds.X + bounds.Width*ratio
 	}
 	drawFilledCirclePath(screen, thumbX, trackY, s.thumbRadius, s.thumbColor)
-	strokeCirclePath(screen, thumbX, trackY, s.thumbRadius, 1.5, color.RGBA{R: 200, G: 200, B: 200, A: 255})
+	strokeCirclePath(screen, thumbX, trackY, s.thumbRadius, 1.5, core.GetTheme().BorderColor)
 }
 
 // HandleEvent processes drag and click events.

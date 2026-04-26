@@ -59,11 +59,12 @@ func (r *Radio) Draw(screen *ebiten.Image) {
 	centerY := bounds.Y + bounds.Height/2
 	centerX := bounds.X + r.boxSize/2
 
+	bgClr := core.GetTheme().BackgroundColor
 	if r.selected {
 		drawFilledCirclePath(screen, centerX, centerY, r.boxSize/2, r.fillColor)
 		drawFilledCirclePath(screen, centerX, centerY, r.boxSize/4, r.innerColor)
 	} else {
-		drawFilledCirclePath(screen, centerX, centerY, r.boxSize/2, color.White)
+		drawFilledCirclePath(screen, centerX, centerY, r.boxSize/2, bgClr)
 		strokeCirclePath(screen, centerX, centerY, r.boxSize/2, 1.5, r.borderColor)
 	}
 }

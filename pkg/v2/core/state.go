@@ -23,7 +23,9 @@ func (s *State[T]) Get() T {
 func (s *State[T]) Set(v T) {
 	s.value = v
 	for _, fn := range s.subs {
-		fn(v)
+		if fn != nil {
+			fn(v)
+		}
 	}
 }
 
