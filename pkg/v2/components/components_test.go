@@ -12,7 +12,7 @@ type testWidgetRoot struct {
 	root core.Element
 }
 
-func (w *testWidgetRoot) Build() core.Element { return w.root }
+func (w *testWidgetRoot) Render() core.Element { return w.root }
 
 func newTestEvent(tpe core.EventType, x, y float32) *core.Event {
 	return &core.Event{

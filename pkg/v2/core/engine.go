@@ -52,7 +52,14 @@ type Engine struct {
 	debugger interface {
 		CaptureLayout(trigger string)
 		IsEnabled() bool
-		AddEventLog(evt interface{ GetType() string; GetTarget() string; GetX() float32; GetY() float32; GetDeltaX() float32; GetDeltaY() float32 })
+		AddEventLog(evt interface {
+			GetType() string
+			GetTarget() string
+			GetX() float32
+			GetY() float32
+			GetDeltaX() float32
+			GetDeltaY() float32
+		})
 	}
 }
 
@@ -81,7 +88,14 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (e *Engine) SetDebugger(d interface {
 	CaptureLayout(trigger string)
 	IsEnabled() bool
-	AddEventLog(evt interface{ GetType() string; GetTarget() string; GetX() float32; GetY() float32; GetDeltaX() float32; GetDeltaY() float32 })
+	AddEventLog(evt interface {
+		GetType() string
+		GetTarget() string
+		GetX() float32
+		GetY() float32
+		GetDeltaX() float32
+		GetDeltaY() float32
+	})
 }) {
 	e.debugger = d
 }
@@ -100,7 +114,7 @@ func (e *Engine) Mount() {
 		return
 	}
 	e.rootWidget.OnMount(e)
-	e.rootElement = e.rootWidget.Build()
+	e.rootElement = e.rootWidget.Render()
 	if e.rootElement != nil {
 		e.onElementMounted(e.rootElement)
 		e.initOverlayLayer()
@@ -249,7 +263,7 @@ func (e *Engine) flushBuildQueue() {
 	e.buildQueue = e.buildQueue[:0]
 
 	for _, w := range queue {
-		newRoot := w.Build()
+		newRoot := w.Render()
 		if newRoot == nil {
 			continue
 		}

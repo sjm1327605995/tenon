@@ -15,7 +15,7 @@ type testWidget struct {
 	sv *ScrollView
 }
 
-func (w *testWidget) Build() core.Element {
+func (w *testWidget) Render() core.Element {
 	root := NewView()
 	root.SetWidthPercent(100)
 	root.SetHeightPercent(100)
