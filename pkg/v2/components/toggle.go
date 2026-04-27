@@ -98,8 +98,14 @@ func (t *Toggle) Draw(screen *ebiten.Image) {
 // Update syncs hover state.
 func (t *Toggle) Update() error {
 	newHovered := false
-	if t.GetEngine() != nil && t.GetEngine().GetHoverTarget() == t {
-		newHovered = true
+	if t.GetEngine() != nil {
+		hover := t.GetEngine().GetHoverTarget()
+		for el := hover; el != nil; el = el.GetParent() {
+			if el == t {
+				newHovered = true
+				break
+			}
+		}
 	}
 	if newHovered != t.hovered {
 		t.hovered = newHovered

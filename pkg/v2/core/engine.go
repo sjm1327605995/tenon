@@ -152,6 +152,12 @@ func (e *Engine) IsOverlay(el Element) bool {
 	return false
 }
 
+func (e *Engine) RequestRedrawAll() {
+	if e.rootWidget != nil {
+		e.scheduleBuild(e.rootWidget)
+	}
+}
+
 // onElementMounted 递归给新挂载的 Element 注入 Engine。
 func (e *Engine) onElementMounted(el Element) {
 	if el == nil {
@@ -555,10 +561,7 @@ func (e *Engine) handleEvents() {
 func (e *Engine) handleMouseMove(x, y float32) {
 	target := e.hitTestWithOverlays(x, y)
 	if target != e.hoverTarget {
-		// MouseLeave old target
-		if e.hoverTarget != nil {
-			e.dispatchEvent(e.hoverTarget, &Event{Type: EventMouseMove, X: x, Y: y, Target: e.hoverTarget})
-		}
+		e.dispatchHoverChange(e.hoverTarget, target, x, y)
 		e.hoverTarget = target
 	}
 	if target != nil {
@@ -572,6 +575,47 @@ func (e *Engine) handleMouseMove(x, y float32) {
 			Target: target,
 		})
 	}
+}
+
+func (e *Engine) dispatchHoverChange(oldTarget, newTarget Element, x, y float32) {
+	if oldTarget == newTarget {
+		return
+	}
+	lca := findLowestCommonAncestor(oldTarget, newTarget)
+	for el := oldTarget; el != nil && el != lca; el = el.GetParent() {
+		e.dispatchEvent(el, &Event{Type: EventMouseLeave, X: x, Y: y, Target: el})
+	}
+	path := buildEventPathTo(newTarget, lca)
+	for _, el := range path {
+		e.dispatchEvent(el, &Event{Type: EventMouseEnter, X: x, Y: y, Target: el})
+	}
+}
+
+func findLowestCommonAncestor(a, b Element) Element {
+	if a == nil || b == nil {
+		return nil
+	}
+	ancestors := make(map[Element]bool)
+	for el := a; el != nil; el = el.GetParent() {
+		ancestors[el] = true
+	}
+	for el := b; el != nil; el = el.GetParent() {
+		if ancestors[el] {
+			return el
+		}
+	}
+	return nil
+}
+
+func buildEventPathTo(target, stopAt Element) []Element {
+	var path []Element
+	for el := target; el != nil && el != stopAt; el = el.GetParent() {
+		path = append(path, el)
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	return path
 }
 
 func (e *Engine) handleMouseDown(x, y float32, btn ebiten.MouseButton) {
@@ -624,17 +668,19 @@ func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
 			Target: e.mouseDownTarget,
 		})
 
-		// Click = mouseDown + mouseUp on same target
+		// Click = mouseDown + mouseUp on same target or ancestor/descendant
 		target := e.hitTestWithOverlays(x, y)
-		if target == e.mouseDownTarget {
-			e.dispatchEvent(target, &Event{
+		clickTarget := e.resolveClickTarget(e.mouseDownTarget, target)
+		if clickTarget != nil {
+			cb := clickTarget.GetBounds()
+			e.dispatchEvent(clickTarget, &Event{
 				Type:   EventClick,
 				X:      x,
 				Y:      y,
-				LocalX: x - b.X,
-				LocalY: y - b.Y,
+				LocalX: x - cb.X,
+				LocalY: y - cb.Y,
 				Button: btn,
-				Target: target,
+				Target: clickTarget,
 			})
 		}
 	}
@@ -803,6 +849,31 @@ func (e *Engine) GetHoverTarget() Element {
 	return e.hoverTarget
 }
 
+func (e *Engine) resolveClickTarget(downTarget, upTarget Element) Element {
+	if downTarget == nil || upTarget == nil {
+		return nil
+	}
+	if downTarget == upTarget {
+		return downTarget
+	}
+	if isAncestorOf(downTarget, upTarget) {
+		return downTarget
+	}
+	if isAncestorOf(upTarget, downTarget) {
+		return upTarget
+	}
+	return nil
+}
+
+func isAncestorOf(ancestor, descendant Element) bool {
+	for p := descendant.GetParent(); p != nil; p = p.GetParent() {
+		if p == ancestor {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) hitTest(el Element, x, y float32) Element {
 	return e.hitTestClipped(el, x, y, nil)
 }
@@ -823,14 +894,15 @@ func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBoun
 		return nil
 	}
 	b := el.GetBounds()
-	// 如果当前节点在裁剪区域外，直接跳过
+	if b.Width <= 0 || b.Height <= 0 {
+		return nil
+	}
 	if clipBounds != nil {
 		if b.X+b.Width <= clipBounds.X || b.X >= clipBounds.X+clipBounds.Width ||
 			b.Y+b.Height <= clipBounds.Y || b.Y >= clipBounds.Y+clipBounds.Height {
 			return nil
 		}
 	}
-	// 后序遍历：子节点优先
 	children := el.GetChildren()
 	var childClip *LayoutBounds
 	if el.HasFlag(FlagClipChildren) {
@@ -846,10 +918,45 @@ func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBoun
 			return h
 		}
 	}
-	if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+	if el.GetPointerEvents() == PointerEventsNone {
+		return nil
+	}
+	localX, localY := x, y
+	t := el.GetTransform()
+	if !t.IsIdentity() {
+		localX, localY = inverseTransformPoint(b, t, x, y)
+	}
+	if localX >= b.X && localX < b.X+b.Width && localY >= b.Y && localY < b.Y+b.Height {
+		if clipBounds != nil {
+			if x >= clipBounds.X && x < clipBounds.X+clipBounds.Width &&
+				y >= clipBounds.Y && y < clipBounds.Y+clipBounds.Height {
+				return el
+			}
+			return nil
+		}
 		return el
 	}
 	return nil
+}
+
+func inverseTransformPoint(bounds LayoutBounds, t Transform, x, y float32) (float32, float32) {
+	ox := float64(bounds.Width) * float64(t.OriginX)
+	oy := float64(bounds.Height) * float64(t.OriginY)
+	lx := float64(x) - float64(bounds.X) - ox
+	ly := float64(y) - float64(bounds.Y) - oy
+	if t.ScaleX != 0 {
+		lx /= float64(t.ScaleX)
+	}
+	if t.ScaleY != 0 {
+		ly /= float64(t.ScaleY)
+	}
+	if t.Rotation != 0 {
+		angle := -float64(t.Rotation) * math.Pi / 180
+		cos := math.Cos(angle)
+		sin := math.Sin(angle)
+		lx, ly = lx*cos-ly*sin, lx*sin+ly*cos
+	}
+	return float32(lx + float64(bounds.X) + ox), float32(ly + float64(bounds.Y) + oy)
 }
 
 // debugEventWrapper adapts *Event to the debugger interface.

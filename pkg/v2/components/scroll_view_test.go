@@ -159,20 +159,49 @@ func TestScrollViewButtonClickAfterScroll(t *testing.T) {
 
 // hitTest mirrors Engine.hitTest for testing.
 func hitTest(el core.Element, x, y float32) core.Element {
+	return hitTestClipped(el, x, y, nil)
+}
+
+func hitTestClipped(el core.Element, x, y float32, clipBounds *core.LayoutBounds) core.Element {
 	if el == nil || !el.IsVisible() {
 		return nil
 	}
 	b := el.GetBounds()
-	if x < b.X || x >= b.X+b.Width || y < b.Y || y >= b.Y+b.Height {
+	if b.Width <= 0 || b.Height <= 0 {
 		return nil
 	}
+	if clipBounds != nil {
+		if b.X+b.Width <= clipBounds.X || b.X >= clipBounds.X+clipBounds.Width ||
+			b.Y+b.Height <= clipBounds.Y || b.Y >= clipBounds.Y+clipBounds.Height {
+			return nil
+		}
+	}
 	children := el.GetChildren()
+	var childClip *core.LayoutBounds
+	if el.HasFlag(core.FlagClipChildren) {
+		childClip = &b
+	} else {
+		childClip = clipBounds
+	}
 	for i := len(children) - 1; i >= 0; i-- {
-		if hit := hitTest(children[i], x, y); hit != nil {
+		if hit := hitTestClipped(children[i], x, y, childClip); hit != nil {
 			return hit
 		}
 	}
-	return el
+	if el.GetPointerEvents() == core.PointerEventsNone {
+		return nil
+	}
+	if x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height {
+		if clipBounds != nil {
+			if x >= clipBounds.X && x < clipBounds.X+clipBounds.Width &&
+				y >= clipBounds.Y && y < clipBounds.Y+clipBounds.Height {
+				return el
+			}
+			return nil
+		}
+		return el
+	}
+	return nil
 }
 
 // TestScrollViewHitTestAfterScroll verifies that hitTest finds the Button

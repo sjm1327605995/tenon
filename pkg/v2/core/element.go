@@ -90,6 +90,10 @@ type Element interface {
 	SetAlpha(a float32) Element
 	SetOrigin(x, y float32) Element
 
+	// === 指针事件 ===
+	GetPointerEvents() PointerEvents
+	SetPointerEvents(v PointerEvents) Element
+
 	// === Context ===
 	SetContext(key string, val interface{})
 	GetContext(key string) interface{}
@@ -99,6 +103,8 @@ type Element interface {
 	OnMouseDown(callback EventCallback) Element
 	OnMouseUp(callback EventCallback) Element
 	OnMouseMove(callback EventCallback) Element
+	OnMouseEnter(callback EventCallback) Element
+	OnMouseLeave(callback EventCallback) Element
 	OnScroll(callback EventCallback) Element
 	OnFocusIn(callback EventCallback) Element
 	OnFocusOut(callback EventCallback) Element
@@ -229,6 +235,7 @@ type BaseElement struct {
 	classes          []string
 	context          map[string]interface{}
 	transform        Transform
+	pointerEvents    PointerEvents
 	delayedListeners []delayedListener // 延迟注册的事件监听器
 }
 
@@ -236,8 +243,9 @@ type BaseElement struct {
 func (b *BaseElement) Init(self Element) {
 	b.self = self
 	b.yoga = yoga.NewNode()
-	b.flags = FlagVisible // 默认可见
+	b.flags = FlagVisible
 	b.transform = DefaultTransform()
+	b.pointerEvents = PointerEventsAuto
 }
 
 // === 树关系 ===
@@ -412,6 +420,13 @@ func (b *BaseElement) SetOrigin(x, y float32) Element {
 	b.transform.OriginX = x
 	b.transform.OriginY = y
 	b.Mark(FlagNeedDraw)
+	return b.self
+}
+
+func (b *BaseElement) GetPointerEvents() PointerEvents { return b.pointerEvents }
+
+func (b *BaseElement) SetPointerEvents(v PointerEvents) Element {
+	b.pointerEvents = v
 	return b.self
 }
 

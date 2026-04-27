@@ -118,7 +118,7 @@ var activeEngine *Engine
 func SetTheme(t *Theme) {
 	defaultTheme = t
 	if activeEngine != nil {
-		// TODO: trigger rebuild for all widgets in v2
+		activeEngine.RequestRedrawAll()
 	}
 }
 

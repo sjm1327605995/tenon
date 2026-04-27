@@ -12,13 +12,12 @@ import (
 )
 
 // demoCard wraps content in a styled card for the gallery.
-func demoCard(title string, content core.Element) *components.View {
-	card := components.NewCard()
-	card.SetTitle(title)
-	if content != nil {
-		card.AddContent(content)
-	}
-	return &card.View
+func demoCard(title string, content core.Element) core.Element {
+	card := components.NewCard().
+		SetTitle(title).
+		AddContent(content)
+	return card
+
 }
 
 // demoSection creates a labeled section.

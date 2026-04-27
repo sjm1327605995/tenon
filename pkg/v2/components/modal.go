@@ -71,6 +71,7 @@ func (m *Modal) Draw(screen *ebiten.Image) {
 	if bounds.Width <= 0 || bounds.Height <= 0 {
 		return
 	}
+	//存在painc情况
 	vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, m.maskColor, false)
 }
 

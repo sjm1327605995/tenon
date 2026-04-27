@@ -36,6 +36,10 @@ func (c *Calendar) ElementType() string { return "Calendar" }
 func (c *Calendar) buildGrid() {
 	c.ClearChildren()
 
+	theme := core.GetTheme()
+	cellFontSize := float32(12)
+	cellH := cellFontSize * 2.5
+
 	header := NewView()
 	header.SetFlexDirection(yoga.FlexDirectionRow)
 	header.SetJustifyContent(yoga.JustifySpaceBetween)
@@ -54,11 +58,11 @@ func (c *Calendar) buildGrid() {
 	daysRow.SetFlexDirection(yoga.FlexDirectionRow)
 	daysRow.SetPadding(yoga.EdgeHorizontal, 4)
 	for _, d := range []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"} {
-		cell := NewText(d).SetFontSize(12).SetColor(core.GetTheme().MutedForegroundColor)
-		cell.SetWidthPercent(100.0 / 7.0)
+		cell := NewView().SetWidthPercent(100.0 / 7.0).SetHeight(cellH)
 		cell.SetJustifyContent(yoga.JustifyCenter)
 		cell.SetAlignItems(yoga.AlignCenter)
-		cell.SetPadding(yoga.EdgeVertical, 4)
+		label := NewText(d).SetFontSize(float64(cellFontSize)).SetColor(theme.MutedForegroundColor)
+		cell.Add(label)
 		daysRow.Add(cell)
 	}
 	c.Add(daysRow)
@@ -76,7 +80,7 @@ func (c *Calendar) buildGrid() {
 	for i := 0; i < startOffset; i++ {
 		empty := NewView()
 		empty.SetWidthPercent(cellWidth)
-		empty.SetPadding(yoga.EdgeVertical, 2)
+		empty.SetHeight(cellH)
 		week.Add(empty)
 	}
 
@@ -84,7 +88,7 @@ func (c *Calendar) buildGrid() {
 		d := day
 		cell := NewButton(fmt.Sprintf("%d", d)).SetVariant(ButtonGhost)
 		cell.SetWidthPercent(cellWidth)
-		cell.SetPadding(yoga.EdgeVertical, 2)
+		cell.SetHeight(cellH)
 		cell.SetJustifyContent(yoga.JustifyCenter)
 		cell.SetAlignItems(yoga.AlignCenter)
 		cell.SetOnClick(func() {
@@ -102,7 +106,7 @@ func (c *Calendar) buildGrid() {
 			c.Add(week)
 			week = NewView()
 			week.SetFlexDirection(yoga.FlexDirectionRow)
-			week.SetPadding(yoga.EdgeHorizontal, 4)
+			week.SetPadding(yoga.EdgeHorizontal, 1)
 		}
 	}
 	c.Add(week)
