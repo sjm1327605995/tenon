@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -27,8 +28,6 @@ type Badge struct {
 	variant  BadgeVariant
 }
 
-// NewBadge creates a badge with numeric or text content.
-// Pass "" for a dot-only badge.
 func NewBadge(content string) *Badge {
 	theme := core.GetTheme()
 	b := &Badge{
@@ -49,7 +48,6 @@ func NewBadge(content string) *Badge {
 	} else {
 		b.SetPadding(yoga.EdgeHorizontal, 10)
 		b.SetPadding(yoga.EdgeVertical, 4)
-		b.SetBorderRadius(999) // pill shape
 		b.textEl = NewText(content).SetColor(theme.PrimaryForegroundColor)
 		b.textEl.SetFontSize(12)
 		b.AppendChild(b.textEl)
@@ -59,6 +57,20 @@ func NewBadge(content string) *Badge {
 
 // ElementType returns type identifier.
 func (b *Badge) ElementType() string { return "Badge" }
+
+// Draw auto-computes pill-shaped borderRadius before delegating to View.
+func (b *Badge) Draw(screen *ebiten.Image) {
+	if !b.dotMode {
+		bounds := b.GetBounds()
+		if bounds.Height > 0 {
+			halfH := bounds.Height / 2
+			if b.borderRadius.TopLeft != halfH {
+				b.SetBorderRadius(halfH)
+			}
+		}
+	}
+	b.View.Draw(screen)
+}
 
 // SetVariant changes the badge style.
 func (b *Badge) SetVariant(v BadgeVariant) *Badge {

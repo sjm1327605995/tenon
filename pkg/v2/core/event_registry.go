@@ -268,6 +268,32 @@ func (b *BaseElement) OnScroll(callback EventCallback) Element {
 	return b.self
 }
 
+// OnMouseEnter 注册鼠标进入事件监听器。
+func (b *BaseElement) OnMouseEnter(callback EventCallback) Element {
+	if b.engine != nil {
+		b.engine.AddEventListener(b.self, EventMouseEnter, callback)
+	} else {
+		b.delayedListeners = append(b.delayedListeners, delayedListener{
+			eventType: EventMouseEnter,
+			callback:  callback,
+		})
+	}
+	return b.self
+}
+
+// OnMouseLeave 注册鼠标离开事件监听器。
+func (b *BaseElement) OnMouseLeave(callback EventCallback) Element {
+	if b.engine != nil {
+		b.engine.AddEventListener(b.self, EventMouseLeave, callback)
+	} else {
+		b.delayedListeners = append(b.delayedListeners, delayedListener{
+			eventType: EventMouseLeave,
+			callback:  callback,
+		})
+	}
+	return b.self
+}
+
 // OnFocusIn 注册获得焦点事件监听器。
 func (b *BaseElement) OnFocusIn(callback EventCallback) Element {
 	if b.engine != nil {

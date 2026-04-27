@@ -43,8 +43,8 @@ func NewAlert(title string) *Alert {
 
 	a.borderColor = theme.BorderColor
 	a.bgColor = theme.CardColor
-
-	a.iconText = NewText("ⓘ").SetColor(theme.TextColor)
+	//TODO emoji
+	a.iconText = NewText("ⓘ").SetColor(theme.PrimaryColor)
 	a.iconText.SetFontSize(16)
 
 	content := NewView().SetFlexDirection(yoga.FlexDirectionColumn).SetGap(yoga.GutterAll, 4)

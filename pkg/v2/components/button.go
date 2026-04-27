@@ -129,7 +129,7 @@ func (b *Button) Update() error {
 	newState := ButtonNormal
 	if b.state == ButtonPressed && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		newState = ButtonPressed
-	} else if b.GetEngine() != nil && b.GetEngine().GetHoverTarget() == b {
+	} else if b.GetEngine() != nil && b.isHovered() {
 		newState = ButtonHover
 	}
 	if newState != b.state {
@@ -137,6 +137,16 @@ func (b *Button) Update() error {
 		b.Mark(core.FlagNeedDraw)
 	}
 	return nil
+}
+
+func (b *Button) isHovered() bool {
+	hover := b.GetEngine().GetHoverTarget()
+	for el := hover; el != nil; el = el.GetParent() {
+		if el == b {
+			return true
+		}
+	}
+	return false
 }
 
 // HandleEvent processes click events.
