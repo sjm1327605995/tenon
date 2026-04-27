@@ -117,12 +117,35 @@ func (sv *ScrollView) drawVerticalScrollbar(screen *ebiten.Image, bounds core.La
 	}
 }
 
+// recalcMaxScroll computes max scroll based on current bounds.
+func (sv *ScrollView) recalcMaxScroll() {
+	contentH := sv.content.GetBounds().Height
+	viewportH := sv.GetBounds().Height
+	if contentH > viewportH {
+		sv.maxScrollY = contentH - viewportH
+	} else {
+		sv.maxScrollY = 0
+		sv.scrollY = 0
+	}
+	contentW := sv.content.GetBounds().Width
+	viewportW := sv.GetBounds().Width
+	if contentW > viewportW {
+		sv.maxScrollX = contentW - viewportW
+	} else {
+		sv.maxScrollX = 0
+		sv.scrollX = 0
+	}
+}
+
 // HandleEvent processes wheel and drag events.
 func (sv *ScrollView) HandleEvent(e *core.Event) bool {
 	bounds := sv.GetBounds()
 
 	switch e.Type {
 	case core.EventScroll:
+		// Ensure max scroll is computed before handling (bounds may already be valid from layout).
+		sv.recalcMaxScroll()
+
 		// Cap wheel delta to prevent touchpad/large deltas from jumping too far.
 		deltaY := e.DeltaY
 		if deltaY > 1 {

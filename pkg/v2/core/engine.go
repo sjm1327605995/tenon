@@ -52,6 +52,7 @@ type Engine struct {
 	debugger interface {
 		CaptureLayout(trigger string)
 		IsEnabled() bool
+		AddEventLog(evt interface{ GetType() string; GetTarget() string; GetX() float32; GetY() float32; GetDeltaX() float32; GetDeltaY() float32 })
 	}
 }
 
@@ -80,6 +81,7 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (e *Engine) SetDebugger(d interface {
 	CaptureLayout(trigger string)
 	IsEnabled() bool
+	AddEventLog(evt interface{ GetType() string; GetTarget() string; GetX() float32; GetY() float32; GetDeltaX() float32; GetDeltaY() float32 })
 }) {
 	e.debugger = d
 }
@@ -682,6 +684,11 @@ func (e *Engine) handleKeyboard() {
 // dispatchEvent sends event to target and bubbles up until consumed.
 // 优先使用注册表分发，如果注册表没有消费事件，再调用 HandleEvent。
 func (e *Engine) dispatchEvent(target Element, event *Event) {
+	// Log event to debugger if enabled
+	if e.debugger != nil && e.debugger.IsEnabled() {
+		e.debugger.AddEventLog(&debugEventWrapper{event: event, targetType: target.ElementType()})
+	}
+
 	// 1. 先通过注册表分发（支持冒泡）
 	if e.eventRegistry != nil {
 		if e.eventRegistry.Dispatch(event) {
@@ -830,3 +837,42 @@ func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBoun
 	}
 	return nil
 }
+
+// debugEventWrapper adapts *Event to the debugger interface.
+type debugEventWrapper struct {
+	event      *Event
+	targetType string
+}
+
+func (w *debugEventWrapper) GetType() string {
+	switch w.event.Type {
+	case EventMouseMove:
+		return "MouseMove"
+	case EventMouseDown:
+		return "MouseDown"
+	case EventMouseUp:
+		return "MouseUp"
+	case EventClick:
+		return "Click"
+	case EventScroll:
+		return "Scroll"
+	case EventKeyDown:
+		return "KeyDown"
+	case EventKeyUp:
+		return "KeyUp"
+	case EventFocusIn:
+		return "FocusIn"
+	case EventFocusOut:
+		return "FocusOut"
+	case EventResize:
+		return "Resize"
+	default:
+		return "Unknown"
+	}
+}
+
+func (w *debugEventWrapper) GetTarget() string  { return w.targetType }
+func (w *debugEventWrapper) GetX() float32      { return w.event.X }
+func (w *debugEventWrapper) GetY() float32      { return w.event.Y }
+func (w *debugEventWrapper) GetDeltaX() float32 { return w.event.DeltaX }
+func (w *debugEventWrapper) GetDeltaY() float32 { return w.event.DeltaY }

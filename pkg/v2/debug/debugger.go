@@ -19,7 +19,29 @@ type Debugger struct {
 	snapshots  []*LayoutSnapshot
 	maxHistory int
 	enabled    bool
+
+	// Event logs
+	eventLogs   []EventLog
+	maxEvents   int
 }
+
+type EventLog struct {
+	Timestamp time.Time              `json:"timestamp"`
+	Type      string                 `json:"type"`
+	Target    string                 `json:"target,omitempty"`
+	X         float32                `json:"x,omitempty"`
+	Y         float32                `json:"y,omitempty"`
+	DeltaX    float32                `json:"deltaX,omitempty"`
+	DeltaY    float32                `json:"deltaY,omitempty"`
+	Details   map[string]interface{} `json:"details,omitempty"`
+}
+
+func (e EventLog) GetType() string   { return e.Type }
+func (e EventLog) GetTarget() string { return e.Target }
+func (e EventLog) GetX() float32     { return e.X }
+func (e EventLog) GetY() float32     { return e.Y }
+func (e EventLog) GetDeltaX() float32 { return e.DeltaX }
+func (e EventLog) GetDeltaY() float32 { return e.DeltaY }
 
 type LayoutSnapshot struct {
 	Timestamp time.Time       `json:"timestamp"`
@@ -40,6 +62,8 @@ func NewDebugger(engine *core.Engine, port int) *Debugger {
 		maxHistory: 100,
 		snapshots:  make([]*LayoutSnapshot, 0),
 		enabled:    true,
+		maxEvents:  500,
+		eventLogs:  make([]EventLog, 0),
 	}
 	globalDebugger = d
 	return d
@@ -56,6 +80,8 @@ func (d *Debugger) Start() error {
 	mux.HandleFunc("/debug/history", d.handleHistory)
 	mux.HandleFunc("/debug/snapshot", d.handleSnapshot)
 	mux.HandleFunc("/debug/compare", d.handleCompare)
+	mux.HandleFunc("/debug/events", d.handleEvents)
+	mux.HandleFunc("/debug/live", d.handleLive)
 	mux.HandleFunc("/", d.handleIndex)
 
 	d.server = &http.Server{
@@ -78,6 +104,46 @@ func (d *Debugger) Stop() error {
 		return d.server.Close()
 	}
 	return nil
+}
+
+// AddEventLog records an event for debugging.
+func (d *Debugger) AddEventLog(evt interface {
+	GetType() string
+	GetTarget() string
+	GetX() float32
+	GetY() float32
+	GetDeltaX() float32
+	GetDeltaY() float32
+}) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if !d.enabled {
+		return
+	}
+	details := make(map[string]interface{})
+	if evt.GetX() != 0 || evt.GetY() != 0 {
+		details["x"] = evt.GetX()
+		details["y"] = evt.GetY()
+	}
+	if evt.GetDeltaX() != 0 {
+		details["deltaX"] = evt.GetDeltaX()
+	}
+	if evt.GetDeltaY() != 0 {
+		details["deltaY"] = evt.GetDeltaY()
+	}
+	d.eventLogs = append(d.eventLogs, EventLog{
+		Timestamp: time.Now(),
+		Type:      evt.GetType(),
+		Target:    evt.GetTarget(),
+		X:         evt.GetX(),
+		Y:         evt.GetY(),
+		DeltaX:    evt.GetDeltaX(),
+		DeltaY:    evt.GetDeltaY(),
+		Details:   details,
+	})
+	if len(d.eventLogs) > d.maxEvents {
+		d.eventLogs = d.eventLogs[len(d.eventLogs)-d.maxEvents:]
+	}
 }
 
 func (d *Debugger) CaptureLayout(trigger string) {
@@ -247,6 +313,44 @@ type DiffNode struct {
 	Children []*DiffNode       `json:"children,omitempty"`
 }
 
+func (d *Debugger) handleEvents(w http.ResponseWriter, r *http.Request) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	limit := 100
+	if l := r.URL.Query().Get("limit"); l != "" {
+		fmt.Sscanf(l, "%d", &limit)
+	}
+	if limit > len(d.eventLogs) {
+		limit = len(d.eventLogs)
+	}
+	start := len(d.eventLogs) - limit
+	if start < 0 {
+		start = 0
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(d.eventLogs[start:])
+}
+
+func (d *Debugger) handleLive(w http.ResponseWriter, r *http.Request) {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	root := d.engine.GetRootElement()
+	if root == nil {
+		http.Error(w, "No root element", http.StatusNotFound)
+		return
+	}
+
+	info := root.DebugInfo()
+	nodeIDCounter = 0
+	assignIDs(&info)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(info)
+}
+
 func (d *Debugger) handleHTML(w http.ResponseWriter, r *http.Request) {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -284,12 +388,17 @@ func (d *Debugger) handleIndex(w http.ResponseWriter, r *http.Request) {
     <div class="endpoint">
         <h3><a href="/debug/html">/debug/html</a></h3>
         <code>GET</code>
-        <p>Visualize the current layout tree as HTML with CSS absolute positioning</p>
+        <p>Visualize the current layout tree as HTML with CSS absolute positioning (auto-refresh enabled)</p>
     </div>
     <div class="endpoint">
         <h3><a href="/debug/tree">/debug/tree</a></h3>
         <code>GET</code>
         <p>Get the current layout tree as JSON (full DebugInfo)</p>
+    </div>
+    <div class="endpoint">
+        <h3><a href="/debug/live">/debug/live</a></h3>
+        <code>GET</code>
+        <p>Get the current live tree state as JSON (includes scroll offsets, real-time bounds)</p>
     </div>
     <div class="endpoint">
         <h3><a href="/debug/snapshot">/debug/snapshot</a></h3>
@@ -305,6 +414,11 @@ func (d *Debugger) handleIndex(w http.ResponseWriter, r *http.Request) {
         <h3><a href="/debug/compare">/debug/compare</a></h3>
         <code>GET</code>
         <p>Compare the last two snapshots and show differences</p>
+    </div>
+    <div class="endpoint">
+        <h3><a href="/debug/events">/debug/events</a></h3>
+        <code>GET</code>
+        <p>Get recent event logs (scroll, click, etc.)</p>
     </div>
 </body>
 </html>`
@@ -324,8 +438,11 @@ func (d *Debugger) generateHTML(root core.Element) string {
 		screenH = 720
 	}
 
+	// Reset ID counter so DOM ids match treeData ids
+	nodeIDCounter = 0
+
 	var elementsHTML strings.Builder
-	d.renderDebugNodeHTML(&info, &elementsHTML, 0, 0, 0)
+	d.renderDebugNodeHTML(&info, &elementsHTML, 0, 0, 0, nil)
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
@@ -353,13 +470,15 @@ func (d *Debugger) generateHTML(root core.Element) string {
             padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;
         }
         .toolbar button:hover { background: #00d9ff; color: #1a1a2e; }
-        .main { margin-top: 50px; }
+        .toolbar button.active { background: #00d9ff; color: #1a1a2e; }
+        .main { margin-top: 50px; display: flex; }
         .canvas-wrapper {
             overflow: auto;
             border: 2px solid #333;
             background: #0f0f23;
             margin: 0 auto;
             position: relative;
+            flex: 1;
         }
         .canvas {
             position: relative;
@@ -405,6 +524,18 @@ func (d *Debugger) generateHTML(root core.Element) string {
         .el.clip {
             overflow: hidden;
         }
+        /* ScrollView content offset indicator */
+        .scroll-indicator {
+            position: absolute;
+            right: 2px; top: 2px;
+            background: rgba(0,0,0,0.7);
+            color: #ffcb6b;
+            font-size: 9px;
+            padding: 1px 4px;
+            border-radius: 2px;
+            pointer-events: none;
+            z-index: 100;
+        }
         .sidebar {
             position: fixed; top: 50px; right: 0; bottom: 0;
             width: 380px; background: #16213e;
@@ -426,6 +557,20 @@ func (d *Debugger) generateHTML(root core.Element) string {
             border-radius: 2px; vertical-align: middle; margin-right: 4px;
             border: 1px solid rgba(255,255,255,0.3);
         }
+        .event-log {
+            position: fixed; top: 50px; left: 0; bottom: 0;
+            width: 280px; background: #16213e;
+            border-right: 1px solid #333;
+            overflow-y: auto; padding: 10px;
+            font-size: 11px;
+            display: none;
+        }
+        .event-log.open { display: block; }
+        .event-log h3 { color: #00d9ff; margin: 0 0 8px 0; font-size: 13px; }
+        .event-item { padding: 4px; margin: 2px 0; border-radius: 3px; background: #0f0f23; }
+        .event-item .evt-type { color: #ffcb6b; font-weight: bold; }
+        .event-item .evt-target { color: #7ee787; }
+        .event-item .evt-time { color: #666; font-size: 10px; }
         .legend {
             position: fixed; bottom: 20px; left: 20px;
             background: #16213e; padding: 12px; border-radius: 8px;
@@ -442,11 +587,17 @@ func (d *Debugger) generateHTML(root core.Element) string {
 <body>
     <div class="toolbar">
         <h2>Tenon Debugger</h2>
-        <span>Screen: %dx%d</span>
+        <span id="status-bar">Screen: %dx%d | Auto-refresh: ON</span>
+        <button onclick="toggleAutoRefresh()" id="btn-auto" class="active">Auto Refresh</button>
         <button onclick="toggleSidebar()">Inspect Panel</button>
-        <button onclick="refreshPage()">Refresh</button>
+        <button onclick="toggleEventLog()">Event Log</button>
+        <button onclick="refreshPage()">Refresh Now</button>
     </div>
     <div class="main">
+        <div class="event-log" id="event-log">
+            <h3>Event Log</h3>
+            <div id="event-list">Loading...</div>
+        </div>
         <div class="canvas-wrapper">
             <div class="canvas" id="canvas">
 %s
@@ -469,16 +620,38 @@ func (d *Debugger) generateHTML(root core.Element) string {
     </div>
     <script>
         let selectedEl = null;
+        let autoRefresh = true;
+        let refreshInterval = null;
         const treeData = %s;
+
+        function startAutoRefresh() {
+            if (refreshInterval) clearInterval(refreshInterval);
+            refreshInterval = setInterval(() => {
+                if (autoRefresh) location.reload();
+            }, 500);
+        }
+        function stopAutoRefresh() {
+            if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+        }
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            const btn = document.getElementById('btn-auto');
+            btn.textContent = autoRefresh ? 'Auto Refresh' : 'Auto Refresh (OFF)';
+            btn.classList.toggle('active', autoRefresh);
+            document.getElementById('status-bar').textContent = 'Screen: %dx%d | Auto-refresh: ' + (autoRefresh ? 'ON' : 'OFF');
+            if (autoRefresh) startAutoRefresh(); else stopAutoRefresh();
+        }
+        startAutoRefresh();
 
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('open');
         }
-
+        function toggleEventLog() {
+            document.getElementById('event-log').classList.toggle('open');
+        }
         function refreshPage() {
             location.reload();
         }
-
         function selectElement(id) {
             if (selectedEl) selectedEl.classList.remove('selected');
             const el = document.getElementById(id);
@@ -488,13 +661,11 @@ func (d *Debugger) generateHTML(root core.Element) string {
             }
             showInspector(id);
         }
-
         function showInspector(id) {
             const node = findNode(treeData, id);
             if (!node) return;
             const container = document.getElementById('inspector-content');
             let html = '';
-
             html += '<div class="section"><div class="section-title">Element</div>';
             html += '<table>';
             html += tr('Type', node.type);
@@ -503,7 +674,6 @@ func (d *Debugger) generateHTML(root core.Element) string {
             html += tr('Visible', node.visible ? 'true' : '<span style="color:#ff6b6b">false</span>');
             html += tr('ClipChildren', node.clipChildren ? 'true' : 'false');
             html += '</table></div>';
-
             html += '<div class="section"><div class="section-title">Bounds</div>';
             html += '<table>';
             html += tr('X', node.bounds.x.toFixed(1));
@@ -511,7 +681,6 @@ func (d *Debugger) generateHTML(root core.Element) string {
             html += tr('Width', node.bounds.width.toFixed(1));
             html += tr('Height', node.bounds.height.toFixed(1));
             html += '</table></div>';
-
             html += '<div class="section"><div class="section-title">Yoga Style</div>';
             html += '<table>';
             const y = node.yoga;
@@ -531,7 +700,6 @@ func (d *Debugger) generateHTML(root core.Element) string {
             html += tr('gap', y.gap);
             html += tr('aspectRatio', y.aspectRatio);
             html += '</table></div>';
-
             if (node.transform && (node.transform.rotation || node.transform.scaleX !== 1 || node.transform.alpha !== 1)) {
                 html += '<div class="section"><div class="section-title">Transform</div>';
                 html += '<table>';
@@ -541,7 +709,6 @@ func (d *Debugger) generateHTML(root core.Element) string {
                 if (node.transform.alpha !== 1) html += tr('alpha', node.transform.alpha);
                 html += '</table></div>';
             }
-
             if (node.props && Object.keys(node.props).length > 0) {
                 html += '<div class="section"><div class="section-title">Properties</div>';
                 html += '<table>';
@@ -556,10 +723,8 @@ func (d *Debugger) generateHTML(root core.Element) string {
                 }
                 html += '</table></div>';
             }
-
             container.innerHTML = html;
         }
-
         function findNode(node, id) {
             if (!node) return null;
             if (node._id === id) return node;
@@ -571,49 +736,129 @@ func (d *Debugger) generateHTML(root core.Element) string {
             }
             return null;
         }
-
         function tr(key, val) {
             return '<tr><td>' + key + '</td><td>' + val + '</td></tr>';
         }
-
         function fmtVal(v) {
             if (v === undefined || v === null || isNaN(v)) return 'auto';
             return v.toFixed(1);
         }
-
         function fmtEdges(t, r, b, l) {
             if (!t && !r && !b && !l) return '0';
             return t.toFixed(0) + ' ' + r.toFixed(0) + ' ' + b.toFixed(0) + ' ' + l.toFixed(0);
         }
+        async function loadEvents() {
+            try {
+                const res = await fetch('/debug/events?limit=30');
+                const data = await res.json();
+                const list = document.getElementById('event-list');
+                if (!data || data.length === 0) { list.innerHTML = '<div style="color:#666">No events yet</div>'; return; }
+                list.innerHTML = data.slice().reverse().map(e => {
+                    const time = new Date(e.timestamp).toLocaleTimeString().split(' ')[0];
+                    let extra = '';
+                    if (e.deltaX !== undefined && e.deltaX !== 0) extra += ' dx:' + e.deltaX.toFixed(2);
+                    if (e.deltaY !== undefined && e.deltaY !== 0) extra += ' dy:' + e.deltaY.toFixed(2);
+                    if (e.x !== undefined) extra += ' @(' + e.x.toFixed(0) + ',' + e.y.toFixed(0) + ')';
+                    return '<div class="event-item"><span class="evt-time">' + time + '</span> <span class="evt-type">' + e.type + '</span>' + (e.target ? ' <span class="evt-target">' + e.target + '</span>' : '') + extra + '</div>';
+                }).join('');
+            } catch (err) {
+                document.getElementById('event-list').innerHTML = '<div style="color:#ff6b6b">Failed to load events</div>';
+            }
+        }
+        loadEvents();
+        setInterval(loadEvents, 500);
     </script>
 </body>
-</html>`, screenW, screenH, screenW, screenH, elementsHTML.String(), d.buildTreeJSON(root))
+</html>`, screenW, screenH, screenW, screenH, elementsHTML.String(), d.buildTreeJSON(root), screenW, screenH)
 }
 
 var nodeIDCounter int
 
-func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Builder, depth int, parentX, parentY float32) {
+// scrollState carries ScrollView offset down the tree for HTML rendering.
+type scrollState struct {
+	offsetX float32
+	offsetY float32
+}
+
+func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Builder, depth int, parentX, parentY float32, scroll *scrollState) {
 	if node == nil {
 		return
 	}
 
 	bounds := node.Bounds
+
+	// If this is a ScrollView, read its scroll offset and pass it down to children.
+	var childScroll *scrollState
+	if node.Type == "ScrollView" && node.Props != nil {
+		var sx, sy float32
+		if v, ok := node.Props["scrollX"].(float32); ok {
+			sx = v
+		}
+		if v, ok := node.Props["scrollY"].(float32); ok {
+			sy = v
+		}
+		if v, ok := node.Props["scrollX"].(float64); ok {
+			sx = float32(v)
+		}
+		if v, ok := node.Props["scrollY"].(float64); ok {
+			sy = float32(v)
+		}
+		if sx != 0 || sy != 0 {
+			if scroll != nil {
+				childScroll = &scrollState{offsetX: scroll.offsetX + sx, offsetY: scroll.offsetY + sy}
+			} else {
+				childScroll = &scrollState{offsetX: sx, offsetY: sy}
+			}
+		}
+	}
+
+	// Apply inherited scroll offset to this element's position
+	renderX := bounds.X
+	renderY := bounds.Y
+	if scroll != nil {
+		renderX += scroll.offsetX
+		renderY += scroll.offsetY
+	}
+
+	relX := renderX - parentX
+	relY := renderY - parentY
+
+	// Skip zero-size elements but still render children using parent's coordinate.
 	if bounds.Width <= 0 || bounds.Height <= 0 {
 		for _, child := range node.Children {
-			d.renderDebugNodeHTML(child, html, depth+1, parentX, parentY)
+			d.renderDebugNodeHTML(child, html, depth+1, parentX, parentY, scroll)
 		}
 		return
 	}
 
-	relX := bounds.X - parentX
-	relY := bounds.Y - parentY
-
 	nodeIDCounter++
 	id := fmt.Sprintf("n%d", nodeIDCounter)
 
-	color := getElementColor(node.Type)
-	borderColor := color + "88"
-	bgColor := color + "1a"
+	// Determine colors: prefer real props, fallback to type color.
+	typeColor := getElementColor(node.Type)
+	borderColor := typeColor + "88"
+	bgColor := typeColor + "1a"
+	labelColor := typeColor
+
+	if node.Props != nil {
+		bgKeys := []string{"backgroundColor", "bgColor", "normalColor"}
+		for _, key := range bgKeys {
+			if bg, ok := node.Props[key].(string); ok {
+				bgColor = bg
+				break
+			}
+		}
+		borderKeys := []string{"borderColor"}
+		for _, key := range borderKeys {
+			if bc, ok := node.Props[key].(string); ok {
+				borderColor = bc
+				break
+			}
+		}
+		if c, ok := node.Props["color"].(string); ok {
+			labelColor = c
+		}
+	}
 
 	visibleClass := ""
 	if !node.Visible {
@@ -636,20 +881,6 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 	}
 
 	if node.Props != nil {
-		bgKeys := []string{"backgroundColor", "bgColor", "normalColor"}
-		for _, key := range bgKeys {
-			if bg, ok := node.Props[key].(string); ok {
-				cssStyles = append(cssStyles, fmt.Sprintf("background:%s", bg))
-				break
-			}
-		}
-		borderKeys := []string{"borderColor"}
-		for _, key := range borderKeys {
-			if bc, ok := node.Props[key].(string); ok {
-				cssStyles = append(cssStyles, fmt.Sprintf("border:1px solid %s", bc))
-				break
-			}
-		}
 		if br, ok := node.Props["borderRadius"].(map[string]interface{}); ok {
 			tl := br["topLeft"]
 			tr := br["topRight"]
@@ -674,6 +905,21 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 		label = node.Key
 	}
 
+	fmt.Fprintf(html, `<div class="el%s%s" id="%s" style="%s" onclick="selectElement('%s')">`, visibleClass, clipClass, id, strings.Join(cssStyles, ";"), id)
+	fmt.Fprintf(html, `<div class="el-label" style="color:%s">%s</div>`, labelColor, label)
+
+	// ScrollView scroll indicator
+	if node.Type == "ScrollView" && node.Props != nil {
+		var sx, sy float32
+		if v, ok := node.Props["scrollX"].(float32); ok { sx = v }
+		if v, ok := node.Props["scrollY"].(float32); ok { sy = v }
+		if v, ok := node.Props["scrollX"].(float64); ok { sx = float32(v) }
+		if v, ok := node.Props["scrollY"].(float64); ok { sy = float32(v) }
+		if sx != 0 || sy != 0 {
+			fmt.Fprintf(html, `<div class="scroll-indicator">scroll(%.0f,%.0f)</div>`, sx, sy)
+		}
+	}
+
 	textContent := ""
 	if node.Type == "Text" {
 		if node.Props != nil {
@@ -682,9 +928,6 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 			}
 		}
 	}
-
-	fmt.Fprintf(html, `<div class="el%s%s" id="%s" style="%s" onclick="selectElement('%s')">`, visibleClass, clipClass, id, strings.Join(cssStyles, ";"), id)
-	fmt.Fprintf(html, `<div class="el-label" style="color:%s">%s</div>`, color, label)
 
 	if textContent != "" {
 		fontSize := 16.0
@@ -711,7 +954,7 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 	}
 
 	for _, child := range node.Children {
-		d.renderDebugNodeHTML(child, html, depth+1, bounds.X, bounds.Y)
+		d.renderDebugNodeHTML(child, html, depth+1, renderX, renderY, childScroll)
 	}
 
 	html.WriteString(`</div>`)
@@ -791,5 +1034,20 @@ func (d *Debugger) IsEnabled() bool {
 func CaptureLayout(trigger string) {
 	if d := GetDebugger(); d != nil {
 		d.CaptureLayout(trigger)
+	}
+}
+
+// LogEvent is a convenience helper to record an event from engine/components.
+func LogEvent(evtType string, target string, details map[string]interface{}) {
+	if d := GetDebugger(); d != nil {
+		if details == nil {
+			details = make(map[string]interface{})
+		}
+		d.AddEventLog(EventLog{
+			Timestamp: time.Now(),
+			Type:      evtType,
+			Target:    target,
+			Details:   details,
+		})
 	}
 }
