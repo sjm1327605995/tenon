@@ -23,7 +23,7 @@ func NewComponentGallery() *ComponentGallery {
 	return g
 }
 
-func (g *ComponentGallery) Build() core.Element {
+func (g *ComponentGallery) Render() core.Element {
 	// Navigation bar
 	pages := []string{"buttons", "inputs", "controls", "scroll", "cards"}
 	var navButtons []core.Element

@@ -45,7 +45,7 @@ func NewLayoutPage() *LayoutPage {
 	return p
 }
 
-func (p *LayoutPage) Build() core.Element {
+func (p *LayoutPage) Render() core.Element {
 	// Card demo
 	cardDemo := components.NewCard().
 		SetTitle("Payment Method").
@@ -108,7 +108,7 @@ func NewFormsPage() *FormsPage {
 	return p
 }
 
-func (p *FormsPage) Build() core.Element {
+func (p *FormsPage) Render() core.Element {
 	// Button variants
 	btnRow := components.NewView().
 		SetFlexDirection(yoga.FlexDirectionRow).
@@ -177,7 +177,7 @@ func NewNavigationPage() *NavigationPage {
 	return p
 }
 
-func (p *NavigationPage) Build() core.Element {
+func (p *NavigationPage) Render() core.Element {
 	// Breadcrumb
 	bc := components.NewBreadcrumb([]components.BreadcrumbItem{
 		{Label: "Home", IsActive: false},
@@ -234,7 +234,7 @@ func NewOverlaysPage() *OverlaysPage {
 	return p
 }
 
-func (p *OverlaysPage) Build() core.Element {
+func (p *OverlaysPage) Render() core.Element {
 	// AlertDialog
 	p.alertDialog = components.NewAlertDialog()
 	p.alertDialog.SetTitle("Are you absolutely sure?").
@@ -305,7 +305,7 @@ func NewFeedbackPage() *FeedbackPage {
 	return p
 }
 
-func (p *FeedbackPage) Build() core.Element {
+func (p *FeedbackPage) Render() core.Element {
 	// Alert variants
 	alertDefault := components.NewAlert("Heads up!").
 		SetDescription("You can add components to your app using the CLI.")
@@ -361,7 +361,7 @@ func NewDataDisplayPage() *DataDisplayPage {
 	return p
 }
 
-func (p *DataDisplayPage) Build() core.Element {
+func (p *DataDisplayPage) Render() core.Element {
 	// Avatar
 	avatars := components.NewView().
 		SetFlexDirection(yoga.FlexDirectionRow).
@@ -431,7 +431,7 @@ func NewGalleryApp() *GalleryApp {
 	return a
 }
 
-func (a *GalleryApp) Build() core.Element {
+func (a *GalleryApp) Render() core.Element {
 	// Sidebar
 	a.sidebar = components.NewSidebar([]components.SidebarNavItem{
 		{Label: "Components", Children: []components.SidebarNavItem{
@@ -450,12 +450,12 @@ func (a *GalleryApp) Build() core.Element {
 
 	// Main content
 	content := core.NewSwitch(a.page).
-		Case("layout", func() core.Element { return NewLayoutPage().Build() }).
-		Case("forms", func() core.Element { return NewFormsPage().Build() }).
-		Case("navigation", func() core.Element { return NewNavigationPage().Build() }).
-		Case("overlays", func() core.Element { return NewOverlaysPage().Build() }).
-		Case("feedback", func() core.Element { return NewFeedbackPage().Build() }).
-		Case("data-display", func() core.Element { return NewDataDisplayPage().Build() }).
+		Case("layout", func() core.Element { return NewLayoutPage().Render() }).
+		Case("forms", func() core.Element { return NewFormsPage().Render() }).
+		Case("navigation", func() core.Element { return NewNavigationPage().Render() }).
+		Case("overlays", func() core.Element { return NewOverlaysPage().Render() }).
+		Case("feedback", func() core.Element { return NewFeedbackPage().Render() }).
+		Case("data-display", func() core.Element { return NewDataDisplayPage().Render() }).
 		Default(func() core.Element {
 			return components.NewText("Select a page from the sidebar").SetColor(core.GetTheme().TextColor)
 		})

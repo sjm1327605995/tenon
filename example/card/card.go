@@ -73,7 +73,7 @@ func (c *Card) Draw(screen *ebiten.Image) {
 	combined := tr
 	combined.ScaleX *= flipScaleX
 
-	// Build full transform: Scale to bounds → Apply combined
+	// Render full transform: Scale to bounds → Apply combined
 	sw := float64(bounds.Width) / float64(img.Bounds().Dx())
 	sh := float64(bounds.Height) / float64(img.Bounds().Dy())
 	var geoM ebiten.GeoM
@@ -220,7 +220,7 @@ func newCardDemo() *cardDemo {
 	return &cardDemo{}
 }
 
-func (d *cardDemo) Build() core.Element {
+func (d *cardDemo) Render() core.Element {
 	root := components.NewView()
 	root.SetWidthPercent(100)
 	root.SetHeightPercent(100)
