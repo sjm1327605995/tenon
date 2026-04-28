@@ -23,6 +23,7 @@ func NewDropdown() *Dropdown {
 	dd := &Dropdown{selectedIdx: -1}
 	dd.Init(dd)
 	dd.SetFlexDirection(yoga.FlexDirectionColumn)
+	dd.SetMinWidth(120)
 	dd.setupUI()
 	return dd
 }
@@ -43,6 +44,7 @@ func (dd *Dropdown) setupUI() {
 	dd.panel.SetShadow(th.ShadowColor, 8, 0, 4)
 	dd.panel.SetVisible(false)
 	dd.panel.SetDisplay(yoga.DisplayNone)
+	dd.panel.SetWidthPercent(100)
 	dd.BaseElement.AppendChild(dd.panel)
 
 	dd.listView = NewListView()
@@ -75,7 +77,6 @@ func (dd *Dropdown) open() {
 	dd.isOpen = true
 	dd.panel.SetVisible(true)
 	dd.panel.SetDisplay(yoga.DisplayFlex)
-	dd.panel.SetMinWidth(dd.trigger.GetBounds().Width)
 	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
 }
 
