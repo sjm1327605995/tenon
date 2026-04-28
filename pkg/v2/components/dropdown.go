@@ -176,13 +176,13 @@ func (dd *Dropdown) HandleEvent(e *core.Event) bool {
 }
 
 // SyncFrom 同步新 Dropdown 的属性到当前 Element（声明式重建）。
+// 注意：isOpen 是命令式状态，不由声明式重建控制，避免重建时意外关闭。
 func (dd *Dropdown) SyncFrom(src core.Element) {
 	other, ok := src.(*Dropdown)
 	if !ok {
 		return
 	}
 	needDraw := false
-	layout := false
 	if dd.selectedIdx != other.selectedIdx {
 		dd.selectedIdx = other.selectedIdx
 		if dd.selectedIdx >= 0 && dd.selectedIdx < len(dd.items) {
@@ -192,22 +192,7 @@ func (dd *Dropdown) SyncFrom(src core.Element) {
 		}
 		needDraw = true
 	}
-	if dd.isOpen != other.isOpen {
-		dd.isOpen = other.isOpen
-		if dd.isOpen {
-			dd.panel.SetVisible(true)
-			dd.panel.SetDisplay(yoga.DisplayFlex)
-		} else {
-			dd.panel.SetVisible(false)
-			dd.panel.SetDisplay(yoga.DisplayNone)
-		}
-		needDraw = true
-		layout = true
-	}
 	if needDraw {
 		dd.Mark(core.FlagNeedDraw)
-	}
-	if layout {
-		dd.Mark(core.FlagNeedLayout)
 	}
 }
