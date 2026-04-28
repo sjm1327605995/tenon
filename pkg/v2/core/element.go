@@ -453,6 +453,12 @@ func (b *BaseElement) GetContext(key string) interface{} {
 	return nil
 }
 
+// PropertySyncable 支持属性同步的组件。
+// 当 Widget 重建产出新 Element 时，patchElement 会调用 SyncFrom 将新 Element 的属性同步到旧 Element。
+type PropertySyncable interface {
+	SyncFrom(src Element)
+}
+
 // ==================== 链式 API（布局）====================
 
 func (b *BaseElement) SetWidth(v float32) Element {

@@ -273,7 +273,12 @@ func (e *Engine) flushBuildQueue() {
 	e.buildQueue = e.buildQueue[:0]
 
 	for _, w := range queue {
-		newRoot := w.Render()
+		var newRoot Element
+		if bw, ok := w.(interface{ RenderWithTracking() Element }); ok {
+			newRoot = bw.RenderWithTracking()
+		} else {
+			newRoot = w.Render()
+		}
 		if newRoot == nil {
 			continue
 		}
@@ -317,6 +322,10 @@ func (e *Engine) patchElement(oldEl, newEl Element) Element {
 		// 同类型：复用旧节点，同步 Yoga 样式
 		if oldYoga, newYoga := oldEl.GetYoga(), newEl.GetYoga(); oldYoga != nil && newYoga != nil {
 			oldYoga.CopyStyleFrom(newYoga)
+		}
+		// 同步组件属性（声明式重建的关键）
+		if syncable, ok := oldEl.(PropertySyncable); ok {
+			syncable.SyncFrom(newEl)
 		}
 		e.patchChildren(oldEl, newEl)
 		oldEl.Mark(FlagNeedLayout | FlagNeedDraw)

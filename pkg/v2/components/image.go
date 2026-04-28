@@ -91,3 +91,23 @@ func (img *Image) Measure() (width, height float32) {
 	b := img.src.Bounds()
 	return float32(b.Dx()), float32(b.Dy())
 }
+
+// SyncFrom 同步新 Image 的属性到当前 Element（声明式重建）。
+func (img *Image) SyncFrom(src core.Element) {
+	other, ok := src.(*Image)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if img.src != other.src {
+		img.src = other.src
+		needDraw = true
+	}
+	if img.drawOpts != other.drawOpts {
+		img.drawOpts = other.drawOpts
+		needDraw = true
+	}
+	if needDraw {
+		img.Mark(core.FlagNeedDraw)
+	}
+}

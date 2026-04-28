@@ -179,3 +179,38 @@ func (dd *Dropdown) HandleEvent(e *core.Event) bool {
 	}
 	return false
 }
+
+// SyncFrom 同步新 Dropdown 的属性到当前 Element（声明式重建）。
+func (dd *Dropdown) SyncFrom(src core.Element) {
+	other, ok := src.(*Dropdown)
+	if !ok {
+		return
+	}
+	needDraw := false
+	layout := false
+	if dd.selectedIdx != other.selectedIdx {
+		dd.selectedIdx = other.selectedIdx
+		if dd.selectedIdx >= 0 && dd.selectedIdx < len(dd.items) {
+			dd.trigger.SetText(dd.items[dd.selectedIdx])
+		} else {
+			dd.trigger.SetText("")
+		}
+		needDraw = true
+	}
+	if dd.isOpen != other.isOpen {
+		dd.isOpen = other.isOpen
+		if dd.isOpen {
+			dd.panel.SetDisplay(yoga.DisplayFlex)
+		} else {
+			dd.panel.SetDisplay(yoga.DisplayNone)
+		}
+		needDraw = true
+		layout = true
+	}
+	if needDraw {
+		dd.Mark(core.FlagNeedDraw)
+	}
+	if layout {
+		dd.Mark(core.FlagNeedLayout)
+	}
+}

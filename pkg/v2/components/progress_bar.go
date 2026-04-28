@@ -115,3 +115,31 @@ func (pb *ProgressBar) SetBorderRadius(radius float32) *ProgressBar {
 	pb.Mark(core.FlagNeedDraw)
 	return pb
 }
+
+// SyncFrom 同步新 ProgressBar 的属性到当前 Element（声明式重建）。
+func (pb *ProgressBar) SyncFrom(src core.Element) {
+	other, ok := src.(*ProgressBar)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if pb.progress != other.progress {
+		pb.progress = other.progress
+		needDraw = true
+	}
+	if !colorsEqual(pb.trackColor, other.trackColor) {
+		pb.trackColor = other.trackColor
+		needDraw = true
+	}
+	if !colorsEqual(pb.fillColor, other.fillColor) {
+		pb.fillColor = other.fillColor
+		needDraw = true
+	}
+	if pb.borderRadius != other.borderRadius {
+		pb.borderRadius = other.borderRadius
+		needDraw = true
+	}
+	if needDraw {
+		pb.Mark(core.FlagNeedDraw)
+	}
+}

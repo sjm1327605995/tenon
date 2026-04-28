@@ -73,6 +73,35 @@ func NewButton(label string) *Button {
 // ElementType returns type identifier.
 func (b *Button) ElementType() string { return "Button" }
 
+// SyncFrom 同步新 Button 的属性到当前 Element（声明式重建）。
+func (b *Button) SyncFrom(src core.Element) {
+	other, ok := src.(*Button)
+	if !ok {
+		return
+	}
+	needDraw := false
+	// 同步标签（通过内部 Text 的 SyncFrom 自动处理，这里只处理 Button 特有属性）
+	if b.loading != other.loading {
+		b.loading = other.loading
+		needDraw = true
+	}
+	if b.disabled != other.disabled {
+		b.disabled = other.disabled
+		needDraw = true
+	}
+	if !colorsEqual(b.normalColor, other.normalColor) || !colorsEqual(b.hoverColor, other.hoverColor) ||
+		!colorsEqual(b.pressedColor, other.pressedColor) || !colorsEqual(b.textColor, other.textColor) {
+		b.normalColor = other.normalColor
+		b.hoverColor = other.hoverColor
+		b.pressedColor = other.pressedColor
+		b.textColor = other.textColor
+		needDraw = true
+	}
+	if needDraw {
+		b.Mark(core.FlagNeedDraw)
+	}
+}
+
 // Draw renders button background.
 func (b *Button) Draw(screen *ebiten.Image) {
 	if !b.IsVisible() {

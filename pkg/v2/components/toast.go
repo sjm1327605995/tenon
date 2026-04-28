@@ -139,6 +139,36 @@ func (t *Toast) SetDuration(d time.Duration) *Toast {
 	return t
 }
 
+// SyncFrom 同步新 Toast 的属性到当前 Element（声明式重建）。
+func (t *Toast) SyncFrom(src core.Element) {
+	other, ok := src.(*Toast)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if t.visible != other.visible {
+		t.visible = other.visible
+		t.SetVisible(other.visible)
+		needDraw = true
+	}
+	if t.toastType != other.toastType {
+		t.toastType = other.toastType
+		t.setTypeColors(t.toastType)
+		needDraw = true
+	}
+	if t.duration != other.duration {
+		t.duration = other.duration
+	}
+	if t.radius != other.radius || t.padding != other.padding {
+		t.radius = other.radius
+		t.padding = other.padding
+		needDraw = true
+	}
+	if needDraw {
+		t.Mark(core.FlagNeedDraw)
+	}
+}
+
 func (t *Toast) setTypeColors(tt ToastType) {
 	theme := core.GetTheme()
 	switch tt {

@@ -25,6 +25,9 @@ type BaseWidget struct {
 	engine      *Engine
 	needBuild   bool
 	rootElement Element
+
+	// 自动依赖追踪：State 订阅清理函数
+	stateCleanups []func()
 }
 
 // Init 初始化 BaseWidget，必须在子类构造函数中调用。
@@ -35,6 +38,36 @@ func (b *BaseWidget) Init(self Widget) {
 // Render 默认返回 nil，子类必须覆盖。
 func (b *BaseWidget) Render() Element { return nil }
 
+// RenderWithTracking 执行 Render() 并自动追踪 State 依赖。
+// 框架在 flushBuildQueue 中调用此方法，用户无需关心。
+func (b *BaseWidget) RenderWithTracking() Element {
+	// 设置全局追踪上下文
+	renderTracker.widget = b.self
+	renderTracker.active = true
+	renderTracker.states = nil
+
+	el := b.self.Render()
+
+	renderTracker.active = false
+
+	// 清理上一帧的订阅
+	for _, cleanup := range b.stateCleanups {
+		cleanup()
+	}
+	b.stateCleanups = nil
+
+	// 为本次 Render 访问的所有 State 建立订阅
+	// State 变化时自动触发 Widget 重建
+	for _, s := range renderTracker.states {
+		cleanup := s._subscribeRebuild(func() {
+			b.self.RequestBuild()
+		})
+		b.stateCleanups = append(b.stateCleanups, cleanup)
+	}
+
+	return el
+}
+
 // RequestBuild 标记需要在下一帧重建。
 func (b *BaseWidget) RequestBuild() {
 	b.needBuild = true
@@ -44,7 +77,13 @@ func (b *BaseWidget) RequestBuild() {
 }
 
 func (b *BaseWidget) OnMount(engine *Engine) { b.engine = engine }
-func (b *BaseWidget) OnUnmount()             {}
+func (b *BaseWidget) OnUnmount() {
+	// 清理所有 State 订阅
+	for _, cleanup := range b.stateCleanups {
+		cleanup()
+	}
+	b.stateCleanups = nil
+}
 
 // GetRootElement 返回该 Widget 已挂载的根 Element。
 func (b *BaseWidget) GetRootElement() Element { return b.rootElement }

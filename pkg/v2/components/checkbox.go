@@ -137,6 +137,38 @@ func (cb *Checkbox) SetChecked(checked bool) *Checkbox {
 	return cb
 }
 
+// SyncFrom 同步新 Checkbox 的属性到当前 Element（声明式重建）。
+func (cb *Checkbox) SyncFrom(src core.Element) {
+	other, ok := src.(*Checkbox)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if cb.checked != other.checked {
+		cb.checked = other.checked
+		needDraw = true
+	}
+	if cb.boxSize != other.boxSize {
+		cb.boxSize = other.boxSize
+		needDraw = true
+	}
+	if !colorsEqual(cb.borderColor, other.borderColor) {
+		cb.borderColor = other.borderColor
+		needDraw = true
+	}
+	if !colorsEqual(cb.fillColor, other.fillColor) {
+		cb.fillColor = other.fillColor
+		needDraw = true
+	}
+	if !colorsEqual(cb.checkColor, other.checkColor) {
+		cb.checkColor = other.checkColor
+		needDraw = true
+	}
+	if needDraw {
+		cb.Mark(core.FlagNeedDraw)
+	}
+}
+
 // SetOnChange sets the change callback.
 func (cb *Checkbox) SetOnChange(fn func(checked bool)) *Checkbox {
 	cb.onChange = fn

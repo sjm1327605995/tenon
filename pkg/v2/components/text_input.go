@@ -643,6 +643,46 @@ func (ti *TextInput) SetPlaceholder(p string) *TextInput {
 	return ti
 }
 
+// SyncFrom 同步新 TextInput 的属性到当前 Element（声明式重建）。
+func (ti *TextInput) SyncFrom(src core.Element) {
+	other, ok := src.(*TextInput)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if ti.placeholder != other.placeholder {
+		ti.placeholder = other.placeholder
+		needDraw = true
+	}
+	if ti.isMultiline != other.isMultiline {
+		ti.isMultiline = other.isMultiline
+		needDraw = true
+	}
+	if ti.fontSize != other.fontSize {
+		ti.fontSize = other.fontSize
+		ti.fontFace = nil
+		ti.Mark(core.FlagNeedMeasure)
+		needDraw = true
+	}
+	if !colorsEqual(ti.textColor, other.textColor) || !colorsEqual(ti.placeholderColor, other.placeholderColor) ||
+		!colorsEqual(ti.cursorColor, other.cursorColor) || !colorsEqual(ti.borderColor, other.borderColor) ||
+		!colorsEqual(ti.focusBorderColor, other.focusBorderColor) || !colorsEqual(ti.bgColor, other.bgColor) ||
+		!colorsEqual(ti.selectionColor, other.selectionColor) || !colorsEqual(ti.compositionColor, other.compositionColor) {
+		ti.textColor = other.textColor
+		ti.placeholderColor = other.placeholderColor
+		ti.cursorColor = other.cursorColor
+		ti.borderColor = other.borderColor
+		ti.focusBorderColor = other.focusBorderColor
+		ti.bgColor = other.bgColor
+		ti.selectionColor = other.selectionColor
+		ti.compositionColor = other.compositionColor
+		needDraw = true
+	}
+	if needDraw {
+		ti.Mark(core.FlagNeedDraw)
+	}
+}
+
 func (ti *TextInput) SetMultiline(v bool) *TextInput {
 	ti.isMultiline = v
 	ti.Mark(core.FlagNeedDraw)

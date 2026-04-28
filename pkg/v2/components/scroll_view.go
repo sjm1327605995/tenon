@@ -469,3 +469,39 @@ func (sv *ScrollView) DebugProps() map[string]interface{} {
 	props["scrollbarWidth"] = sv.scrollbarWidth
 	return props
 }
+
+// SyncFrom 同步新 ScrollView 的属性到当前 Element（声明式重建）。
+func (sv *ScrollView) SyncFrom(src core.Element) {
+	other, ok := src.(*ScrollView)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if sv.scrollX != other.scrollX {
+		sv.scrollX = other.scrollX
+		needDraw = true
+	}
+	if sv.scrollY != other.scrollY {
+		sv.scrollY = other.scrollY
+		needDraw = true
+	}
+	if sv.scrollbarWidth != other.scrollbarWidth {
+		sv.scrollbarWidth = other.scrollbarWidth
+		needDraw = true
+	}
+	if !colorsEqual(sv.scrollbarColor, other.scrollbarColor) {
+		sv.scrollbarColor = other.scrollbarColor
+		needDraw = true
+	}
+	if !colorsEqual(sv.trackColor, other.trackColor) {
+		sv.trackColor = other.trackColor
+		needDraw = true
+	}
+	if !colorsEqual(sv.backgroundColor, other.backgroundColor) {
+		sv.backgroundColor = other.backgroundColor
+		needDraw = true
+	}
+	if needDraw {
+		sv.Mark(core.FlagNeedDraw)
+	}
+}

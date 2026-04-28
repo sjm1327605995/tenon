@@ -129,6 +129,28 @@ func (lv *ListView) SetBackgroundColors(normal, selected, hover color.Color) *Li
 	return lv
 }
 
+// SyncFrom 同步新 ListView 的属性到当前 Element（声明式重建）。
+func (lv *ListView) SyncFrom(src core.Element) {
+	other, ok := src.(*ListView)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if lv.selectedIdx != other.selectedIdx {
+		lv.selectedIdx = other.selectedIdx
+		needDraw = true
+	}
+	if !colorsEqual(lv.bgNormal, other.bgNormal) || !colorsEqual(lv.bgSelected, other.bgSelected) || !colorsEqual(lv.bgHover, other.bgHover) {
+		lv.bgNormal = other.bgNormal
+		lv.bgSelected = other.bgSelected
+		lv.bgHover = other.bgHover
+		needDraw = true
+	}
+	if needDraw {
+		lv.Mark(core.FlagNeedDraw)
+	}
+}
+
 // ScrollView returns the internal scroll view for advanced customization.
 func (lv *ListView) ScrollView() *ScrollView { return lv.scrollView }
 

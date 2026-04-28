@@ -39,6 +39,19 @@ func max(a, b float32) float32 {
 	return b
 }
 
+// colorsEqual 比较两个 color.Color 是否相等。
+func colorsEqual(a, b color.Color) bool {
+	if a == b {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	ra, ga, ba, aa := a.RGBA()
+	rb, gb, bb, ab := b.RGBA()
+	return ra == rb && ga == gb && ba == bb && aa == ab
+}
+
 // drawFilledCirclePath 使用 vector.Path 绘制抗锯齿填充圆形。
 func drawFilledCirclePath(screen *ebiten.Image, cx, cy, radius float32, clr color.Color) {
 	var path vector.Path

@@ -120,6 +120,43 @@ func (s *Switch) SetChecked(checked bool) *Switch {
 	return s
 }
 
+// SyncFrom 同步新 Switch 的属性到当前 Element（声明式重建）。
+func (s *Switch) SyncFrom(src core.Element) {
+	other, ok := src.(*Switch)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if s.checked != other.checked {
+		s.checked = other.checked
+		s.thumbProgress = 0
+		if s.checked {
+			s.thumbProgress = 1
+		}
+		needDraw = true
+	}
+	if s.trackWidth != other.trackWidth || s.trackHeight != other.trackHeight {
+		s.trackWidth = other.trackWidth
+		s.trackHeight = other.trackHeight
+		needDraw = true
+	}
+	if !colorsEqual(s.offColor, other.offColor) {
+		s.offColor = other.offColor
+		needDraw = true
+	}
+	if !colorsEqual(s.onColor, other.onColor) {
+		s.onColor = other.onColor
+		needDraw = true
+	}
+	if !colorsEqual(s.thumbColor, other.thumbColor) {
+		s.thumbColor = other.thumbColor
+		needDraw = true
+	}
+	if needDraw {
+		s.Mark(core.FlagNeedDraw)
+	}
+}
+
 // SetOnChange sets the change callback.
 func (s *Switch) SetOnChange(fn func(checked bool)) *Switch {
 	s.onChange = fn
