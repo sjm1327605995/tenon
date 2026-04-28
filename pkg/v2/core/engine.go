@@ -48,6 +48,9 @@ type Engine struct {
 	// 事件注册表
 	eventRegistry *EventRegistry
 
+	// 脏标记事件总线：收集元素属性变更事件，合并后统一刷新
+	dirtyBus *DirtyEventBus
+
 	// 调试器
 	debugger interface {
 		CaptureLayout(trigger string)
@@ -71,6 +74,7 @@ func NewEngine(rootWidget Widget, width, height int) *Engine {
 		screenHeight:  height,
 		lastFrameTime: time.Now(),
 		eventRegistry: NewEventRegistry(),
+		dirtyBus:      &DirtyEventBus{},
 	}
 }
 
@@ -364,22 +368,44 @@ func (e *Engine) patchChildren(oldParent, newParent Element) {
 	}
 }
 
-// ==================== 脏标记刷新 ====================
+// ==================== 脏标记事件总线 ====================
 
-func (e *Engine) markDirty(el Element) {
-	if el == nil {
-		return
-	}
-	// 避免重复加入
-	for _, d := range e.dirtyElements {
-		if d == el {
+// DirtyEventBus 负责收集元素的脏标记事件，合并后统一刷新。
+// 同一元素的多次属性变更在 pending 中只保留一个，flag 合并由 Element 自身的 bitmap 完成。
+type DirtyEventBus struct {
+	pending []Element
+}
+
+// Post 投递一个元素的脏标记事件。已在 pending 中的元素会被忽略（去重）。
+func (b *DirtyEventBus) Post(el Element) {
+	for _, p := range b.pending {
+		if p == el {
 			return
 		}
 	}
-	e.dirtyElements = append(e.dirtyElements, el)
+	b.pending = append(b.pending, el)
 }
 
+// Flush 取出所有待刷新元素并清空队列。
+func (b *DirtyEventBus) Flush() []Element {
+	batch := b.pending
+	b.pending = nil
+	return batch
+}
+
+// Len 返回当前待处理事件数。
+func (b *DirtyEventBus) Len() int {
+	return len(b.pending)
+}
+
+// ==================== 脏标记刷新 ====================
+
 func (e *Engine) flushDirtyElements() {
+	// 从事件总线取出合并后的元素批次
+	if e.dirtyBus.Len() == 0 {
+		return
+	}
+	e.dirtyElements = e.dirtyBus.Flush()
 	if len(e.dirtyElements) == 0 {
 		return
 	}
@@ -406,7 +432,13 @@ func (e *Engine) flushDirtyElements() {
 }
 
 func (e *Engine) hasLayoutDirty() bool {
+	// 同时检查已刷入 dirtyElements 的和事件总线中 pending 的
 	for _, el := range e.dirtyElements {
+		if el.GetFlags()&FlagNeedLayout != 0 {
+			return true
+		}
+	}
+	for _, el := range e.dirtyBus.pending {
 		if el.GetFlags()&FlagNeedLayout != 0 {
 			return true
 		}

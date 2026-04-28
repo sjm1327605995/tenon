@@ -328,12 +328,15 @@ func (b *BaseElement) OnUnmount() {
 
 // === 标志位操作（uint64 bitmap）===
 
-// Mark 设置脏标记，并通知引擎加入刷新队列。
+// Mark 设置脏标记，并通过事件总线通知引擎统一刷新。
+// 同一元素的多次 Mark 会在事件总线中合并为一次刷新。
 func (b *BaseElement) Mark(flags ElementFlags) {
-	if b.flags&FlagDirtyMask == 0 && b.engine != nil {
-		b.engine.markDirty(b.self)
-	}
+	hadDirty := b.flags&FlagDirtyMask != 0
 	b.flags |= flags
+	// 首次变脏时向事件总线投递，后续同一帧内只合并 flag bitmap
+	if !hadDirty && b.engine != nil {
+		b.engine.dirtyBus.Post(b.self)
+	}
 	if b.self != nil && (b.self.ElementType() == "ScrollView" || b.self.ElementType() == "Button") {
 		LogDebug("[Element] Mark", "type", b.self.ElementType(), "flags", flags, "engine", b.engine != nil)
 	}
