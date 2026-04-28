@@ -54,15 +54,16 @@ func (c *Calendar) buildGrid() {
 	header.Add(prev, title, next)
 	c.Add(header)
 
+	// 固定格子宽度：280 / 7 = 40，刚好整除，无任何舍入误差
+	cellW := float32(40)
+
 	daysRow := NewView()
 	daysRow.SetFlexDirection(yoga.FlexDirectionRow)
-	daysRow.SetPadding(yoga.EdgeHorizontal, 4)
 	for _, d := range []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"} {
-		cell := NewView().SetWidth(0).SetHeight(cellH)
-		cell.SetFlexGrow(1)
-		cell.SetFlexShrink(0)
+		cell := NewView().SetWidth(cellW).SetHeight(cellH)
 		cell.SetJustifyContent(yoga.JustifyCenter)
 		cell.SetAlignItems(yoga.AlignCenter)
+		cell.SetFlexShrink(0)
 		label := NewText(d).SetFontSize(float64(cellFontSize)).SetColor(theme.MutedForegroundColor)
 		cell.Add(label)
 		daysRow.Add(cell)
@@ -75,11 +76,9 @@ func (c *Calendar) buildGrid() {
 
 	week := NewView()
 	week.SetFlexDirection(yoga.FlexDirectionRow)
-	week.SetPadding(yoga.EdgeHorizontal, 4)
 
 	for i := 0; i < startOffset; i++ {
-		empty := NewView().SetWidth(0).SetHeight(cellH)
-		empty.SetFlexGrow(1)
+		empty := NewView().SetWidth(cellW).SetHeight(cellH)
 		empty.SetFlexShrink(0)
 		week.Add(empty)
 	}
@@ -87,12 +86,12 @@ func (c *Calendar) buildGrid() {
 	for day := 1; day <= daysInMonth; day++ {
 		d := day
 		cell := NewButton(fmt.Sprintf("%d", d)).SetVariant(ButtonGhost)
-		cell.SetWidth(0)
+		cell.SetWidth(cellW)
 		cell.SetHeight(cellH)
-		cell.SetFlexGrow(1)
 		cell.SetFlexShrink(0)
 		cell.SetJustifyContent(yoga.JustifyCenter)
 		cell.SetAlignItems(yoga.AlignCenter)
+		cell.SetPadding(yoga.EdgeAll, 0) // 覆盖 Button 默认 16px padding，让文字在 40px 内居中
 		cell.SetOnClick(func() {
 			c.selected = time.Date(c.year, c.month, d, 0, 0, 0, 0, time.Local)
 			if c.onSelect != nil {
@@ -108,7 +107,6 @@ func (c *Calendar) buildGrid() {
 			c.Add(week)
 			week = NewView()
 			week.SetFlexDirection(yoga.FlexDirectionRow)
-			week.SetPadding(yoga.EdgeHorizontal, 4)
 		}
 	}
 	c.Add(week)
