@@ -42,6 +42,8 @@ func (dd *Dropdown) setupUI() {
 	dd.panel.SetBorderColor(th.BorderColor)
 	dd.panel.SetShadow(th.ShadowColor, 8, 0, 4)
 	dd.panel.SetVisible(false)
+	dd.panel.SetDisplay(yoga.DisplayNone)
+	dd.BaseElement.AppendChild(dd.panel)
 
 	dd.listView = NewListView()
 	dd.listView.OnSelect(func(idx int) {
@@ -71,16 +73,10 @@ func (dd *Dropdown) open() {
 		return
 	}
 	dd.isOpen = true
-	tb := dd.trigger.GetBounds()
-	dd.panel.SetPositionType(yoga.PositionTypeAbsolute)
-	dd.panel.SetPosition(yoga.EdgeLeft, tb.X)
-	dd.panel.SetPosition(yoga.EdgeTop, tb.Y+tb.Height)
-	dd.panel.SetMinWidth(tb.Width)
 	dd.panel.SetVisible(true)
+	dd.panel.SetDisplay(yoga.DisplayFlex)
+	dd.panel.SetMinWidth(dd.trigger.GetBounds().Width)
 	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
-	if eng := dd.GetEngine(); eng != nil {
-		eng.AddOverlay(dd.panel)
-	}
 }
 
 func (dd *Dropdown) close() {
@@ -89,10 +85,8 @@ func (dd *Dropdown) close() {
 	}
 	dd.isOpen = false
 	dd.panel.SetVisible(false)
+	dd.panel.SetDisplay(yoga.DisplayNone)
 	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
-	if eng := dd.GetEngine(); eng != nil {
-		eng.RemoveOverlay(dd.panel)
-	}
 }
 
 // SetItems replaces all options.
@@ -200,8 +194,10 @@ func (dd *Dropdown) SyncFrom(src core.Element) {
 	if dd.isOpen != other.isOpen {
 		dd.isOpen = other.isOpen
 		if dd.isOpen {
+			dd.panel.SetVisible(true)
 			dd.panel.SetDisplay(yoga.DisplayFlex)
 		} else {
+			dd.panel.SetVisible(false)
 			dd.panel.SetDisplay(yoga.DisplayNone)
 		}
 		needDraw = true
