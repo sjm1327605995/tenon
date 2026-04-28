@@ -151,6 +151,28 @@ func (m *Modal) SetCloseOnEsc(v bool) *Modal {
 	return m
 }
 
+// SyncFrom 同步新 Modal 的属性到当前 Element（声明式重建）。
+func (m *Modal) SyncFrom(src core.Element) {
+	other, ok := src.(*Modal)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if m.closeOnMask != other.closeOnMask {
+		m.closeOnMask = other.closeOnMask
+	}
+	if m.closeOnEsc != other.closeOnEsc {
+		m.closeOnEsc = other.closeOnEsc
+	}
+	if !colorsEqual(m.maskColor, other.maskColor) {
+		m.maskColor = other.maskColor
+		needDraw = true
+	}
+	if needDraw {
+		m.Mark(core.FlagNeedDraw)
+	}
+}
+
 // SetMaskColor sets the backdrop color.
 func (m *Modal) SetMaskColor(clr color.Color) *Modal {
 	m.maskColor = clr

@@ -94,6 +94,38 @@ func (r *Radio) SetSelected(selected bool) *Radio {
 	return r
 }
 
+// SyncFrom 同步新 Radio 的属性到当前 Element（声明式重建）。
+func (r *Radio) SyncFrom(src core.Element) {
+	other, ok := src.(*Radio)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if r.selected != other.selected {
+		r.selected = other.selected
+		needDraw = true
+	}
+	if r.boxSize != other.boxSize {
+		r.boxSize = other.boxSize
+		needDraw = true
+	}
+	if !colorsEqual(r.borderColor, other.borderColor) {
+		r.borderColor = other.borderColor
+		needDraw = true
+	}
+	if !colorsEqual(r.fillColor, other.fillColor) {
+		r.fillColor = other.fillColor
+		needDraw = true
+	}
+	if !colorsEqual(r.innerColor, other.innerColor) {
+		r.innerColor = other.innerColor
+		needDraw = true
+	}
+	if needDraw {
+		r.Mark(core.FlagNeedDraw)
+	}
+}
+
 // SetOnChange sets the change callback.
 func (r *Radio) SetOnChange(fn func(selected bool)) *Radio {
 	r.onChange = fn

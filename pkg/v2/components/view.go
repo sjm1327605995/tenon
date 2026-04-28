@@ -32,6 +32,38 @@ func NewView() *View {
 // ElementType returns type identifier.
 func (v *View) ElementType() string { return "View" }
 
+// SyncFrom 同步新 View 的属性到当前 Element（声明式重建）。
+func (v *View) SyncFrom(src core.Element) {
+	other, ok := src.(*View)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if !colorsEqual(v.backgroundColor, other.backgroundColor) {
+		v.backgroundColor = other.backgroundColor
+		needDraw = true
+	}
+	if !colorsEqual(v.borderColor, other.borderColor) {
+		v.borderColor = other.borderColor
+		needDraw = true
+	}
+	if !colorsEqual(v.shadowColor, other.shadowColor) || v.shadowBlur != other.shadowBlur ||
+		v.shadowOffsetX != other.shadowOffsetX || v.shadowOffsetY != other.shadowOffsetY {
+		v.shadowColor = other.shadowColor
+		v.shadowBlur = other.shadowBlur
+		v.shadowOffsetX = other.shadowOffsetX
+		v.shadowOffsetY = other.shadowOffsetY
+		needDraw = true
+	}
+	if v.borderRadius != other.borderRadius {
+		v.borderRadius = other.borderRadius
+		needDraw = true
+	}
+	if needDraw {
+		v.Mark(core.FlagNeedDraw)
+	}
+}
+
 // Draw renders background, shadow and border.
 func (v *View) Draw(screen *ebiten.Image) {
 	if !v.IsVisible() {

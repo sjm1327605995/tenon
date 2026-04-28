@@ -177,3 +177,44 @@ func (s *Slider) SetTrackHeight(height float32) *Slider {
 	s.Mark(core.FlagNeedDraw)
 	return s
 }
+
+// SyncFrom 同步新 Slider 的属性到当前 Element（声明式重建）。
+func (s *Slider) SyncFrom(src core.Element) {
+	other, ok := src.(*Slider)
+	if !ok {
+		return
+	}
+	needDraw := false
+	if s.value != other.value {
+		s.value = other.value
+		needDraw = true
+	}
+	if s.minValue != other.minValue || s.maxValue != other.maxValue {
+		s.minValue = other.minValue
+		s.maxValue = other.maxValue
+		needDraw = true
+	}
+	if !colorsEqual(s.trackColor, other.trackColor) {
+		s.trackColor = other.trackColor
+		needDraw = true
+	}
+	if !colorsEqual(s.fillColor, other.fillColor) {
+		s.fillColor = other.fillColor
+		needDraw = true
+	}
+	if !colorsEqual(s.thumbColor, other.thumbColor) {
+		s.thumbColor = other.thumbColor
+		needDraw = true
+	}
+	if s.thumbRadius != other.thumbRadius {
+		s.thumbRadius = other.thumbRadius
+		needDraw = true
+	}
+	if s.trackHeight != other.trackHeight {
+		s.trackHeight = other.trackHeight
+		needDraw = true
+	}
+	if needDraw {
+		s.Mark(core.FlagNeedDraw)
+	}
+}

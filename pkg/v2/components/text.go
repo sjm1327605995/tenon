@@ -50,6 +50,41 @@ func NewText(content string) *Text {
 // ElementType returns type identifier.
 func (t *Text) ElementType() string { return "Text" }
 
+// SyncFrom 同步新 Text 的属性到当前 Element（声明式重建）。
+func (t *Text) SyncFrom(src core.Element) {
+	other, ok := src.(*Text)
+	if !ok {
+		return
+	}
+	// 同步内容（触发重新排版）
+	if t.content != other.content {
+		t.content = other.content
+		t.invalidateCache()
+	}
+	// 同步字体大小
+	if t.fontSize != other.fontSize {
+		t.fontSize = other.fontSize
+		t.invalidateCache()
+	}
+	// 同步颜色
+	if !colorsEqual(t.color, other.color) {
+		t.color = other.color
+		t.Mark(core.FlagNeedDraw)
+	}
+	// 同步 faceSource
+	if t.faceSource != other.faceSource {
+		t.faceSource = other.faceSource
+		t.invalidateCache()
+	}
+	// 同步布局策略
+	if t.whiteSpace != other.whiteSpace || t.wordBreak != other.wordBreak || t.lineHeight != other.lineHeight {
+		t.whiteSpace = other.whiteSpace
+		t.wordBreak = other.wordBreak
+		t.lineHeight = other.lineHeight
+		t.invalidateCache()
+	}
+}
+
 func (t *Text) getFace() *text.GoTextFace {
 	if t.faceSource == nil {
 		return nil

@@ -154,3 +154,29 @@ func (b *Badge) SetTextColor(clr color.Color) *Badge {
 	}
 	return b
 }
+
+// SyncFrom 同步新 Badge 的属性到当前 Element（声明式重建）。
+func (b *Badge) SyncFrom(src core.Element) {
+	other, ok := src.(*Badge)
+	if !ok {
+		return
+	}
+	// 同步 View 属性
+	b.View.SyncFrom(&other.View)
+	needDraw := false
+	if b.dotMode != other.dotMode {
+		b.dotMode = other.dotMode
+		needDraw = true
+	}
+	if b.maxCount != other.maxCount {
+		b.maxCount = other.maxCount
+	}
+	if b.variant != other.variant {
+		b.variant = other.variant
+		b.applyVariantStyles(core.GetTheme())
+		needDraw = true
+	}
+	if needDraw {
+		b.Mark(core.FlagNeedDraw)
+	}
+}
