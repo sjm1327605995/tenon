@@ -159,6 +159,111 @@ func buildEventPath(target Element) []Element {
 	return path
 }
 
+// DebugListenerInfo 描述一个事件监听器的调试信息。
+type DebugListenerInfo struct {
+	Target    string `json:"target"`
+	EventType string `json:"eventType"`
+	Count     int    `json:"count"`
+}
+
+// DebugInfo 返回注册表中所有事件监听器的调试信息。
+func (r *EventRegistry) DebugInfo() []DebugListenerInfo {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var result []DebugListenerInfo
+	for key, callbacks := range r.listeners {
+		if len(callbacks) == 0 {
+			continue
+		}
+		targetType := "unknown"
+		if key.target != nil {
+			targetType = key.target.ElementType()
+		}
+		result = append(result, DebugListenerInfo{
+			Target:    targetType,
+			EventType: eventTypeToString(key.eventType),
+			Count:     len(callbacks),
+		})
+	}
+	for key, callbacks := range r.captureListeners {
+		if len(callbacks) == 0 {
+			continue
+		}
+		targetType := "unknown"
+		if key.target != nil {
+			targetType = key.target.ElementType()
+		}
+		result = append(result, DebugListenerInfo{
+			Target:    targetType + " (capture)",
+			EventType: eventTypeToString(key.eventType),
+			Count:     len(callbacks),
+		})
+	}
+	return result
+}
+
+// DebugListenersForElement 返回指定元素的所有事件监听器信息。
+func (r *EventRegistry) DebugListenersForElement(target Element) []DebugListenerInfo {
+	if target == nil {
+		return nil
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	var result []DebugListenerInfo
+	for key, callbacks := range r.listeners {
+		if key.target != target || len(callbacks) == 0 {
+			continue
+		}
+		result = append(result, DebugListenerInfo{
+			Target:    target.ElementType(),
+			EventType: eventTypeToString(key.eventType),
+			Count:     len(callbacks),
+		})
+	}
+	for key, callbacks := range r.captureListeners {
+		if key.target != target || len(callbacks) == 0 {
+			continue
+		}
+		result = append(result, DebugListenerInfo{
+			Target:    target.ElementType() + " (capture)",
+			EventType: eventTypeToString(key.eventType),
+			Count:     len(callbacks),
+		})
+	}
+	return result
+}
+
+func eventTypeToString(et EventType) string {
+	switch et {
+	case EventMouseMove:
+		return "MouseMove"
+	case EventMouseDown:
+		return "MouseDown"
+	case EventMouseUp:
+		return "MouseUp"
+	case EventClick:
+		return "Click"
+	case EventScroll:
+		return "Scroll"
+	case EventKeyDown:
+		return "KeyDown"
+	case EventKeyUp:
+		return "KeyUp"
+	case EventFocusIn:
+		return "FocusIn"
+	case EventFocusOut:
+		return "FocusOut"
+	case EventResize:
+		return "Resize"
+	case EventMouseEnter:
+		return "MouseEnter"
+	case EventMouseLeave:
+		return "MouseLeave"
+	default:
+		return "Unknown"
+	}
+}
+
 // compareFunc 比较两个函数指针是否相同。
 // Go 中函数不能直接比较，使用 reflect 比较函数值。
 func compareFunc(a, b EventCallback) bool {
@@ -360,8 +465,8 @@ type delayedListener struct {
 	callback  EventCallback
 }
 
-// flushDelayedListeners 在 OnMount 时刷新延迟注册的监听器。
-func (b *BaseElement) flushDelayedListeners() {
+// FlushDelayedListeners 在 OnMount 时刷新延迟注册的监听器。
+func (b *BaseElement) FlushDelayedListeners() {
 	if b.engine == nil || len(b.delayedListeners) == 0 {
 		return
 	}

@@ -42,6 +42,13 @@ type Engine struct {
 	// 时间
 	lastFrameTime time.Time
 
+	// 性能指标
+	perf PerfMetrics
+
+	// 生命周期追踪
+	lifecycleLogs   []LifecycleLog
+	maxLifecycleLog int
+
 	// 动画
 	animations []Animation
 
@@ -63,18 +70,20 @@ type Engine struct {
 			GetDeltaX() float32
 			GetDeltaY() float32
 		})
+		AddStateLog(elementType, elementKey, stateKey string, oldValue, newValue interface{})
 	}
 }
 
 // NewEngine 创建引擎。
 func NewEngine(rootWidget Widget, width, height int) *Engine {
 	return &Engine{
-		rootWidget:    rootWidget,
-		screenWidth:   width,
-		screenHeight:  height,
-		lastFrameTime: time.Now(),
-		eventRegistry: NewEventRegistry(),
-		dirtyBus:      &DirtyEventBus{},
+		rootWidget:      rootWidget,
+		screenWidth:     width,
+		screenHeight:    height,
+		lastFrameTime:   time.Now(),
+		eventRegistry:   NewEventRegistry(),
+		dirtyBus:        &DirtyEventBus{},
+		maxLifecycleLog: 200,
 	}
 }
 
@@ -100,8 +109,12 @@ func (e *Engine) SetDebugger(d interface {
 		GetDeltaX() float32
 		GetDeltaY() float32
 	})
+	AddStateLog(elementType, elementKey, stateKey string, oldValue, newValue interface{})
 }) {
 	e.debugger = d
+	SetStateDebugHook(func(elementType, key string, oldValue, newValue interface{}) {
+		d.AddStateLog(elementType, key, "", oldValue, newValue)
+	})
 }
 
 func (e *Engine) GetRootElement() Element {
@@ -170,10 +183,8 @@ func (e *Engine) onElementMounted(el Element) {
 	el.SetEngine(e)
 	applyStyles(el)
 	el.OnMount(e)
-	// 刷新延迟注册的事件监听器
-	if be, ok := el.(*BaseElement); ok {
-		be.flushDelayedListeners()
-	}
+	el.FlushDelayedListeners()
+	e.recordLifecycle("mount", el)
 	for _, child := range el.GetChildren() {
 		if child.GetEngine() == nil {
 			e.onElementMounted(child)
@@ -184,7 +195,8 @@ func (e *Engine) onElementMounted(el Element) {
 // ==================== 帧循环 ====================
 
 func (e *Engine) Update() error {
-	// 0. 窗口大小变化：重新布局并广播事件
+	frameStart := time.Now()
+
 	if e.pendingResize {
 		e.pendingResize = false
 		e.calculateLayout()
@@ -201,20 +213,18 @@ func (e *Engine) Update() error {
 	deltaTime := float32(now.Sub(e.lastFrameTime).Seconds())
 	e.lastFrameTime = now
 
-	// 1. 处理请求重建的 Widget（结构变化）
 	e.flushBuildQueue()
 
-	// 2. 事件处理（可能标记 Element 为 dirty）
+	eventsStart := time.Now()
 	e.handleEvents()
+	e.perf.LastEventTime = time.Since(eventsStart)
 
-	// 3. 批量刷新脏 Element（测量 → 布局 → 清除标记）
-	// 放在事件之后，确保同一帧内响应交互带来的布局变化
+	layoutStart := time.Now()
 	e.flushDirtyElements()
+	e.perf.LastLayoutTime = time.Since(layoutStart)
 
-	// 4. 更新动画
 	e.updateAnimations(deltaTime)
 
-	// 5. 每帧更新 Element（动画等）
 	if e.rootElement != nil {
 		e.updateElements(e.rootElement)
 	}
@@ -223,6 +233,10 @@ func (e *Engine) Update() error {
 			e.updateElements(overlay)
 		}
 	}
+
+	e.perf.LastFrameTime = time.Since(frameStart)
+	e.perf.FrameCount++
+	e.perf.LastFrameTimestamp = time.Now()
 
 	return nil
 }
@@ -248,6 +262,7 @@ func (e *Engine) updateAnimations(deltaTime float32) {
 }
 
 func (e *Engine) Draw(screen *ebiten.Image) {
+	drawStart := time.Now()
 	screen.Fill(color.RGBA{R: 245, G: 245, B: 245, A: 255})
 	if e.rootElement != nil {
 		e.drawElement(screen, e.rootElement, 0, 0)
@@ -257,6 +272,7 @@ func (e *Engine) Draw(screen *ebiten.Image) {
 			e.drawElement(screen, overlay, 0, 0)
 		}
 	}
+	e.perf.LastDrawTime = time.Since(drawStart)
 }
 
 // ==================== 结构重建 ====================
@@ -1038,3 +1054,96 @@ func (w *debugEventWrapper) GetX() float32      { return w.event.X }
 func (w *debugEventWrapper) GetY() float32      { return w.event.Y }
 func (w *debugEventWrapper) GetDeltaX() float32 { return w.event.DeltaX }
 func (w *debugEventWrapper) GetDeltaY() float32 { return w.event.DeltaY }
+
+// ==================== 性能指标 ====================
+
+type PerfMetrics struct {
+	FrameCount         int           `json:"frameCount"`
+	LastFrameTime      time.Duration `json:"lastFrameTime"`
+	LastFrameTimestamp time.Time     `json:"lastFrameTimestamp"`
+	LastDrawTime       time.Duration `json:"lastDrawTime"`
+	LastLayoutTime     time.Duration `json:"lastLayoutTime"`
+	LastEventTime      time.Duration `json:"lastEventTime"`
+	ElementCount       int           `json:"elementCount"`
+	AnimationCount     int           `json:"animationCount"`
+	DirtyElementCount  int           `json:"dirtyElementCount"`
+	EventListenerCount int           `json:"eventListenerCount"`
+}
+
+func (e *Engine) GetPerfMetrics() PerfMetrics {
+	e.perf.ElementCount = e.countElements(e.rootElement)
+	e.perf.AnimationCount = len(e.animations)
+	e.perf.DirtyElementCount = len(e.dirtyElements)
+	if e.eventRegistry != nil {
+		e.perf.EventListenerCount = e.countEventListeners()
+	}
+	return e.perf
+}
+
+func (e *Engine) countElements(el Element) int {
+	if el == nil {
+		return 0
+	}
+	count := 1
+	for _, child := range el.GetChildren() {
+		count += e.countElements(child)
+	}
+	return count
+}
+
+func (e *Engine) countEventListeners() int {
+	if e.eventRegistry == nil {
+		return 0
+	}
+	info := e.eventRegistry.DebugInfo()
+	total := 0
+	for _, l := range info {
+		total += l.Count
+	}
+	return total
+}
+
+// ==================== 生命周期追踪 ====================
+
+type LifecycleLog struct {
+	Timestamp   time.Time `json:"timestamp"`
+	Action      string    `json:"action"`
+	ElementType string    `json:"elementType"`
+	ElementKey  string    `json:"elementKey,omitempty"`
+}
+
+func (e *Engine) recordLifecycle(action string, el Element) {
+	if e.maxLifecycleLog == 0 {
+		return
+	}
+	entry := LifecycleLog{
+		Timestamp:   time.Now(),
+		Action:      action,
+		ElementType: el.ElementType(),
+		ElementKey:  el.GetKey(),
+	}
+	e.lifecycleLogs = append(e.lifecycleLogs, entry)
+	if len(e.lifecycleLogs) > e.maxLifecycleLog {
+		e.lifecycleLogs = e.lifecycleLogs[len(e.lifecycleLogs)-e.maxLifecycleLog:]
+	}
+}
+
+func (e *Engine) GetLifecycleLogs() []LifecycleLog {
+	return e.lifecycleLogs
+}
+
+// GetEventRegistryDebugInfo 返回事件注册表的调试信息。
+func (e *Engine) GetEventRegistryDebugInfo() []DebugListenerInfo {
+	if e.eventRegistry == nil {
+		return nil
+	}
+	return e.eventRegistry.DebugInfo()
+}
+
+// GetEventListenersForElement 返回指定元素的事件监听器信息。
+func (e *Engine) GetEventListenersForElement(el Element) []DebugListenerInfo {
+	if e.eventRegistry == nil || el == nil {
+		return nil
+	}
+	return e.eventRegistry.DebugListenersForElement(el)
+}
