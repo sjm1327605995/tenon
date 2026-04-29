@@ -36,13 +36,7 @@ func (pb *ProgressBar) ElementType() string { return "ProgressBar" }
 
 // Draw renders the track and fill.
 func (pb *ProgressBar) Draw(screen *ebiten.Image) {
-	if !pb.IsVisible() {
-		return
-	}
 	bounds := pb.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	// Track
 	pb.drawRoundedRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, pb.trackColor)
@@ -116,30 +110,33 @@ func (pb *ProgressBar) SetBorderRadius(radius float32) *ProgressBar {
 	return pb
 }
 
+// DebugProps returns visual properties for debugger preview.
+func (pb *ProgressBar) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	if pb.trackColor != nil {
+		props["backgroundColor"] = colorToCSS(pb.trackColor)
+	}
+	if pb.fillColor != nil {
+		props["fillColor"] = colorToCSS(pb.fillColor)
+	}
+	props["progress"] = pb.progress
+	if pb.borderRadius > 0 {
+		props["borderRadius"] = pb.borderRadius
+	}
+	return props
+}
+
 // SyncFrom 同步新 ProgressBar 的属性到当前 Element（声明式重建）。
 func (pb *ProgressBar) SyncFrom(src core.Element) {
 	other, ok := src.(*ProgressBar)
 	if !ok {
 		return
 	}
-	needDraw := false
-	if pb.progress != other.progress {
-		pb.progress = other.progress
-		needDraw = true
-	}
-	if !colorsEqual(pb.trackColor, other.trackColor) {
-		pb.trackColor = other.trackColor
-		needDraw = true
-	}
-	if !colorsEqual(pb.fillColor, other.fillColor) {
-		pb.fillColor = other.fillColor
-		needDraw = true
-	}
-	if pb.borderRadius != other.borderRadius {
-		pb.borderRadius = other.borderRadius
-		needDraw = true
-	}
-	if needDraw {
-		pb.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &pb.progress, other.progress)
+	syncColor(sb, &pb.trackColor, other.trackColor)
+	syncColor(sb, &pb.fillColor, other.fillColor)
+	syncField(sb, &pb.borderRadius, other.borderRadius)
+	sb.MarkDraw(pb)
 }
+

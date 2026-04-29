@@ -3,8 +3,6 @@ package core
 import (
 	"reflect"
 	"sync"
-
-	"github.com/hajimehoshi/ebiten/v2"
 )
 
 // EventCallback 是事件监听回调函数签名。
@@ -503,7 +501,3 @@ func (e *Engine) RegisterLegacyHandler(el Element) {
 	}
 }
 
-// IsKeyPressed 是 ebiten.IsKeyPressed 的包装，便于组件使用。
-func IsKeyPressed(key ebiten.Key) bool {
-	return ebiten.IsKeyPressed(key)
-}

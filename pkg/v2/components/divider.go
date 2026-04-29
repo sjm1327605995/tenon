@@ -32,13 +32,7 @@ func (d *Divider) ElementType() string { return "Divider" }
 
 // Draw renders the divider.
 func (d *Divider) Draw(screen *ebiten.Image) {
-	if !d.IsVisible() {
-		return
-	}
 	bounds := d.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	centerY := bounds.Y + bounds.Height/2 - d.thickness/2
 	vector.FillRect(screen, bounds.X, centerY, bounds.Width, d.thickness, d.clr, false)
 }

@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
 	"github.com/sjm1327605995/tenon/yoga"
@@ -64,20 +63,14 @@ func (m *Modal) ElementType() string { return "Modal" }
 
 // Draw renders the backdrop mask.
 func (m *Modal) Draw(screen *ebiten.Image) {
-	if !m.IsVisible() {
-		return
-	}
 	bounds := m.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	//存在painc情况
 	vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, m.maskColor, false)
 }
 
 // Update handles ESC key to close.
 func (m *Modal) Update() error {
-	if m.IsVisible() && m.closeOnEsc && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+	if m.IsVisible() && m.closeOnEsc && core.IsKeyJustPressed(core.KeyEscape) {
 		m.Close()
 	}
 	return nil
@@ -157,20 +150,11 @@ func (m *Modal) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	if m.closeOnMask != other.closeOnMask {
-		m.closeOnMask = other.closeOnMask
-	}
-	if m.closeOnEsc != other.closeOnEsc {
-		m.closeOnEsc = other.closeOnEsc
-	}
-	if !colorsEqual(m.maskColor, other.maskColor) {
-		m.maskColor = other.maskColor
-		needDraw = true
-	}
-	if needDraw {
-		m.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &m.closeOnMask, other.closeOnMask)
+	syncField(sb, &m.closeOnEsc, other.closeOnEsc)
+	syncColor(sb, &m.maskColor, other.maskColor)
+	sb.MarkDraw(m)
 }
 
 // SetMaskColor sets the backdrop color.
@@ -186,3 +170,4 @@ func (m *Modal) SetPanelSize(width, height float32) *Modal {
 	m.panel.SetHeight(height)
 	return m
 }
+

@@ -39,6 +39,38 @@ func max(a, b float32) float32 {
 	return b
 }
 
+// SyncBuilder 辅助声明式重建时同步组件属性，消除 needDraw 样板代码。
+type SyncBuilder struct {
+	NeedDraw bool
+}
+
+// MarkDraw 在 NeedDraw 为 true 时标记元素需要重绘。
+func (s *SyncBuilder) MarkDraw(el core.Element) {
+	if s != nil && s.NeedDraw {
+		el.Mark(core.FlagNeedDraw)
+	}
+}
+
+// syncField 同步可比较字段，值变化时设置 NeedDraw。
+func syncField[T comparable](s *SyncBuilder, dst *T, src T) {
+	if *dst != src {
+		*dst = src
+		if s != nil {
+			s.NeedDraw = true
+		}
+	}
+}
+
+// syncColor 同步 color.Color，值变化时设置 NeedDraw。
+func syncColor(s *SyncBuilder, dst *color.Color, src color.Color) {
+	if !colorsEqual(*dst, src) {
+		*dst = src
+		if s != nil {
+			s.NeedDraw = true
+		}
+	}
+}
+
 // colorsEqual 比较两个 color.Color 是否相等。
 func colorsEqual(a, b color.Color) bool {
 	if a == b {

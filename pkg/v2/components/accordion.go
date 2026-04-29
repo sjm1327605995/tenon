@@ -97,7 +97,7 @@ func (a *Accordion) toggle(idx int) {
 	}
 	a.expanded[idx] = !a.expanded[idx]
 	a.contentMap[idx].SetVisible(a.expanded[idx])
-	a.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	a.Mark(core.FlagNeedLayout)
 }
 
 // Expand opens a specific item.

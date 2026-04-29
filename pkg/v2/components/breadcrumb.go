@@ -59,7 +59,7 @@ func (b *Breadcrumb) SetItems(items []BreadcrumbItem) *Breadcrumb {
 	b.items = items
 	b.ClearChildren()
 	b.buildItems()
-	b.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	b.Mark(core.FlagNeedLayout)
 	return b
 }
 
@@ -68,6 +68,6 @@ func (b *Breadcrumb) SetSeparator(sep string) *Breadcrumb {
 	b.sepText = sep
 	b.ClearChildren()
 	b.buildItems()
-	b.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	b.Mark(core.FlagNeedLayout)
 	return b
 }

@@ -135,20 +135,12 @@ func (lv *ListView) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	if lv.selectedIdx != other.selectedIdx {
-		lv.selectedIdx = other.selectedIdx
-		needDraw = true
-	}
-	if !colorsEqual(lv.bgNormal, other.bgNormal) || !colorsEqual(lv.bgSelected, other.bgSelected) || !colorsEqual(lv.bgHover, other.bgHover) {
-		lv.bgNormal = other.bgNormal
-		lv.bgSelected = other.bgSelected
-		lv.bgHover = other.bgHover
-		needDraw = true
-	}
-	if needDraw {
-		lv.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &lv.selectedIdx, other.selectedIdx)
+	syncColor(sb, &lv.bgNormal, other.bgNormal)
+	syncColor(sb, &lv.bgSelected, other.bgSelected)
+	syncColor(sb, &lv.bgHover, other.bgHover)
+	sb.MarkDraw(lv)
 }
 
 // ScrollView returns the internal scroll view for advanced customization.
@@ -171,13 +163,7 @@ func newListItemWrapper(lv *ListView, content core.Element, index int) *listItem
 func (w *listItemWrapper) ElementType() string { return "ListItem" }
 
 func (w *listItemWrapper) Draw(screen *ebiten.Image) {
-	if !w.IsVisible() {
-		return
-	}
 	bounds := w.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	var bg color.Color
 	if w.listView.selectedIdx == w.index && w.listView.bgSelected != nil {

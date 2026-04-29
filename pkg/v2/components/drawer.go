@@ -62,13 +62,7 @@ func (d *Drawer) ElementType() string { return "Drawer" }
 
 // Draw renders the backdrop mask.
 func (d *Drawer) Draw(screen *ebiten.Image) {
-	if !d.IsVisible() {
-		return
-	}
 	bounds := d.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, d.maskColor, false)
 }
 

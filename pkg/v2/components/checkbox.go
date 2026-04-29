@@ -49,13 +49,7 @@ func (cb *Checkbox) ElementType() string { return "Checkbox" }
 
 // Draw renders the checkbox box and checkmark.
 func (cb *Checkbox) Draw(screen *ebiten.Image) {
-	if !cb.IsVisible() {
-		return
-	}
 	bounds := cb.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	boxY := bounds.Y + (bounds.Height-cb.boxSize)/2
 	boxX := bounds.X
@@ -137,36 +131,36 @@ func (cb *Checkbox) SetChecked(checked bool) *Checkbox {
 	return cb
 }
 
+// DebugProps returns visual properties for debugger preview.
+func (cb *Checkbox) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["checked"] = cb.checked
+	props["boxSize"] = cb.boxSize
+	if cb.borderColor != nil {
+		props["borderColor"] = colorToCSS(cb.borderColor)
+	}
+	if cb.checked && cb.fillColor != nil {
+		props["backgroundColor"] = colorToCSS(cb.fillColor)
+	}
+	if cb.checkColor != nil {
+		props["checkColor"] = colorToCSS(cb.checkColor)
+	}
+	return props
+}
+
 // SyncFrom 同步新 Checkbox 的属性到当前 Element（声明式重建）。
 func (cb *Checkbox) SyncFrom(src core.Element) {
 	other, ok := src.(*Checkbox)
 	if !ok {
 		return
 	}
-	needDraw := false
-	if cb.checked != other.checked {
-		cb.checked = other.checked
-		needDraw = true
-	}
-	if cb.boxSize != other.boxSize {
-		cb.boxSize = other.boxSize
-		needDraw = true
-	}
-	if !colorsEqual(cb.borderColor, other.borderColor) {
-		cb.borderColor = other.borderColor
-		needDraw = true
-	}
-	if !colorsEqual(cb.fillColor, other.fillColor) {
-		cb.fillColor = other.fillColor
-		needDraw = true
-	}
-	if !colorsEqual(cb.checkColor, other.checkColor) {
-		cb.checkColor = other.checkColor
-		needDraw = true
-	}
-	if needDraw {
-		cb.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &cb.checked, other.checked)
+	syncField(sb, &cb.boxSize, other.boxSize)
+	syncColor(sb, &cb.borderColor, other.borderColor)
+	syncColor(sb, &cb.fillColor, other.fillColor)
+	syncColor(sb, &cb.checkColor, other.checkColor)
+	sb.MarkDraw(cb)
 }
 
 // SetOnChange sets the change callback.
@@ -218,3 +212,4 @@ func (cb *Checkbox) SetFontSize(size float64) *Checkbox {
 	}
 	return cb
 }
+

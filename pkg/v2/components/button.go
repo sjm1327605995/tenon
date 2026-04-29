@@ -32,6 +32,8 @@ const (
 )
 
 // Button is an interactive button element with Shadcn/UI-inspired styling.
+// Visual properties (background, border, radius) are delegated to the internal
+// bgEl (View) so the debugger preview can reflect them without custom Draw.
 type Button struct {
 	core.BaseElement
 	state        ButtonState
@@ -45,6 +47,7 @@ type Button struct {
 	borderRadius float32
 	loading      bool
 	disabled     bool
+	bgEl         *View
 	labelEl      *Text
 }
 
@@ -61,12 +64,19 @@ func NewButton(label string) *Button {
 		borderRadius: theme.ButtonBorderRadius,
 	}
 	b.Init(b)
-	b.BaseElement.SetPadding(yoga.EdgeHorizontal, 16)
-	b.BaseElement.SetPadding(yoga.EdgeVertical, 10)
-	b.SetJustifyContent(yoga.JustifyCenter)
-	b.SetAlignItems(yoga.AlignCenter)
+
+	b.bgEl = NewView()
+	b.bgEl.SetFlexGrow(1)
+	b.bgEl.SetPadding(yoga.EdgeHorizontal, 16)
+	b.bgEl.SetPadding(yoga.EdgeVertical, 10)
+	b.bgEl.SetJustifyContent(yoga.JustifyCenter)
+	b.bgEl.SetAlignItems(yoga.AlignCenter)
+	b.bgEl.SetBorderRadius(theme.ButtonBorderRadius)
+	b.bgEl.SetBackgroundColor(b.normalColor)
+
 	b.labelEl = NewText(label).SetColor(b.textColor)
-	b.AppendChild(b.labelEl)
+	b.bgEl.Add(b.labelEl)
+	b.AppendChild(b.bgEl)
 	return b
 }
 
@@ -79,91 +89,40 @@ func (b *Button) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	// 同步标签（通过内部 Text 的 SyncFrom 自动处理，这里只处理 Button 特有属性）
-	if b.loading != other.loading {
-		b.loading = other.loading
-		needDraw = true
+	sb := &SyncBuilder{}
+	syncField(sb, &b.loading, other.loading)
+	syncField(sb, &b.disabled, other.disabled)
+	syncColor(sb, &b.normalColor, other.normalColor)
+	syncColor(sb, &b.hoverColor, other.hoverColor)
+	syncColor(sb, &b.pressedColor, other.pressedColor)
+	syncColor(sb, &b.textColor, other.textColor)
+	if b.bgEl != nil {
+		b.applyBgColors()
 	}
-	if b.disabled != other.disabled {
-		b.disabled = other.disabled
-		needDraw = true
-	}
-	if !colorsEqual(b.normalColor, other.normalColor) || !colorsEqual(b.hoverColor, other.hoverColor) ||
-		!colorsEqual(b.pressedColor, other.pressedColor) || !colorsEqual(b.textColor, other.textColor) {
-		b.normalColor = other.normalColor
-		b.hoverColor = other.hoverColor
-		b.pressedColor = other.pressedColor
-		b.textColor = other.textColor
-		needDraw = true
-	}
-	if needDraw {
-		b.Mark(core.FlagNeedDraw)
-	}
+	sb.MarkDraw(b)
 }
 
-// Draw renders button background.
+// Draw renders loading spinner only; background/border are handled by bgEl (View).
 func (b *Button) Draw(screen *ebiten.Image) {
-	if !b.IsVisible() {
-		return
-	}
-	bounds := b.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
-
-	// Background color based on state
-	var bg color.Color
-	var borderClr color.Color
-	switch b.state {
-	case ButtonHover:
-		bg = b.hoverColor
-	case ButtonPressed:
-		bg = b.pressedColor
-	default:
-		bg = b.normalColor
-	}
-	borderClr = b.borderColor
-
-	if b.disabled {
-		bg = core.GetTheme().ButtonDisabledColor
-		if b.variant == ButtonOutline || b.variant == ButtonGhost || b.variant == ButtonLink {
-			bg = nil
-		}
-	}
-
-	br := core.BorderRadius{
-		TopLeft: b.borderRadius, TopRight: b.borderRadius,
-		BottomRight: b.borderRadius, BottomLeft: b.borderRadius,
-	}
-
-	if bg != nil {
-		drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, br, bg)
-	}
-	if borderClr != nil && !b.disabled {
-		drawRoundedRectStroke(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, br, 1, borderClr)
-	}
-
-	// Loading spinner
 	if b.loading {
-		b.drawLoading(screen, bounds)
+		b.drawLoading(screen, b.GetBounds())
 	}
 }
 
-// Update syncs hover state with engine's hoverTarget.
+// Update syncs hover state with engine's hoverTarget and updates bgEl colors.
 func (b *Button) Update() error {
 	if b.disabled {
 		return nil
 	}
 	newState := ButtonNormal
-	if b.state == ButtonPressed && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	if b.state == ButtonPressed && core.IsMouseButtonPressed(core.MouseButtonLeft) {
 		newState = ButtonPressed
 	} else if b.GetEngine() != nil && b.isHovered() {
 		newState = ButtonHover
 	}
 	if newState != b.state {
 		b.state = newState
-		b.Mark(core.FlagNeedDraw)
+		b.applyBgColors()
 	}
 	return nil
 }
@@ -186,7 +145,7 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 	switch e.Type {
 	case core.EventMouseDown:
 		b.state = ButtonPressed
-		b.Mark(core.FlagNeedDraw)
+		b.applyBgColors()
 		return true
 	case core.EventMouseUp:
 		bounds := b.GetBounds()
@@ -196,7 +155,7 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 		} else {
 			b.state = ButtonNormal
 		}
-		b.Mark(core.FlagNeedDraw)
+		b.applyBgColors()
 		return true
 	case core.EventClick:
 		if b.onClick != nil {
@@ -205,6 +164,32 @@ func (b *Button) HandleEvent(e *core.Event) bool {
 		return true
 	}
 	return false
+}
+
+// applyBgColors updates bgEl background/border based on current state.
+func (b *Button) applyBgColors() {
+	if b.bgEl == nil {
+		return
+	}
+	var bg color.Color
+	var borderClr color.Color
+	switch b.state {
+	case ButtonHover:
+		bg = b.hoverColor
+	case ButtonPressed:
+		bg = b.pressedColor
+	default:
+		bg = b.normalColor
+	}
+	borderClr = b.borderColor
+	if b.disabled {
+		bg = core.GetTheme().ButtonDisabledColor
+		if b.variant == ButtonOutline || b.variant == ButtonGhost || b.variant == ButtonLink {
+			bg = nil
+		}
+	}
+	b.bgEl.SetBackgroundColor(bg)
+	b.bgEl.SetBorderColor(borderClr)
 }
 
 // setVariantColors updates colors based on the current variant and theme.
@@ -264,7 +249,7 @@ func (b *Button) setVariantColors() {
 	if b.labelEl != nil {
 		b.labelEl.SetColor(b.textColor)
 	}
-	b.Mark(core.FlagNeedDraw)
+	b.applyBgColors()
 }
 
 // Chain API
@@ -293,7 +278,7 @@ func (b *Button) SetLoading(loading bool) *Button {
 
 func (b *Button) SetDisabled(disabled bool) *Button {
 	b.disabled = disabled
-	b.Mark(core.FlagNeedDraw)
+	b.applyBgColors()
 	return b
 }
 
@@ -307,13 +292,15 @@ func (b *Button) SetColors(normal, hover, pressed color.Color) *Button {
 	b.normalColor = normal
 	b.hoverColor = hover
 	b.pressedColor = pressed
-	b.Mark(core.FlagNeedDraw)
+	b.applyBgColors()
 	return b
 }
 
 func (b *Button) SetBorderRadius(r float32) *Button {
 	b.borderRadius = r
-	b.Mark(core.FlagNeedDraw)
+	if b.bgEl != nil {
+		b.bgEl.SetBorderRadius(r)
+	}
 	return b
 }
 
@@ -336,32 +323,4 @@ func (b *Button) drawLoading(screen *ebiten.Image, bounds core.LayoutBounds) {
 	op := &vector.DrawPathOptions{}
 	op.ColorScale.ScaleWithColor(clr)
 	vector.StrokePath(screen, &path, strokeOp, op)
-}
-
-func (b *Button) DebugProps() map[string]interface{} {
-	props := make(map[string]interface{})
-	variantNames := []string{"default", "secondary", "outline", "ghost", "destructive", "link"}
-	if int(b.variant) < len(variantNames) {
-		props["variant"] = variantNames[b.variant]
-	}
-	stateNames := []string{"normal", "hover", "pressed"}
-	if int(b.state) < len(stateNames) {
-		props["state"] = stateNames[b.state]
-	}
-	if b.labelEl != nil {
-		props["label"] = b.labelEl.content
-	}
-	if b.normalColor != nil {
-		props["normalColor"] = colorToCSS(b.normalColor)
-	}
-	if b.textColor != nil {
-		props["textColor"] = colorToCSS(b.textColor)
-	}
-	if b.borderColor != nil {
-		props["borderColor"] = colorToCSS(b.borderColor)
-	}
-	props["borderRadius"] = b.borderRadius
-	props["disabled"] = b.disabled
-	props["loading"] = b.loading
-	return props
 }

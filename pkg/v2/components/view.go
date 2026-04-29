@@ -32,47 +32,33 @@ func NewView() *View {
 // ElementType returns type identifier.
 func (v *View) ElementType() string { return "View" }
 
+// IsNative returns true as View is a native rendering component.
+func (v *View) IsNative() bool { return true }
+
 // SyncFrom 同步新 View 的属性到当前 Element（声明式重建）。
 func (v *View) SyncFrom(src core.Element) {
 	other, ok := src.(*View)
 	if !ok {
 		return
 	}
-	needDraw := false
-	if !colorsEqual(v.backgroundColor, other.backgroundColor) {
-		v.backgroundColor = other.backgroundColor
-		needDraw = true
-	}
-	if !colorsEqual(v.borderColor, other.borderColor) {
-		v.borderColor = other.borderColor
-		needDraw = true
-	}
+	sb := &SyncBuilder{}
+	syncColor(sb, &v.backgroundColor, other.backgroundColor)
+	syncColor(sb, &v.borderColor, other.borderColor)
 	if !colorsEqual(v.shadowColor, other.shadowColor) || v.shadowBlur != other.shadowBlur ||
 		v.shadowOffsetX != other.shadowOffsetX || v.shadowOffsetY != other.shadowOffsetY {
 		v.shadowColor = other.shadowColor
 		v.shadowBlur = other.shadowBlur
 		v.shadowOffsetX = other.shadowOffsetX
 		v.shadowOffsetY = other.shadowOffsetY
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if v.borderRadius != other.borderRadius {
-		v.borderRadius = other.borderRadius
-		needDraw = true
-	}
-	if needDraw {
-		v.Mark(core.FlagNeedDraw)
-	}
+	syncField(sb, &v.borderRadius, other.borderRadius)
+	sb.MarkDraw(v)
 }
 
 // Draw renders background, shadow and border.
 func (v *View) Draw(screen *ebiten.Image) {
-	if !v.IsVisible() {
-		return
-	}
 	bounds := v.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	t := v.GetTransform()
 	if !t.IsIdentity() {

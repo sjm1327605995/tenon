@@ -112,19 +112,19 @@ type Theme struct {
 }
 
 var defaultTheme *Theme
-var activeEngine *Engine
+var themeChangeNotifier func()
 
 // SetTheme 设置全局默认主题，并自动触发所有已挂载 Widget 的重渲染。
 func SetTheme(t *Theme) {
 	defaultTheme = t
-	if activeEngine != nil {
-		activeEngine.RequestRedrawAll()
+	if themeChangeNotifier != nil {
+		themeChangeNotifier()
 	}
 }
 
-// setActiveEngine 由 Engine.Mount 调用，注册当前活跃的引擎实例。
-func setActiveEngine(e *Engine) {
-	activeEngine = e
+// setThemeChangeNotifier 由 Engine.Mount 调用，注册主题变更通知器。
+func setThemeChangeNotifier(fn func()) {
+	themeChangeNotifier = fn
 }
 
 // GetTheme 返回当前全局主题，若未设置则返回默认浅色主题。

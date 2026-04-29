@@ -50,6 +50,9 @@ func NewText(content string) *Text {
 // ElementType returns type identifier.
 func (t *Text) ElementType() string { return "Text" }
 
+// IsNative returns true as Text is a native rendering component.
+func (t *Text) IsNative() bool { return true }
+
 // SyncFrom 同步新 Text 的属性到当前 Element（声明式重建）。
 func (t *Text) SyncFrom(src core.Element) {
 	other, ok := src.(*Text)
@@ -138,13 +141,10 @@ func (t *Text) measure(node *yoga.Node, width float32, widthMode yoga.MeasureMod
 
 // Draw renders the text.
 func (t *Text) Draw(screen *ebiten.Image) {
-	if !t.IsVisible() || t.content == "" {
+	if t.content == "" {
 		return
 	}
 	bounds := t.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	face := t.getFace()
 	if face == nil {

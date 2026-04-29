@@ -88,14 +88,14 @@ func (c *Command) renderList() {
 		}
 		c.list.Add(row)
 	}
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 }
 
 // Open shows the command palette.
 func (c *Command) Open() *Command {
 	c.isOpen = true
 	c.SetVisible(true)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }
 

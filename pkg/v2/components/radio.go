@@ -48,13 +48,7 @@ func (r *Radio) ElementType() string { return "Radio" }
 
 // Draw renders the radio circle and inner dot.
 func (r *Radio) Draw(screen *ebiten.Image) {
-	if !r.IsVisible() {
-		return
-	}
 	bounds := r.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	centerY := bounds.Y + bounds.Height/2
 	centerX := bounds.X + r.boxSize/2
@@ -94,36 +88,36 @@ func (r *Radio) SetSelected(selected bool) *Radio {
 	return r
 }
 
+// DebugProps returns visual properties for debugger preview.
+func (r *Radio) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	props["selected"] = r.selected
+	props["boxSize"] = r.boxSize
+	if r.borderColor != nil {
+		props["borderColor"] = colorToCSS(r.borderColor)
+	}
+	if r.selected && r.fillColor != nil {
+		props["backgroundColor"] = colorToCSS(r.fillColor)
+	}
+	if r.innerColor != nil {
+		props["innerColor"] = colorToCSS(r.innerColor)
+	}
+	return props
+}
+
 // SyncFrom 同步新 Radio 的属性到当前 Element（声明式重建）。
 func (r *Radio) SyncFrom(src core.Element) {
 	other, ok := src.(*Radio)
 	if !ok {
 		return
 	}
-	needDraw := false
-	if r.selected != other.selected {
-		r.selected = other.selected
-		needDraw = true
-	}
-	if r.boxSize != other.boxSize {
-		r.boxSize = other.boxSize
-		needDraw = true
-	}
-	if !colorsEqual(r.borderColor, other.borderColor) {
-		r.borderColor = other.borderColor
-		needDraw = true
-	}
-	if !colorsEqual(r.fillColor, other.fillColor) {
-		r.fillColor = other.fillColor
-		needDraw = true
-	}
-	if !colorsEqual(r.innerColor, other.innerColor) {
-		r.innerColor = other.innerColor
-		needDraw = true
-	}
-	if needDraw {
-		r.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &r.selected, other.selected)
+	syncField(sb, &r.boxSize, other.boxSize)
+	syncColor(sb, &r.borderColor, other.borderColor)
+	syncColor(sb, &r.fillColor, other.fillColor)
+	syncColor(sb, &r.innerColor, other.innerColor)
+	sb.MarkDraw(r)
 }
 
 // SetOnChange sets the change callback.
@@ -175,3 +169,4 @@ func (r *Radio) SetFontSize(size float64) *Radio {
 	}
 	return r
 }
+

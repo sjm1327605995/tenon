@@ -5,49 +5,110 @@ import (
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// Element 是持久化的渲染节点接口。
-// View、Text、Button 等 Native 组件直接实现此接口。
-type Element interface {
-	// === 树关系 ===
+// === 可组合子接口 ===
+
+// TreeNode 提供树遍历能力。
+type TreeNode interface {
 	GetParent() Element
 	SetParent(p Element)
 	GetChildren() []Element
 	AppendChild(child Element)
 	RemoveChild(child Element)
 	ClearChildren()
+}
 
-	// === Yoga / 布局 ===
-	GetYoga() *yoga.Node
+// BoundsAccessor 读写布局边界。
+type BoundsAccessor interface {
 	GetBounds() LayoutBounds
 	SetBounds(b LayoutBounds)
+}
 
-	// === 绘制 / 事件 / 更新 ===
+// Drawable 负责绘制与帧更新。
+type Drawable interface {
 	Draw(screen *ebiten.Image)
-	HandleEvent(e *Event) bool
 	Update() error
+}
 
-	// === 生命周期 ===
+// EventTarget 处理输入事件。
+type EventTarget interface {
+	HandleEvent(e *Event) bool
+}
+
+// Lifecycle 管理元素挂载/卸载。
+type Lifecycle interface {
 	OnMount(engine *Engine)
 	OnUnmount()
+	FlushDelayedListeners()
+}
 
-	// === 脏标记 ===
+// DirtyTracker 脏标记管理。
+type DirtyTracker interface {
 	Mark(flags ElementFlags)
 	GetFlags() ElementFlags
 	ClearDirty()
 	HasFlag(f ElementFlags) bool
+}
 
-	// === 类型与标识 ===
+// Identifiable 类型与键标识。
+type Identifiable interface {
 	ElementType() string
 	SetKey(key string)
 	GetKey() string
+}
 
-	// === 样式标签 ===
-	SetTag(tag string)
-	GetTag() string
-	SetClass(classes ...string) Element
-	GetClass() []string
+// EngineAware 持有引擎引用。
+type EngineAware interface {
+	SetEngine(engine *Engine)
+	GetEngine() *Engine
+}
 
-	// === 链式布局 API ===
+// Transformable 几何变换。
+type Transformable interface {
+	GetTransform() Transform
+	SetTransform(t Transform)
+	SetRotation(deg float32) Element
+	SetScale(x, y float32) Element
+	SetSkew(x, y float32) Element
+	SetAlpha(a float32) Element
+	SetOrigin(x, y float32) Element
+}
+
+// PointerTarget 指针事件策略。
+type PointerTarget interface {
+	GetPointerEvents() PointerEvents
+	SetPointerEvents(v PointerEvents) Element
+}
+
+// Contextual 上下文存储。
+type Contextual interface {
+	SetContext(key string, val interface{})
+	GetContext(key string) interface{}
+}
+
+// EventListener 事件注册。
+type EventListener interface {
+	OnClick(callback EventCallback) Element
+	OnMouseDown(callback EventCallback) Element
+	OnMouseUp(callback EventCallback) Element
+	OnMouseMove(callback EventCallback) Element
+	OnMouseEnter(callback EventCallback) Element
+	OnMouseLeave(callback EventCallback) Element
+	OnScroll(callback EventCallback) Element
+	OnFocusIn(callback EventCallback) Element
+	OnFocusOut(callback EventCallback) Element
+	OnKeyDown(callback EventCallback) Element
+	OnKeyUp(callback EventCallback) Element
+	RemoveOnClick(callback EventCallback) Element
+}
+
+// Debuggable 调试信息。
+type Debuggable interface {
+	DebugInfo() DebugNode
+	DebugProps() map[string]interface{}
+}
+
+// Layoutable 链式布局 API。
+type Layoutable interface {
 	SetWidth(v float32) Element
 	SetWidthPercent(v float32) Element
 	SetHeight(v float32) Element
@@ -74,50 +135,55 @@ type Element interface {
 	SetOverflow(v yoga.Overflow) Element
 	SetGap(gutter yoga.Gutter, v float32) Element
 	Add(children ...Element) Element
+}
+
+// Visible 可见性控制。
+type Visible interface {
 	SetVisible(v bool) Element
 	IsVisible() bool
+}
 
-	// === Engine ===
-	SetEngine(engine *Engine)
-	GetEngine() *Engine
+// NativeMarker 标记 Native 组件。
+type NativeMarker interface {
+	// IsNative 返回 true 表示该元素是最细粒度的 Native 渲染组件，
+	// 负责实际的绘制工作。复合组件应返回 false，将绘制委托给子 Native 组件。
+	IsNative() bool
+}
 
-	// === Transform ===
-	GetTransform() Transform
-	SetTransform(t Transform)
-	SetRotation(deg float32) Element
-	SetScale(x, y float32) Element
-	SetSkew(x, y float32) Element
-	SetAlpha(a float32) Element
-	SetOrigin(x, y float32) Element
+// Element 是持久化的渲染节点核心接口，由上述可组合子接口聚合而成。
+// View、Text、Button 等所有组件直接实现此接口。
+type Element interface {
+	TreeNode
+	BoundsAccessor
+	Drawable
+	Lifecycle
+	DirtyTracker
+	Identifiable
+	EngineAware
+	Transformable
+	PointerTarget
+	Contextual
+	EventListener
+	Debuggable
+	Layoutable
+	Visible
+	NativeMarker
+	EventTarget
+}
 
-	// === 指针事件 ===
-	GetPointerEvents() PointerEvents
-	SetPointerEvents(v PointerEvents) Element
+// LayoutElement 包含 Yoga 布局节点访问。
+// 所有内嵌 BaseElement 的类型均自动实现此接口。
+type LayoutElement interface {
+	GetYoga() *yoga.Node
+}
 
-	// === Context ===
-	SetContext(key string, val interface{})
-	GetContext(key string) interface{}
-
-	// === 事件监听（注册器模式）===
-	OnClick(callback EventCallback) Element
-	OnMouseDown(callback EventCallback) Element
-	OnMouseUp(callback EventCallback) Element
-	OnMouseMove(callback EventCallback) Element
-	OnMouseEnter(callback EventCallback) Element
-	OnMouseLeave(callback EventCallback) Element
-	OnScroll(callback EventCallback) Element
-	OnFocusIn(callback EventCallback) Element
-	OnFocusOut(callback EventCallback) Element
-	OnKeyDown(callback EventCallback) Element
-	OnKeyUp(callback EventCallback) Element
-	RemoveOnClick(callback EventCallback) Element
-
-	// === 框架内部 ===
-	FlushDelayedListeners()
-
-	// === 调试 ===
-	DebugInfo() DebugNode
-	DebugProps() map[string]interface{}
+// StyledElement 包含样式标签相关方法。
+// 所有内嵌 BaseElement 的类型均自动实现此接口。
+type StyledElement interface {
+	SetTag(tag string)
+	GetTag() string
+	SetClass(classes ...string) Element
+	GetClass() []string
 }
 
 // ElementFlags 使用 uint64 bitmap 打包所有状态标志。
@@ -144,6 +210,11 @@ type LayoutBounds struct {
 	Y      float32 `json:"y"`
 	Width  float32 `json:"width"`
 	Height float32 `json:"height"`
+}
+
+// Contains 判断点 (x, y) 是否在边界内。
+func (b LayoutBounds) Contains(x, y float32) bool {
+	return x >= b.X && x < b.X+b.Width && y >= b.Y && y < b.Y+b.Height
 }
 
 // BorderRadius 描述四个角的圆角半径。
@@ -271,13 +342,19 @@ func (b *BaseElement) AppendChild(child Element) {
 		child.GetParent().RemoveChild(child)
 	}
 	// 防御性检查：如果 yoga 节点仍有 owner，尝试从旧 owner 释放
-	if child.GetYoga() != nil && child.GetYoga().GetOwner() != nil {
-		child.GetYoga().GetOwner().RemoveChild(child.GetYoga())
+	if layoutChild, ok := child.(LayoutElement); ok {
+		if yoga := layoutChild.GetYoga(); yoga != nil && yoga.GetOwner() != nil {
+			yoga.GetOwner().RemoveChild(yoga)
+		}
 	}
 	child.SetParent(b.self)
 	b.children = append(b.children, child)
-	if b.yoga != nil && child.GetYoga() != nil {
-		b.yoga.InsertChild(child.GetYoga(), b.yoga.GetChildCount())
+	if b.yoga != nil {
+		if layoutChild, ok := child.(LayoutElement); ok {
+			if yoga := layoutChild.GetYoga(); yoga != nil {
+				b.yoga.InsertChild(yoga, b.yoga.GetChildCount())
+			}
+		}
 	}
 	if b.engine != nil {
 		b.engine.onElementMounted(child)
@@ -289,8 +366,12 @@ func (b *BaseElement) RemoveChild(child Element) {
 		if c == child {
 			b.children = append(b.children[:i], b.children[i+1:]...)
 			child.SetParent(nil)
-			if b.yoga != nil && child.GetYoga() != nil {
-				b.yoga.RemoveChild(child.GetYoga())
+			if b.yoga != nil {
+				if layoutChild, ok := child.(LayoutElement); ok {
+					if yoga := layoutChild.GetYoga(); yoga != nil {
+						b.yoga.RemoveChild(yoga)
+					}
+				}
 			}
 			if b.engine != nil {
 				b.engine.recordLifecycle("unmount", child)
@@ -308,8 +389,12 @@ func (b *BaseElement) ClearChildren() {
 			b.engine.recordLifecycle("unmount", c)
 		}
 		c.OnUnmount()
-		if b.yoga != nil && c.GetYoga() != nil {
-			b.yoga.RemoveChild(c.GetYoga())
+		if b.yoga != nil {
+			if layoutChild, ok := c.(LayoutElement); ok {
+				if yoga := layoutChild.GetYoga(); yoga != nil {
+					b.yoga.RemoveChild(yoga)
+				}
+			}
 		}
 	}
 	b.children = b.children[:0]
@@ -345,20 +430,65 @@ func (b *BaseElement) OnUnmount() {
 
 // Mark 设置脏标记，并通过事件总线通知引擎统一刷新。
 // 同一元素的多次 Mark 会在事件总线中合并为一次刷新。
+//
+// Native vs Composite 规则：
+//   - Native 组件（View/Text/Image/SVGIcon）直接标记自己，因为它们直接调用绘制原语。
+//   - 有自定义 Draw 方法的 Composite 组件也标记自己，因为它们的 Draw 需要被调用。
+//   - 没有自定义 Draw 方法的 Composite 组件会将 FlagNeedDraw 传播给所有 Native 后代，
+//     自身只保留 FlagNeedLayout / FlagNeedMeasure。
 func (b *BaseElement) Mark(flags ElementFlags) {
+	if flags&FlagNeedDraw != 0 && b.self != nil {
+		isNative := false
+		if native, ok := b.self.(interface{ IsNative() bool }); ok && native.IsNative() {
+			isNative = true
+		}
+		hasCustomDraw := false
+		if _, ok := b.self.(interface{ Draw(screen *ebiten.Image) }); ok {
+			hasCustomDraw = true
+		}
+		if !isNative && !hasCustomDraw {
+			// Composite without custom Draw: propagate FlagNeedDraw to native descendants
+			b.propagateDrawDirtyToNativeChildren()
+			flags &^= FlagNeedDraw
+			if flags == 0 {
+				return
+			}
+		}
+	}
+
 	hadDirty := b.flags&FlagDirtyMask != 0
 	b.flags |= flags
 	// 首次变脏时向事件总线投递，后续同一帧内只合并 flag bitmap
 	if !hadDirty && b.engine != nil {
 		b.engine.dirtyBus.Post(b.self)
 	}
-	if b.self != nil && (b.self.ElementType() == "ScrollView" || b.self.ElementType() == "Button") {
-		LogDebug("[Element] Mark", "type", b.self.ElementType(), "flags", flags, "engine", b.engine != nil)
+}
+
+// propagateDrawDirtyToNativeChildren recursively marks FlagNeedDraw on all native descendants.
+func (b *BaseElement) propagateDrawDirtyToNativeChildren() {
+	for _, child := range b.children {
+		propagateDrawDirty(child)
+	}
+}
+
+func propagateDrawDirty(el Element) {
+	if el == nil {
+		return
+	}
+	if native, ok := el.(interface{ IsNative() bool }); ok && native.IsNative() {
+		el.Mark(FlagNeedDraw)
+		return
+	}
+	for _, child := range el.GetChildren() {
+		propagateDrawDirty(child)
 	}
 }
 
 // HasFlag 检查是否包含指定标志。
 func (b *BaseElement) HasFlag(f ElementFlags) bool { return b.flags&f != 0 }
+
+// IsNative 默认返回 false。Native 组件（View、Text、Image、SVGIcon）应重写此方法返回 true。
+func (b *BaseElement) IsNative() bool { return false }
 
 // SetFlag 设置标志位（持久状态或脏标记）。
 func (b *BaseElement) SetFlag(f ElementFlags) { b.flags |= f }
@@ -650,6 +780,13 @@ func (b *BaseElement) SetVisible(v bool) Element {
 // IsVisible checks visibility.
 func (b *BaseElement) IsVisible() bool { return b.flags&FlagVisible != 0 }
 
+func safeFloat32(v float32) float32 {
+	if v != v { // NaN check
+		return 0
+	}
+	return v
+}
+
 func (b *BaseElement) DebugInfo() DebugNode {
 	node := DebugNode{
 		Type:         b.self.ElementType(),
@@ -669,27 +806,27 @@ func (b *BaseElement) DebugInfo() DebugNode {
 			JustifyContent: b.yoga.StyleGetJustifyContent().String(),
 			AlignItems:     b.yoga.StyleGetAlignItems().String(),
 			AlignSelf:      b.yoga.StyleGetAlignSelf().String(),
-			FlexGrow:       b.yoga.StyleGetFlexGrow(),
-			FlexShrink:     b.yoga.StyleGetFlexShrink(),
+			FlexGrow:       safeFloat32(b.yoga.StyleGetFlexGrow()),
+			FlexShrink:     safeFloat32(b.yoga.StyleGetFlexShrink()),
 			FlexWrap:       b.yoga.StyleGetFlexWrap().String(),
 			PositionType:   b.yoga.StyleGetPositionType().String(),
 			Display:        b.yoga.StyleGetDisplay().String(),
-			Width:          b.yoga.StyleGetWidth(),
-			Height:         b.yoga.StyleGetHeight(),
-			PaddingTop:     b.yoga.StyleGetPadding(yoga.EdgeTop).GetValue(),
-			PaddingRight:   b.yoga.StyleGetPadding(yoga.EdgeRight).GetValue(),
-			PaddingBottom:  b.yoga.StyleGetPadding(yoga.EdgeBottom).GetValue(),
-			PaddingLeft:    b.yoga.StyleGetPadding(yoga.EdgeLeft).GetValue(),
-			MarginTop:      b.yoga.StyleGetMargin(yoga.EdgeTop).GetValue(),
-			MarginRight:    b.yoga.StyleGetMargin(yoga.EdgeRight).GetValue(),
-			MarginBottom:   b.yoga.StyleGetMargin(yoga.EdgeBottom).GetValue(),
-			MarginLeft:     b.yoga.StyleGetMargin(yoga.EdgeLeft).GetValue(),
-			BorderTop:      b.yoga.StyleGetBorder(yoga.EdgeTop),
-			BorderRight:    b.yoga.StyleGetBorder(yoga.EdgeRight),
-			BorderBottom:   b.yoga.StyleGetBorder(yoga.EdgeBottom),
-			BorderLeft:     b.yoga.StyleGetBorder(yoga.EdgeLeft),
-			Gap:            b.yoga.StyleGetGap(yoga.GutterAll),
-			AspectRatio:    b.yoga.StyleGetAspectRatio(),
+			Width:          safeFloat32(b.yoga.StyleGetWidth()),
+			Height:         safeFloat32(b.yoga.StyleGetHeight()),
+			PaddingTop:     safeFloat32(b.yoga.StyleGetPadding(yoga.EdgeTop).GetValue()),
+			PaddingRight:   safeFloat32(b.yoga.StyleGetPadding(yoga.EdgeRight).GetValue()),
+			PaddingBottom:  safeFloat32(b.yoga.StyleGetPadding(yoga.EdgeBottom).GetValue()),
+			PaddingLeft:    safeFloat32(b.yoga.StyleGetPadding(yoga.EdgeLeft).GetValue()),
+			MarginTop:      safeFloat32(b.yoga.StyleGetMargin(yoga.EdgeTop).GetValue()),
+			MarginRight:    safeFloat32(b.yoga.StyleGetMargin(yoga.EdgeRight).GetValue()),
+			MarginBottom:   safeFloat32(b.yoga.StyleGetMargin(yoga.EdgeBottom).GetValue()),
+			MarginLeft:     safeFloat32(b.yoga.StyleGetMargin(yoga.EdgeLeft).GetValue()),
+			BorderTop:      safeFloat32(b.yoga.StyleGetBorder(yoga.EdgeTop)),
+			BorderRight:    safeFloat32(b.yoga.StyleGetBorder(yoga.EdgeRight)),
+			BorderBottom:   safeFloat32(b.yoga.StyleGetBorder(yoga.EdgeBottom)),
+			BorderLeft:     safeFloat32(b.yoga.StyleGetBorder(yoga.EdgeLeft)),
+			Gap:            safeFloat32(b.yoga.StyleGetGap(yoga.GutterAll)),
+			AspectRatio:    safeFloat32(b.yoga.StyleGetAspectRatio()),
 		}
 	}
 

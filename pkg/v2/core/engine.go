@@ -1,14 +1,9 @@
 package core
 
 import (
-	"image"
-	"image/color"
-	"math"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/sjm1327605995/tenon/pkg/fonts"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -35,7 +30,7 @@ type Engine struct {
 	mouseDownTarget Element
 	mouseDownX      float32
 	mouseDownY      float32
-	mouseDownButton ebiten.MouseButton
+	mouseDownButton MouseButton
 	hoverTarget     Element
 	focusTarget     Element
 
@@ -49,42 +44,48 @@ type Engine struct {
 	lifecycleLogs   []LifecycleLog
 	maxLifecycleLog int
 
+	// 渲染依赖追踪
+	renderTracker renderTracker
+
 	// 动画
 	animations []Animation
 
+	// 子引擎
+	builder         *BuildEngine
+	renderer        *RenderEngine
+	eventDispatcher *EventDispatcher
+	animator        *AnimationEngine
+
 	// 事件注册表
 	eventRegistry *EventRegistry
+
+	// 样式注册表
+	styleRegistry *StyleRegistry
 
 	// 脏标记事件总线：收集元素属性变更事件，合并后统一刷新
 	dirtyBus *DirtyEventBus
 
 	// 调试器
-	debugger interface {
-		CaptureLayout(trigger string)
-		IsEnabled() bool
-		AddEventLog(evt interface {
-			GetType() string
-			GetTarget() string
-			GetX() float32
-			GetY() float32
-			GetDeltaX() float32
-			GetDeltaY() float32
-		})
-		AddStateLog(elementType, elementKey, stateKey string, oldValue, newValue interface{})
-	}
+	debugBus DebugEventBus
 }
 
 // NewEngine 创建引擎。
 func NewEngine(rootWidget Widget, width, height int) *Engine {
-	return &Engine{
+	e := &Engine{
 		rootWidget:      rootWidget,
 		screenWidth:     width,
 		screenHeight:    height,
 		lastFrameTime:   time.Now(),
 		eventRegistry:   NewEventRegistry(),
+		styleRegistry:   NewStyleRegistry(),
 		dirtyBus:        &DirtyEventBus{},
 		maxLifecycleLog: 200,
 	}
+	e.builder = newBuildEngine(e)
+	e.renderer = newRenderEngine(e)
+	e.eventDispatcher = newEventDispatcher(e)
+	e.animator = newAnimationEngine(e)
+	return e
 }
 
 // Layout implements ebiten.Game interface.
@@ -97,21 +98,9 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
 
-// Mount 执行首次挂载，调用 Widget.Build() 并构建 Element 树。
-func (e *Engine) SetDebugger(d interface {
-	CaptureLayout(trigger string)
-	IsEnabled() bool
-	AddEventLog(evt interface {
-		GetType() string
-		GetTarget() string
-		GetX() float32
-		GetY() float32
-		GetDeltaX() float32
-		GetDeltaY() float32
-	})
-	AddStateLog(elementType, elementKey, stateKey string, oldValue, newValue interface{})
-}) {
-	e.debugger = d
+// SetDebugger 设置调试事件总线。
+func (e *Engine) SetDebugger(d DebugEventBus) {
+	e.debugBus = d
 	SetStateDebugHook(func(elementType, key string, oldValue, newValue interface{}) {
 		d.AddStateLog(elementType, key, "", oldValue, newValue)
 	})
@@ -121,15 +110,44 @@ func (e *Engine) GetRootElement() Element {
 	return e.rootElement
 }
 
-func (e *Engine) Mount() {
-	// Auto-init default font if not already loaded
-	if !fonts.HasFontFamily(fonts.FontFamilyDefault) {
-		_ = fonts.InitDefaultFont()
-	}
+func (e *Engine) SetStyleRegistry(r *StyleRegistry) {
+	e.styleRegistry = r
+}
 
+func (e *Engine) RegisterStyle(tag string, apply StyleFunc) {
+	if e.styleRegistry == nil {
+		e.styleRegistry = NewStyleRegistry()
+	}
+	e.styleRegistry.RegisterStyle(tag, apply)
+}
+
+func (e *Engine) RegisterStyleForType(elemType, tag string, apply StyleFunc) {
+	if e.styleRegistry == nil {
+		e.styleRegistry = NewStyleRegistry()
+	}
+	e.styleRegistry.RegisterStyleForType(elemType, tag, apply)
+}
+
+func (e *Engine) beginRenderTracking(widget Widget) {
+	e.renderTracker.widget = widget
+	e.renderTracker.active = true
+	e.renderTracker.states = nil
+	activeRenderTracker = &e.renderTracker
+}
+
+func (e *Engine) endRenderTracking() []stateNotifier {
+	e.renderTracker.active = false
+	states := e.renderTracker.states
+	e.renderTracker.states = nil
+	activeRenderTracker = nil
+	return states
+}
+
+func (e *Engine) Mount() {
 	if e.rootWidget == nil {
 		return
 	}
+	setThemeChangeNotifier(e.RequestRedrawAll)
 	e.rootWidget.OnMount(e)
 	e.rootElement = e.rootWidget.Render()
 	if e.rootElement != nil {
@@ -171,7 +189,7 @@ func (e *Engine) IsOverlay(el Element) bool {
 
 func (e *Engine) RequestRedrawAll() {
 	if e.rootWidget != nil {
-		e.scheduleBuild(e.rootWidget)
+		e.builder.scheduleBuild(e.rootWidget)
 	}
 }
 
@@ -181,10 +199,16 @@ func (e *Engine) onElementMounted(el Element) {
 		return
 	}
 	el.SetEngine(e)
-	applyStyles(el)
+	if e.styleRegistry != nil {
+		e.styleRegistry.ApplyStyles(el)
+	}
 	el.OnMount(e)
 	el.FlushDelayedListeners()
 	e.recordLifecycle("mount", el)
+	// 补发挂载前已存在的脏标记（创建时 engine 为 nil，导致 Mark 只设了 flag 没进 dirtyBus）
+	if el.GetFlags()&FlagDirtyMask != 0 {
+		e.dirtyBus.Post(el)
+	}
 	for _, child := range el.GetChildren() {
 		if child.GetEngine() == nil {
 			e.onElementMounted(child)
@@ -201,7 +225,7 @@ func (e *Engine) Update() error {
 		e.pendingResize = false
 		e.calculateLayout()
 		if e.rootElement != nil {
-			e.broadcastEvent(e.rootElement, &Event{
+			e.eventDispatcher.broadcastEvent(e.rootElement, &Event{
 				Type:   EventResize,
 				Width:  float32(e.screenWidth),
 				Height: float32(e.screenHeight),
@@ -213,17 +237,17 @@ func (e *Engine) Update() error {
 	deltaTime := float32(now.Sub(e.lastFrameTime).Seconds())
 	e.lastFrameTime = now
 
-	e.flushBuildQueue()
+	e.builder.flushBuildQueue()
 
 	eventsStart := time.Now()
-	e.handleEvents()
+	e.eventDispatcher.handleEvents()
 	e.perf.LastEventTime = time.Since(eventsStart)
 
 	layoutStart := time.Now()
 	e.flushDirtyElements()
 	e.perf.LastLayoutTime = time.Since(layoutStart)
 
-	e.updateAnimations(deltaTime)
+	e.animator.updateAnimations(deltaTime)
 
 	if e.rootElement != nil {
 		e.updateElements(e.rootElement)
@@ -243,154 +267,17 @@ func (e *Engine) Update() error {
 
 // AddAnimation 注册一个动画到引擎。
 func (e *Engine) AddAnimation(a Animation) {
-	e.animations = append(e.animations, a)
-}
-
-// updateAnimations 更新所有动画，移除已完成的。
-func (e *Engine) updateAnimations(deltaTime float32) {
-	const maxDelta = 1.0 / 30.0
-	if deltaTime > maxDelta {
-		deltaTime = maxDelta
-	}
-	alive := e.animations[:0]
-	for _, a := range e.animations {
-		if a.Update(deltaTime) {
-			alive = append(alive, a)
-		}
-	}
-	e.animations = alive
+	e.animator.AddAnimation(a)
 }
 
 func (e *Engine) Draw(screen *ebiten.Image) {
-	drawStart := time.Now()
-	screen.Fill(color.RGBA{R: 245, G: 245, B: 245, A: 255})
-	if e.rootElement != nil {
-		e.drawElement(screen, e.rootElement, 0, 0)
-	}
-	for _, overlay := range e.overlays {
-		if overlay != nil && overlay.IsVisible() {
-			e.drawElement(screen, overlay, 0, 0)
-		}
-	}
-	e.perf.LastDrawTime = time.Since(drawStart)
+	e.renderer.drawScreen(screen)
 }
 
 // ==================== 结构重建 ====================
 
 func (e *Engine) scheduleBuild(w Widget) {
-	e.buildQueue = append(e.buildQueue, w)
-}
-
-func (e *Engine) flushBuildQueue() {
-	if len(e.buildQueue) == 0 {
-		return
-	}
-	queue := e.buildQueue
-	e.buildQueue = e.buildQueue[:0]
-
-	for _, w := range queue {
-		var newRoot Element
-		if bw, ok := w.(interface{ RenderWithTracking() Element }); ok {
-			newRoot = bw.RenderWithTracking()
-		} else {
-			newRoot = w.Render()
-		}
-		if newRoot == nil {
-			continue
-		}
-
-		var oldRoot Element
-		if w == e.rootWidget {
-			oldRoot = e.rootElement
-		} else if bw, ok := w.(interface{ GetRootElement() Element }); ok {
-			oldRoot = bw.GetRootElement()
-		}
-
-		if oldRoot == nil {
-			if w == e.rootWidget {
-				e.rootElement = newRoot
-			}
-			if bw, ok := w.(interface{ SetRootElement(Element) }); ok {
-				bw.SetRootElement(newRoot)
-			}
-			e.onElementMounted(newRoot)
-		} else {
-			finalRoot := e.patchElement(oldRoot, newRoot)
-			if w == e.rootWidget {
-				e.rootElement = finalRoot
-			}
-			if bw, ok := w.(interface{ SetRootElement(Element) }); ok {
-				bw.SetRootElement(finalRoot)
-			}
-		}
-	}
-
-	// 重建后布局可能变化
-	if e.hasLayoutDirty() {
-		e.calculateLayout()
-	}
-}
-
-// patchElement 对新旧 Element 做同级浅对比。
-// 同类型复用旧节点并递归同步子节点，不同类型替换根节点。
-func (e *Engine) patchElement(oldEl, newEl Element) Element {
-	if oldEl.ElementType() == newEl.ElementType() {
-		// 同类型：复用旧节点，同步 Yoga 样式
-		if oldYoga, newYoga := oldEl.GetYoga(), newEl.GetYoga(); oldYoga != nil && newYoga != nil {
-			oldYoga.CopyStyleFrom(newYoga)
-		}
-		// 同步组件属性（声明式重建的关键）
-		if syncable, ok := oldEl.(PropertySyncable); ok {
-			syncable.SyncFrom(newEl)
-		}
-		e.patchChildren(oldEl, newEl)
-		oldEl.Mark(FlagNeedLayout | FlagNeedDraw)
-		return oldEl
-	}
-	// 类型不同：替换根节点
-	if oldEl.GetParent() != nil {
-		parent := oldEl.GetParent()
-		parent.RemoveChild(oldEl)
-		parent.AppendChild(newEl)
-	} else {
-		e.rootElement = newEl
-		e.onElementMounted(newEl)
-	}
-	return newEl
-}
-
-// patchChildren 对两个同类型 Element 的子节点做轻量同级对比。
-// 前 minLen 个递归 patch，多余旧节点移除，多余新节点挂载。
-func (e *Engine) patchChildren(oldParent, newParent Element) {
-	oldChildren := oldParent.GetChildren()
-	newChildren := newParent.GetChildren()
-
-	minLen := len(oldChildren)
-	if len(newChildren) < minLen {
-		minLen = len(newChildren)
-	}
-
-	// 1. 同步前 minLen 个子节点（递归复用）
-	for i := 0; i < minLen; i++ {
-		e.patchElement(oldChildren[i], newChildren[i])
-	}
-
-	// 2. 移除多余的旧节点
-	for i := len(newChildren); i < len(oldChildren); i++ {
-		oldParent.RemoveChild(oldChildren[i])
-	}
-
-	// 3. 挂载多余的新节点（先从 newParent 解除 Yoga 关系，再挂到 oldParent）
-	if len(newChildren) > len(oldChildren) {
-		toAdd := newChildren[len(oldChildren):]
-		// 倒序从 newParent 移除，避免索引漂移
-		for i := len(toAdd) - 1; i >= 0; i-- {
-			newParent.RemoveChild(toAdd[i])
-		}
-		for _, child := range toAdd {
-			oldParent.AppendChild(child)
-		}
-	}
+	e.builder.scheduleBuild(w)
 }
 
 // ==================== 脏标记事件总线 ====================
@@ -474,10 +361,17 @@ func (e *Engine) hasLayoutDirty() bool {
 // ==================== 布局 ====================
 
 func (e *Engine) calculateLayout() {
-	if e.rootElement == nil || e.rootElement.GetYoga() == nil {
+	if e.rootElement == nil {
 		return
 	}
-	rootYoga := e.rootElement.GetYoga()
+	layoutEl, ok := e.rootElement.(LayoutElement)
+	if !ok {
+		return
+	}
+	rootYoga := layoutEl.GetYoga()
+	if rootYoga == nil {
+		return
+	}
 	rootYoga.StyleSetWidth(float32(e.screenWidth))
 	rootYoga.StyleSetHeight(float32(e.screenHeight))
 	rootYoga.CalculateLayout(float32(e.screenWidth), float32(e.screenHeight), yoga.DirectionLTR)
@@ -486,16 +380,23 @@ func (e *Engine) calculateLayout() {
 		e.updateBounds(e.rootElement, 0, 0)
 	}
 
-	if e.debugger != nil && e.debugger.IsEnabled() {
-		e.debugger.CaptureLayout("calculateLayout")
+	if e.debugBus != nil && e.debugBus.IsEnabled() {
+		e.debugBus.CaptureLayout("calculateLayout")
 	}
 }
 
 func (e *Engine) updateBounds(el Element, parentX, parentY float32) {
-	if el == nil || el.GetYoga() == nil {
+	if el == nil {
 		return
 	}
-	y := el.GetYoga()
+	layoutEl, ok := el.(LayoutElement)
+	if !ok {
+		return
+	}
+	y := layoutEl.GetYoga()
+	if y == nil {
+		return
+	}
 	b := LayoutBounds{
 		X:      parentX + y.LayoutLeft(),
 		Y:      parentY + y.LayoutTop(),
@@ -509,52 +410,6 @@ func (e *Engine) updateBounds(el Element, parentX, parentY float32) {
 }
 
 // ==================== 绘制 ====================
-
-func (e *Engine) drawElement(screen *ebiten.Image, el Element, offsetX, offsetY float32) {
-	if el == nil || !el.IsVisible() {
-		return
-	}
-	bounds := el.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
-
-	// 若标记了 ClipChildren，子节点绘制在裁剪后的子图上
-	var childScreen *ebiten.Image = screen
-	childOffsetX := offsetX
-	childOffsetY := offsetY
-	if el.HasFlag(FlagClipChildren) {
-		sub := screen.SubImage(image.Rect(
-			int(bounds.X), int(bounds.Y),
-			int(bounds.X+bounds.Width), int(bounds.Y+bounds.Height),
-		))
-		if subImg, ok := sub.(*ebiten.Image); ok {
-			childScreen = subImg
-			// SubImage uses the same coordinate system as the original image;
-			// it only acts as a clip mask. Children should use screen coordinates.
-			childOffsetX = 0
-			childOffsetY = 0
-		}
-	}
-
-	// Use screen coordinates for drawing. SubImage will clip automatically.
-	relBounds := LayoutBounds{
-		X:      bounds.X - childOffsetX,
-		Y:      bounds.Y - childOffsetY,
-		Width:  bounds.Width,
-		Height: bounds.Height,
-	}
-	el.SetBounds(relBounds)
-	el.Draw(childScreen)
-	el.SetBounds(bounds)
-
-	for _, child := range el.GetChildren() {
-		if e.IsOverlay(child) {
-			continue
-		}
-		e.drawElement(childScreen, child, childOffsetX, childOffsetY)
-	}
-}
 
 // ==================== Element 每帧更新 ====================
 
@@ -573,487 +428,14 @@ func (e *Engine) updateElements(el Element) {
 
 // ==================== 事件系统 ====================
 
-type eventState struct {
-	mouseX, mouseY  float32
-	mouseDownTarget Element
-	mouseDownX      float32
-	mouseDownY      float32
-	hoverTarget     Element
-	focusTarget     Element
-	mouseDownButton ebiten.MouseButton
-}
-
-func (e *Engine) handleEvents() {
-	mx, my := ebiten.CursorPosition()
-	fx, fy := float32(mx), float32(my)
-
-	// 1. MouseMove / Hover
-	if fx != e.lastMouseX || fy != e.lastMouseY {
-		e.handleMouseMove(fx, fy)
-	}
-
-	// 2. Mouse wheel
-	dx, dy := ebiten.Wheel()
-	if math.Abs(dx) >= 0.5 || math.Abs(dy) >= 0.5 {
-		e.handleScroll(fx, fy, float32(dx), float32(dy))
-	}
-
-	// 3. Mouse buttons
-	for _, btn := range []ebiten.MouseButton{ebiten.MouseButtonLeft, ebiten.MouseButtonRight, ebiten.MouseButtonMiddle} {
-		if inpututil.IsMouseButtonJustPressed(btn) {
-			e.handleMouseDown(fx, fy, btn)
-		}
-		if inpututil.IsMouseButtonJustReleased(btn) {
-			e.handleMouseUp(fx, fy, btn)
-		}
-	}
-
-	// 4. Keyboard
-	e.handleKeyboard()
-
-	e.lastMouseX = fx
-	e.lastMouseY = fy
-}
-
-func (e *Engine) handleMouseMove(x, y float32) {
-	target := e.hitTestWithOverlays(x, y)
-	if target != e.hoverTarget {
-		e.dispatchHoverChange(e.hoverTarget, target, x, y)
-		e.hoverTarget = target
-	}
-	if target != nil {
-		b := target.GetBounds()
-		e.dispatchEvent(target, &Event{
-			Type:   EventMouseMove,
-			X:      x,
-			Y:      y,
-			LocalX: x - b.X,
-			LocalY: y - b.Y,
-			Target: target,
-		})
-	}
-}
-
-func (e *Engine) dispatchHoverChange(oldTarget, newTarget Element, x, y float32) {
-	if oldTarget == newTarget {
-		return
-	}
-	lca := findLowestCommonAncestor(oldTarget, newTarget)
-	for el := oldTarget; el != nil && el != lca; el = el.GetParent() {
-		e.dispatchEvent(el, &Event{Type: EventMouseLeave, X: x, Y: y, Target: el})
-	}
-	path := buildEventPathTo(newTarget, lca)
-	for _, el := range path {
-		e.dispatchEvent(el, &Event{Type: EventMouseEnter, X: x, Y: y, Target: el})
-	}
-}
-
-func findLowestCommonAncestor(a, b Element) Element {
-	if a == nil || b == nil {
-		return nil
-	}
-	ancestors := make(map[Element]bool)
-	for el := a; el != nil; el = el.GetParent() {
-		ancestors[el] = true
-	}
-	for el := b; el != nil; el = el.GetParent() {
-		if ancestors[el] {
-			return el
-		}
-	}
-	return nil
-}
-
-func buildEventPathTo(target, stopAt Element) []Element {
-	var path []Element
-	for el := target; el != nil && el != stopAt; el = el.GetParent() {
-		path = append(path, el)
-	}
-	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
-		path[i], path[j] = path[j], path[i]
-	}
-	return path
-}
-
-func (e *Engine) handleMouseDown(x, y float32, btn ebiten.MouseButton) {
-	target := e.hitTestWithOverlays(x, y)
-	if target != nil {
-		LogDebug("[Engine] handleMouseDown", "target", target.ElementType(), "bounds", target.GetBounds(), "x", x, "y", y)
-		// Debug: log target hierarchy and children
-		parentType := "nil"
-		if target.GetParent() != nil {
-			parentType = target.GetParent().ElementType()
-		}
-		LogDebug("[Engine] handleMouseDown debug", "target", target.ElementType(), "parent", parentType, "childrenCount", len(target.GetChildren()))
-		for i, c := range target.GetChildren() {
-			LogDebug("[Engine] handleMouseDown child", "index", i, "type", c.ElementType(), "bounds", c.GetBounds())
-		}
-		b := target.GetBounds()
-		e.mouseDownTarget = target
-		e.mouseDownX = x
-		e.mouseDownY = y
-		e.mouseDownButton = btn
-		// Set focus on click
-		if e.focusTarget != target {
-			e.setFocus(target)
-		}
-		e.dispatchEvent(target, &Event{
-			Type:   EventMouseDown,
-			X:      x,
-			Y:      y,
-			LocalX: x - b.X,
-			LocalY: y - b.Y,
-			Button: btn,
-			Target: target,
-		})
-	} else {
-		// Click on empty area clears focus
-		e.setFocus(nil)
-	}
-}
-
-func (e *Engine) handleMouseUp(x, y float32, btn ebiten.MouseButton) {
-	if e.mouseDownTarget != nil {
-		b := e.mouseDownTarget.GetBounds()
-		e.dispatchEvent(e.mouseDownTarget, &Event{
-			Type:   EventMouseUp,
-			X:      x,
-			Y:      y,
-			LocalX: x - b.X,
-			LocalY: y - b.Y,
-			Button: btn,
-			Target: e.mouseDownTarget,
-		})
-
-		// Click = mouseDown + mouseUp on same target or ancestor/descendant
-		target := e.hitTestWithOverlays(x, y)
-		clickTarget := e.resolveClickTarget(e.mouseDownTarget, target)
-		if clickTarget != nil {
-			cb := clickTarget.GetBounds()
-			e.dispatchEvent(clickTarget, &Event{
-				Type:   EventClick,
-				X:      x,
-				Y:      y,
-				LocalX: x - cb.X,
-				LocalY: y - cb.Y,
-				Button: btn,
-				Target: clickTarget,
-			})
-		}
-	}
-	e.mouseDownTarget = nil
-}
-
-func (e *Engine) handleScroll(x, y float32, dx, dy float32) {
-	target := e.hitTestWithOverlays(x, y)
-	LogDebug("[Engine] handleScroll", "target", target.ElementType())
-	if target != nil {
-		b := target.GetBounds()
-		e.dispatchEvent(target, &Event{
-			Type:   EventScroll,
-			X:      x,
-			Y:      y,
-			LocalX: x - b.X,
-			LocalY: y - b.Y,
-			DeltaX: dx,
-			DeltaY: dy,
-			Target: target,
-		})
-	}
-}
-
-func (e *Engine) handleKeyboard() {
-	// Tab to cycle focus
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		e.focusNext(ebiten.IsKeyPressed(ebiten.KeyShift))
-		return
-	}
-
-	if e.focusTarget == nil {
-		return
-	}
-
-	// Space/Enter triggers click on focused element
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) || inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-		b := e.focusTarget.GetBounds()
-		e.dispatchEvent(e.focusTarget, &Event{
-			Type:   EventClick,
-			X:      b.X + b.Width/2,
-			Y:      b.Y + b.Height/2,
-			LocalX: b.Width / 2,
-			LocalY: b.Height / 2,
-			Target: e.focusTarget,
-		})
-		return
-	}
-
-	// KeyDown / KeyUp
-	for key := ebiten.Key(0); key <= ebiten.KeyMax; key++ {
-		if inpututil.IsKeyJustPressed(key) {
-			e.dispatchEvent(e.focusTarget, &Event{Type: EventKeyDown, Key: key, Target: e.focusTarget})
-		}
-		if inpututil.IsKeyJustReleased(key) {
-			e.dispatchEvent(e.focusTarget, &Event{Type: EventKeyUp, Key: key, Target: e.focusTarget})
-		}
-	}
-}
-
-// dispatchEvent sends event to target and bubbles up until consumed.
-// 优先使用注册表分发，如果注册表没有消费事件，再调用 HandleEvent。
-func (e *Engine) dispatchEvent(target Element, event *Event) {
-	// Log event to debugger if enabled
-	if e.debugger != nil && e.debugger.IsEnabled() {
-		e.debugger.AddEventLog(&debugEventWrapper{event: event, targetType: target.ElementType()})
-	}
-
-	// 1. 先通过注册表分发（支持冒泡）
-	if e.eventRegistry != nil {
-		if e.eventRegistry.Dispatch(event) {
-			return // consumed by registry
-		}
-	}
-
-	// 2. 回退到 HandleEvent（兼容旧组件）
-	el := target
-	for el != nil {
-		if el.HandleEvent(event) {
-			return // consumed
-		}
-		el = el.GetParent()
-	}
-}
-
-// broadcastEvent 递归广播事件给元素及其所有后代。
-// 优先使用注册表分发，再回退到 HandleEvent。
-func (e *Engine) broadcastEvent(el Element, event *Event) {
-	if el == nil {
-		return
-	}
-	// 先尝试注册表
-	if e.eventRegistry != nil {
-		if e.eventRegistry.DispatchToTarget(el, event) {
-			return
-		}
-	}
-	// 回退到 HandleEvent
-	el.HandleEvent(event)
-	for _, child := range el.GetChildren() {
-		e.broadcastEvent(child, event)
-	}
-}
-
 // GetFocusTarget returns the currently focused element.
 func (e *Engine) GetFocusTarget() Element {
-	return e.focusTarget
-}
-
-// setFocus changes focused element.
-func (e *Engine) setFocus(target Element) {
-	if e.focusTarget == target {
-		return
-	}
-	if e.focusTarget != nil {
-		e.dispatchEvent(e.focusTarget, &Event{Type: EventFocusOut, Target: e.focusTarget})
-	}
-	e.focusTarget = target
-	if target != nil {
-		e.dispatchEvent(target, &Event{Type: EventFocusIn, Target: target})
-	}
-}
-
-// focusNext cycles focus to next/previous focusable element.
-func (e *Engine) focusNext(reverse bool) {
-	focusables := e.collectFocusables(e.rootElement)
-	if len(focusables) == 0 {
-		return
-	}
-	idx := -1
-	for i, el := range focusables {
-		if el == e.focusTarget {
-			idx = i
-			break
-		}
-	}
-	if reverse {
-		idx--
-		if idx < 0 {
-			idx = len(focusables) - 1
-		}
-	} else {
-		idx++
-		if idx >= len(focusables) {
-			idx = 0
-		}
-	}
-	e.setFocus(focusables[idx])
-}
-
-func (e *Engine) collectFocusables(el Element) []Element {
-	if el == nil {
-		return nil
-	}
-	var result []Element
-	if el.HasFlag(FlagFocusable) {
-		result = append(result, el)
-	}
-	for _, child := range el.GetChildren() {
-		result = append(result, e.collectFocusables(child)...)
-	}
-	return result
+	return e.eventDispatcher.GetFocusTarget()
 }
 
 func (e *Engine) GetHoverTarget() Element {
-	return e.hoverTarget
+	return e.eventDispatcher.GetHoverTarget()
 }
-
-func (e *Engine) resolveClickTarget(downTarget, upTarget Element) Element {
-	if downTarget == nil || upTarget == nil {
-		return nil
-	}
-	if downTarget == upTarget {
-		return downTarget
-	}
-	if isAncestorOf(downTarget, upTarget) {
-		return downTarget
-	}
-	if isAncestorOf(upTarget, downTarget) {
-		return upTarget
-	}
-	return nil
-}
-
-func isAncestorOf(ancestor, descendant Element) bool {
-	for p := descendant.GetParent(); p != nil; p = p.GetParent() {
-		if p == ancestor {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *Engine) hitTest(el Element, x, y float32) Element {
-	return e.hitTestClipped(el, x, y, nil)
-}
-
-func (e *Engine) hitTestWithOverlays(x, y float32) Element {
-	for i := len(e.overlays) - 1; i >= 0; i-- {
-		if e.overlays[i] != nil && e.overlays[i].IsVisible() {
-			if h := e.hitTestClipped(e.overlays[i], x, y, nil); h != nil {
-				return h
-			}
-		}
-	}
-	return e.hitTestClipped(e.rootElement, x, y, nil)
-}
-
-func (e *Engine) hitTestClipped(el Element, x, y float32, clipBounds *LayoutBounds) Element {
-	if el == nil || !el.IsVisible() {
-		return nil
-	}
-	b := el.GetBounds()
-	if b.Width <= 0 || b.Height <= 0 {
-		return nil
-	}
-	if clipBounds != nil {
-		if b.X+b.Width <= clipBounds.X || b.X >= clipBounds.X+clipBounds.Width ||
-			b.Y+b.Height <= clipBounds.Y || b.Y >= clipBounds.Y+clipBounds.Height {
-			return nil
-		}
-	}
-	children := el.GetChildren()
-	var childClip *LayoutBounds
-	if el.HasFlag(FlagClipChildren) {
-		childClip = &b
-	} else {
-		childClip = clipBounds
-	}
-	for i := len(children) - 1; i >= 0; i-- {
-		if e.IsOverlay(children[i]) {
-			continue
-		}
-		if h := e.hitTestClipped(children[i], x, y, childClip); h != nil {
-			return h
-		}
-	}
-	if el.GetPointerEvents() == PointerEventsNone {
-		return nil
-	}
-	localX, localY := x, y
-	t := el.GetTransform()
-	if !t.IsIdentity() {
-		localX, localY = inverseTransformPoint(b, t, x, y)
-	}
-	if localX >= b.X && localX < b.X+b.Width && localY >= b.Y && localY < b.Y+b.Height {
-		if clipBounds != nil {
-			if x >= clipBounds.X && x < clipBounds.X+clipBounds.Width &&
-				y >= clipBounds.Y && y < clipBounds.Y+clipBounds.Height {
-				return el
-			}
-			return nil
-		}
-		return el
-	}
-	return nil
-}
-
-func inverseTransformPoint(bounds LayoutBounds, t Transform, x, y float32) (float32, float32) {
-	ox := float64(bounds.Width) * float64(t.OriginX)
-	oy := float64(bounds.Height) * float64(t.OriginY)
-	lx := float64(x) - float64(bounds.X) - ox
-	ly := float64(y) - float64(bounds.Y) - oy
-	if t.ScaleX != 0 {
-		lx /= float64(t.ScaleX)
-	}
-	if t.ScaleY != 0 {
-		ly /= float64(t.ScaleY)
-	}
-	if t.Rotation != 0 {
-		angle := -float64(t.Rotation) * math.Pi / 180
-		cos := math.Cos(angle)
-		sin := math.Sin(angle)
-		lx, ly = lx*cos-ly*sin, lx*sin+ly*cos
-	}
-	return float32(lx + float64(bounds.X) + ox), float32(ly + float64(bounds.Y) + oy)
-}
-
-// debugEventWrapper adapts *Event to the debugger interface.
-type debugEventWrapper struct {
-	event      *Event
-	targetType string
-}
-
-func (w *debugEventWrapper) GetType() string {
-	switch w.event.Type {
-	case EventMouseMove:
-		return "MouseMove"
-	case EventMouseDown:
-		return "MouseDown"
-	case EventMouseUp:
-		return "MouseUp"
-	case EventClick:
-		return "Click"
-	case EventScroll:
-		return "Scroll"
-	case EventKeyDown:
-		return "KeyDown"
-	case EventKeyUp:
-		return "KeyUp"
-	case EventFocusIn:
-		return "FocusIn"
-	case EventFocusOut:
-		return "FocusOut"
-	case EventResize:
-		return "Resize"
-	default:
-		return "Unknown"
-	}
-}
-
-func (w *debugEventWrapper) GetTarget() string  { return w.targetType }
-func (w *debugEventWrapper) GetX() float32      { return w.event.X }
-func (w *debugEventWrapper) GetY() float32      { return w.event.Y }
-func (w *debugEventWrapper) GetDeltaX() float32 { return w.event.DeltaX }
-func (w *debugEventWrapper) GetDeltaY() float32 { return w.event.DeltaY }
 
 // ==================== 性能指标 ====================
 

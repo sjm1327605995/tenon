@@ -47,13 +47,7 @@ func (s *Slider) ElementType() string { return "Slider" }
 
 // Draw renders the track, fill and thumb.
 func (s *Slider) Draw(screen *ebiten.Image) {
-	if !s.IsVisible() {
-		return
-	}
 	bounds := s.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	trackY := bounds.Y + bounds.Height/2
 	trackTop := trackY - s.trackHeight/2
@@ -184,37 +178,18 @@ func (s *Slider) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	if s.value != other.value {
-		s.value = other.value
-		needDraw = true
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &s.value, other.value)
 	if s.minValue != other.minValue || s.maxValue != other.maxValue {
 		s.minValue = other.minValue
 		s.maxValue = other.maxValue
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if !colorsEqual(s.trackColor, other.trackColor) {
-		s.trackColor = other.trackColor
-		needDraw = true
-	}
-	if !colorsEqual(s.fillColor, other.fillColor) {
-		s.fillColor = other.fillColor
-		needDraw = true
-	}
-	if !colorsEqual(s.thumbColor, other.thumbColor) {
-		s.thumbColor = other.thumbColor
-		needDraw = true
-	}
-	if s.thumbRadius != other.thumbRadius {
-		s.thumbRadius = other.thumbRadius
-		needDraw = true
-	}
-	if s.trackHeight != other.trackHeight {
-		s.trackHeight = other.trackHeight
-		needDraw = true
-	}
-	if needDraw {
-		s.Mark(core.FlagNeedDraw)
-	}
+	syncColor(sb, &s.trackColor, other.trackColor)
+	syncColor(sb, &s.fillColor, other.fillColor)
+	syncColor(sb, &s.thumbColor, other.thumbColor)
+	syncField(sb, &s.thumbRadius, other.thumbRadius)
+	syncField(sb, &s.trackHeight, other.trackHeight)
+	sb.MarkDraw(s)
 }
+

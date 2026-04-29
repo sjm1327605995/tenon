@@ -45,13 +45,7 @@ func (s *Switch) ElementType() string { return "Switch" }
 
 // Draw renders the switch track and thumb.
 func (s *Switch) Draw(screen *ebiten.Image) {
-	if !s.IsVisible() {
-		return
-	}
 	bounds := s.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	trackColor := s.offColor
 	if s.checked {
@@ -120,41 +114,53 @@ func (s *Switch) SetChecked(checked bool) *Switch {
 	return s
 }
 
+// DebugProps returns visual properties for debugger preview.
+func (s *Switch) DebugProps() map[string]interface{} {
+	props := make(map[string]interface{})
+	trackColor := s.offColor
+	if s.checked {
+		trackColor = s.onColor
+	}
+	if trackColor != nil {
+		props["backgroundColor"] = colorToCSS(trackColor)
+	}
+	if s.thumbColor != nil {
+		props["thumbColor"] = colorToCSS(s.thumbColor)
+	}
+	props["checked"] = s.checked
+	props["trackWidth"] = s.trackWidth
+	props["trackHeight"] = s.trackHeight
+	// Switch track is always fully rounded
+	if s.trackHeight > 0 {
+		props["borderRadius"] = s.trackHeight / 2
+	}
+	return props
+}
+
 // SyncFrom 同步新 Switch 的属性到当前 Element（声明式重建）。
 func (s *Switch) SyncFrom(src core.Element) {
 	other, ok := src.(*Switch)
 	if !ok {
 		return
 	}
-	needDraw := false
+	sb := &SyncBuilder{}
 	if s.checked != other.checked {
 		s.checked = other.checked
 		s.thumbProgress = 0
 		if s.checked {
 			s.thumbProgress = 1
 		}
-		needDraw = true
+		sb.NeedDraw = true
 	}
 	if s.trackWidth != other.trackWidth || s.trackHeight != other.trackHeight {
 		s.trackWidth = other.trackWidth
 		s.trackHeight = other.trackHeight
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if !colorsEqual(s.offColor, other.offColor) {
-		s.offColor = other.offColor
-		needDraw = true
-	}
-	if !colorsEqual(s.onColor, other.onColor) {
-		s.onColor = other.onColor
-		needDraw = true
-	}
-	if !colorsEqual(s.thumbColor, other.thumbColor) {
-		s.thumbColor = other.thumbColor
-		needDraw = true
-	}
-	if needDraw {
-		s.Mark(core.FlagNeedDraw)
-	}
+	syncColor(sb, &s.offColor, other.offColor)
+	syncColor(sb, &s.onColor, other.onColor)
+	syncColor(sb, &s.thumbColor, other.thumbColor)
+	sb.MarkDraw(s)
 }
 
 // SetOnChange sets the change callback.
@@ -193,3 +199,4 @@ func (s *Switch) SetTrackSize(width, height float32) *Switch {
 	s.Mark(core.FlagNeedDraw)
 	return s
 }
+

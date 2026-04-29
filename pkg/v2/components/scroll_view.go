@@ -67,13 +67,7 @@ func (sv *ScrollView) Content() *View { return sv.content }
 
 // Draw renders the background, scrollbar track and thumb.
 func (sv *ScrollView) Draw(screen *ebiten.Image) {
-	if !sv.IsVisible() {
-		return
-	}
 	bounds := sv.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	// Background - align to integer pixels to avoid gaps with SubImage clipping
 	if sv.backgroundColor != nil {
@@ -341,7 +335,7 @@ func (sv *ScrollView) Update() error {
 	}
 
 	// Pan gesture: if mouse is down inside scrollview bounds, track movement for scrolling.
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	if core.IsMouseButtonPressed(core.MouseButtonLeft) {
 		mx, my := ebiten.CursorPosition()
 		bounds := sv.GetBounds()
 		inBounds := float32(mx) >= bounds.X && float32(mx) < bounds.X+bounds.Width &&
@@ -451,57 +445,19 @@ func (sv *ScrollView) SetTrackColor(clr color.Color) *ScrollView {
 	return sv
 }
 
-func (sv *ScrollView) DebugProps() map[string]interface{} {
-	props := make(map[string]interface{})
-	props["scrollX"] = sv.scrollX
-	props["scrollY"] = sv.scrollY
-	props["maxScrollX"] = sv.maxScrollX
-	props["maxScrollY"] = sv.maxScrollY
-	if sv.backgroundColor != nil {
-		props["backgroundColor"] = colorToCSS(sv.backgroundColor)
-	}
-	if sv.scrollbarColor != nil {
-		props["scrollbarColor"] = colorToCSS(sv.scrollbarColor)
-	}
-	if sv.trackColor != nil {
-		props["trackColor"] = colorToCSS(sv.trackColor)
-	}
-	props["scrollbarWidth"] = sv.scrollbarWidth
-	return props
-}
-
 // SyncFrom 同步新 ScrollView 的属性到当前 Element（声明式重建）。
 func (sv *ScrollView) SyncFrom(src core.Element) {
 	other, ok := src.(*ScrollView)
 	if !ok {
 		return
 	}
-	needDraw := false
-	if sv.scrollX != other.scrollX {
-		sv.scrollX = other.scrollX
-		needDraw = true
-	}
-	if sv.scrollY != other.scrollY {
-		sv.scrollY = other.scrollY
-		needDraw = true
-	}
-	if sv.scrollbarWidth != other.scrollbarWidth {
-		sv.scrollbarWidth = other.scrollbarWidth
-		needDraw = true
-	}
-	if !colorsEqual(sv.scrollbarColor, other.scrollbarColor) {
-		sv.scrollbarColor = other.scrollbarColor
-		needDraw = true
-	}
-	if !colorsEqual(sv.trackColor, other.trackColor) {
-		sv.trackColor = other.trackColor
-		needDraw = true
-	}
-	if !colorsEqual(sv.backgroundColor, other.backgroundColor) {
-		sv.backgroundColor = other.backgroundColor
-		needDraw = true
-	}
-	if needDraw {
-		sv.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &sv.scrollX, other.scrollX)
+	syncField(sb, &sv.scrollY, other.scrollY)
+	syncField(sb, &sv.scrollbarWidth, other.scrollbarWidth)
+	syncColor(sb, &sv.scrollbarColor, other.scrollbarColor)
+	syncColor(sb, &sv.trackColor, other.trackColor)
+	syncColor(sb, &sv.backgroundColor, other.backgroundColor)
+	sb.MarkDraw(sv)
 }
+
