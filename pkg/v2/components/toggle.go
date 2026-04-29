@@ -60,13 +60,7 @@ func (t *Toggle) ElementType() string { return "Toggle" }
 
 // Draw renders the toggle background.
 func (t *Toggle) Draw(screen *ebiten.Image) {
-	if !t.IsVisible() {
-		return
-	}
 	bounds := t.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	var bg color.Color
 	if t.pressed {
 		bg = t.activeColor

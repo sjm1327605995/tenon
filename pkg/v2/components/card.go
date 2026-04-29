@@ -63,7 +63,7 @@ func (c *Card) SetTitle(title string) *Card {
 	c.titleEl.SetContent(title)
 	c.titleEl.SetVisible(title != "")
 	c.headerEl.SetVisible(title != "" || c.descEl.content != "")
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }
 
@@ -72,7 +72,7 @@ func (c *Card) SetDescription(desc string) *Card {
 	c.descEl.SetContent(desc)
 	c.descEl.SetVisible(desc != "")
 	c.headerEl.SetVisible(c.titleEl.content != "" || desc != "")
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }
 
@@ -82,7 +82,7 @@ func (c *Card) AddContent(children ...core.Element) *Card {
 		c.contentEl.AppendChild(child)
 	}
 	c.contentEl.SetVisible(len(c.contentEl.GetChildren()) > 0)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }
 
@@ -93,6 +93,6 @@ func (c *Card) SetFooter(children ...core.Element) *Card {
 		c.footerEl.AppendChild(child)
 	}
 	c.footerEl.SetVisible(len(children) > 0)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }

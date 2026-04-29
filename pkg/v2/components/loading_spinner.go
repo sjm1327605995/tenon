@@ -68,9 +68,6 @@ func (ls *LoadingSpinner) Update() error {
 
 // Draw renders the rotating arc.
 func (ls *LoadingSpinner) Draw(screen *ebiten.Image) {
-	if !ls.IsVisible() {
-		return
-	}
 	bounds := ls.GetBounds()
 	cx := bounds.X + bounds.Width/2
 	cy := bounds.Y + bounds.Height/2

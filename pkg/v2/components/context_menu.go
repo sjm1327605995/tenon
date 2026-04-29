@@ -67,7 +67,7 @@ func (c *ContextMenu) OpenAt(x, y float32) *ContextMenu {
 	c.SetVisible(true)
 	c.SetPosition(yoga.EdgeLeft, x)
 	c.SetPosition(yoga.EdgeTop, y)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	if eng := c.GetEngine(); eng != nil {
 		eng.AddOverlay(c)
 	}

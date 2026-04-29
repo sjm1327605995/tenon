@@ -48,7 +48,7 @@ func (t *Table) SetHeaders(headers []string) *Table {
 		cell.SetFlexGrow(1)
 		t.headerRow.Add(cell)
 	}
-	t.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	t.Mark(core.FlagNeedLayout)
 	return t
 }
 
@@ -66,13 +66,13 @@ func (t *Table) AddRow(cells []string) *Table {
 		row.Add(cell)
 	}
 	t.bodyEl.Add(row)
-	t.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	t.Mark(core.FlagNeedLayout)
 	return t
 }
 
 // ClearRows removes all data rows.
 func (t *Table) ClearRows() *Table {
 	t.bodyEl.ClearChildren()
-	t.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	t.Mark(core.FlagNeedLayout)
 	return t
 }

@@ -3,7 +3,6 @@ package tenon
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
-	"github.com/sjm1327605995/tenon/pkg/v2/debug"
 )
 
 type (
@@ -16,10 +15,13 @@ type (
 	EventType    = core.EventType
 	BorderRadius = core.BorderRadius
 	Theme        = core.Theme
-	Engine       = core.Engine
-	Animation    = core.Animation
-	Tween        = core.Tween
+	Engine        = core.Engine
+	Animation     = core.Animation
+	Tween         = core.Tween
+	StyleRegistry = core.StyleRegistry
 )
+
+var defaultStyleRegistry = core.NewStyleRegistry()
 
 var (
 	GetTheme          = core.GetTheme
@@ -27,7 +29,7 @@ var (
 	DefaultLightTheme = core.DefaultLightTheme
 	DefaultDarkTheme  = core.DefaultDarkTheme
 	DefaultAntTheme   = core.DefaultAntTheme
-	RegisterStyle     = core.RegisterStyle
+	RegisterStyle     = defaultStyleRegistry.RegisterStyle
 	LogDebug          = core.LogDebug
 	NewTween          = core.NewTween
 	LerpFloat32       = core.LerpFloat32
@@ -35,6 +37,7 @@ var (
 
 func Run(root core.Widget, width, height int) {
 	engine := core.NewEngine(root, width, height)
+	engine.SetStyleRegistry(defaultStyleRegistry.Clone())
 	engine.Mount()
 	ebiten.SetWindowSize(width, height)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
@@ -43,21 +46,4 @@ func Run(root core.Widget, width, height int) {
 	}
 }
 
-func RunWithDebug(root core.Widget, width, height int, debugPort int) *debug.Debugger {
-	engine := core.NewEngine(root, width, height)
 
-	d := debug.NewDebugger(engine, debugPort)
-	engine.SetDebugger(d)
-	if err := d.Start(); err != nil {
-		panic("failed to start debugger: " + err.Error())
-	}
-
-	engine.Mount()
-	ebiten.SetWindowSize(width, height)
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	if err := ebiten.RunGame(engine); err != nil {
-		d.Stop()
-		panic(err)
-	}
-	return d
-}

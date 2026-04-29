@@ -76,13 +76,7 @@ func (t *Tab) ElementType() string { return "Tab" }
 
 // Draw renders the tab bar underline and background.
 func (t *Tab) Draw(screen *ebiten.Image) {
-	if !t.IsVisible() {
-		return
-	}
 	bounds := t.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	// Background of the whole tab container
 	if t.barBgColor != nil {
 		vector.FillRect(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, t.barBgColor, false)

@@ -24,13 +24,7 @@ func (s *Skeleton) ElementType() string { return "Skeleton" }
 
 // Draw renders the skeleton placeholder.
 func (s *Skeleton) Draw(screen *ebiten.Image) {
-	if !s.IsVisible() {
-		return
-	}
 	bounds := s.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	theme := core.GetTheme()
 	br := core.BorderRadius{TopLeft: theme.BorderRadius / 2, TopRight: theme.BorderRadius / 2, BottomRight: theme.BorderRadius / 2, BottomLeft: theme.BorderRadius / 2}
 	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, br, theme.MutedColor)

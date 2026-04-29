@@ -40,6 +40,9 @@ func NewSVGIcon(pathData string) *SVGIcon {
 // ElementType returns type identifier.
 func (si *SVGIcon) ElementType() string { return "SVGIcon" }
 
+// IsNative returns true as SVGIcon is a native rendering component.
+func (si *SVGIcon) IsNative() bool { return true }
+
 // SetColor sets the icon color.
 func (si *SVGIcon) SetColor(clr color.Color) *SVGIcon {
 	si.clr = clr

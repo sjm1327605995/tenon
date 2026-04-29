@@ -1,15 +1,112 @@
 package debug
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
 )
+
+func safeJSONMarshal(v interface{}) ([]byte, error) {
+	v = preprocessJSON(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+}
+
+func preprocessJSON(v interface{}) interface{} {
+	if v == nil {
+		return nil
+	}
+	val := reflect.ValueOf(v)
+
+	// Dereference pointers and interfaces first
+	for val.Kind() == reflect.Ptr || val.Kind() == reflect.Interface {
+		if val.IsNil() {
+			return nil
+		}
+		val = val.Elem()
+	}
+
+	// If it implements json.Marshaler or encoding.TextMarshaler, let json.Marshal handle it
+	if val.CanInterface() {
+		iface := val.Interface()
+		if _, ok := iface.(json.Marshaler); ok {
+			return iface
+		}
+		if _, ok := iface.(encoding.TextMarshaler); ok {
+			return iface
+		}
+	}
+
+	switch val.Kind() {
+	case reflect.Float64:
+		f := val.Float()
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return nil
+		}
+		return f
+	case reflect.Float32:
+		f := float64(val.Float())
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return nil
+		}
+		return f
+	case reflect.Slice:
+		result := make([]interface{}, val.Len())
+		for i := 0; i < val.Len(); i++ {
+			result[i] = preprocessJSON(val.Index(i).Interface())
+		}
+		return result
+	case reflect.Map:
+		result := make(map[string]interface{})
+		for _, key := range val.MapKeys() {
+			result[key.String()] = preprocessJSON(val.MapIndex(key).Interface())
+		}
+		return result
+	case reflect.Struct:
+		result := make(map[string]interface{})
+		for i := 0; i < val.NumField(); i++ {
+			field := val.Type().Field(i)
+			fieldValue := val.Field(i)
+			if !fieldValue.CanInterface() {
+				continue
+			}
+			// Use json tag as key if available
+			name := field.Name
+			if tag := field.Tag.Get("json"); tag != "" {
+				if idx := strings.Index(tag, ","); idx != -1 {
+					name = tag[:idx]
+				} else {
+					name = tag
+				}
+				if name == "-" {
+					continue
+				}
+				if name == "" {
+					name = field.Name
+				}
+			}
+			result[name] = preprocessJSON(fieldValue.Interface())
+		}
+		return result
+	default:
+		return val.Interface()
+	}
+}
+
+func jsonMarshal(v interface{}) ([]byte, error) {
+	return safeJSONMarshal(v)
+}
 
 type Debugger struct {
 	engine     *core.Engine
@@ -268,7 +365,12 @@ func (d *Debugger) handleTree(w http.ResponseWriter, r *http.Request) {
 
 	info := root.DebugInfo()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
+	data, err := jsonMarshal(info)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleHistory(w http.ResponseWriter, r *http.Request) {
@@ -285,7 +387,12 @@ func (d *Debugger) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(summary)
+	data, err := jsonMarshal(summary)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleSnapshot(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +405,12 @@ func (d *Debugger) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(d.snapshots[len(d.snapshots)-1])
+	data, err := jsonMarshal(d.snapshots[len(d.snapshots)-1])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleCompare(w http.ResponseWriter, r *http.Request) {
@@ -316,7 +428,12 @@ func (d *Debugger) handleCompare(w http.ResponseWriter, r *http.Request) {
 	diff := d.compareNodes(prev.Root, curr.Root)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(diff)
+	data, err := jsonMarshal(diff)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleEvents(w http.ResponseWriter, r *http.Request) {
@@ -336,19 +453,34 @@ func (d *Debugger) handleEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(d.eventLogs[start:])
+	data, err := jsonMarshal(d.eventLogs[start:])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handlePerf(w http.ResponseWriter, r *http.Request) {
 	perf := d.engine.GetPerfMetrics()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(perf)
+	data, err := jsonMarshal(perf)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleListeners(w http.ResponseWriter, r *http.Request) {
 	info := d.engine.GetEventRegistryDebugInfo()
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
+	data, err := jsonMarshal(info)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleLifecycle(w http.ResponseWriter, r *http.Request) {
@@ -362,7 +494,12 @@ func (d *Debugger) handleLifecycle(w http.ResponseWriter, r *http.Request) {
 		start = 0
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(logs[start:])
+	data, err := jsonMarshal(logs[start:])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleStates(w http.ResponseWriter, r *http.Request) {
@@ -382,7 +519,12 @@ func (d *Debugger) handleStates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(d.stateLogs[start:])
+	data, err := jsonMarshal(d.stateLogs[start:])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleLive(w http.ResponseWriter, r *http.Request) {
@@ -401,7 +543,12 @@ func (d *Debugger) handleLive(w http.ResponseWriter, r *http.Request) {
 	enrichEventCounts(&info, d.engine.GetEventRegistryDebugInfo())
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(info)
+	data, err := jsonMarshal(info)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Write(data)
 }
 
 func (d *Debugger) handleHTML(w http.ResponseWriter, r *http.Request) {
@@ -414,7 +561,7 @@ func (d *Debugger) handleHTML(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	html := d.generateHTML(root)
+	html := d.GenerateHTML(root)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write([]byte(html))
 }
@@ -529,7 +676,7 @@ func (d *Debugger) compareNodes(a, b *core.DebugNode) *DiffNode {
 	if a == nil {
 		diff.Changed = true
 		diff.Changes = append(diff.Changes, "added")
-		diff.Current = a.Bounds
+		diff.Current = b.Bounds
 		return diff
 	}
 
@@ -584,12 +731,8 @@ func (d *Debugger) compareNodes(a, b *core.DebugNode) *DiffNode {
 
 var nodeIDCounter int
 
-type scrollState struct {
-	offsetX float32
-	offsetY float32
-}
 
-func (d *Debugger) generateHTML(root core.Element) string {
+func (d *Debugger) GenerateHTML(root core.Element) string {
 	info := root.DebugInfo()
 	bounds := info.Bounds
 	screenW := int(bounds.Width)
@@ -604,7 +747,7 @@ func (d *Debugger) generateHTML(root core.Element) string {
 	nodeIDCounter = 0
 
 	var elementsHTML strings.Builder
-	d.renderDebugNodeHTML(&info, &elementsHTML, 0, 0, 0, nil)
+	d.renderDebugNodeHTML(&info, &elementsHTML, 0, 0, 0)
 
 	return fmt.Sprintf(`<!DOCTYPE html>
 <html>
@@ -809,50 +952,20 @@ func (d *Debugger) generateHTML(root core.Element) string {
 </html>`, screenW, screenH, screenW, screenH, elementsHTML.String(), d.buildTreeJSON(root), screenW, screenH)
 }
 
-func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Builder, depth int, parentX, parentY float32, scroll *scrollState) {
+func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Builder, depth int, parentX, parentY float32) {
 	if node == nil {
 		return
 	}
 
 	bounds := node.Bounds
-
-	var childScroll *scrollState
-	if node.Type == "ScrollView" && node.Props != nil {
-		var sx, sy float32
-		if v, ok := node.Props["scrollX"].(float32); ok {
-			sx = v
-		}
-		if v, ok := node.Props["scrollY"].(float32); ok {
-			sy = v
-		}
-		if v, ok := node.Props["scrollX"].(float64); ok {
-			sx = float32(v)
-		}
-		if v, ok := node.Props["scrollY"].(float64); ok {
-			sy = float32(v)
-		}
-		if sx != 0 || sy != 0 {
-			if scroll != nil {
-				childScroll = &scrollState{offsetX: scroll.offsetX + sx, offsetY: scroll.offsetY + sy}
-			} else {
-				childScroll = &scrollState{offsetX: sx, offsetY: sy}
-			}
-		}
-	}
-
 	renderX := bounds.X
 	renderY := bounds.Y
-	if scroll != nil {
-		renderX += scroll.offsetX
-		renderY += scroll.offsetY
-	}
-
 	relX := renderX - parentX
 	relY := renderY - parentY
 
 	if bounds.Width <= 0 || bounds.Height <= 0 {
 		for _, child := range node.Children {
-			d.renderDebugNodeHTML(child, html, depth+1, parentX, parentY, scroll)
+			d.renderDebugNodeHTML(child, html, depth+1, parentX, parentY)
 		}
 		return
 	}
@@ -933,25 +1046,6 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 	fmt.Fprintf(html, `<div class="el%s%s" id="%s" style="%s" onclick="selectElement('%s')">`, visibleClass, clipClass, id, strings.Join(cssStyles, ";"), id)
 	fmt.Fprintf(html, `<div class="el-label" style="color:%s">%s</div>`, labelColor, label)
 
-	if node.Type == "ScrollView" && node.Props != nil {
-		var sx, sy float32
-		if v, ok := node.Props["scrollX"].(float32); ok {
-			sx = v
-		}
-		if v, ok := node.Props["scrollY"].(float32); ok {
-			sy = v
-		}
-		if v, ok := node.Props["scrollX"].(float64); ok {
-			sx = float32(v)
-		}
-		if v, ok := node.Props["scrollY"].(float64); ok {
-			sy = float32(v)
-		}
-		if sx != 0 || sy != 0 {
-			fmt.Fprintf(html, `<div class="scroll-indicator">scroll(%.0f,%.0f)</div>`, sx, sy)
-		}
-	}
-
 	textContent := ""
 	if node.Type == "Text" {
 		if node.Props != nil {
@@ -978,6 +1072,10 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 		padTop := yoga.PaddingTop
 		padLeft := yoga.PaddingLeft
 		padRight := yoga.PaddingRight
+		// Guard against NaN from unset yoga values
+		if padTop != padTop { padTop = 0 }
+		if padLeft != padLeft { padLeft = 0 }
+		if padRight != padRight { padRight = 0 }
 		textWidth := bounds.Width - padLeft - padRight
 		if textWidth < 0 {
 			textWidth = 0
@@ -986,7 +1084,7 @@ func (d *Debugger) renderDebugNodeHTML(node *core.DebugNode, html *strings.Build
 	}
 
 	for _, child := range node.Children {
-		d.renderDebugNodeHTML(child, html, depth+1, renderX, renderY, childScroll)
+		d.renderDebugNodeHTML(child, html, depth+1, renderX, renderY)
 	}
 
 	html.WriteString(`</div>`)
@@ -996,7 +1094,7 @@ func (d *Debugger) buildTreeJSON(root core.Element) string {
 	info := root.DebugInfo()
 	nodeIDCounter = 0
 	assignIDs(&info)
-	data, err := json.Marshal(info)
+	data, err := jsonMarshal(info)
 	if err != nil {
 		return "{}"
 	}
@@ -1144,7 +1242,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monos
 .preview-panel .preview-wrap { flex: 1; overflow: auto; position: relative; background: #1a1f2e; }
 .preview-panel .preview-root { position: relative; background: #0d1117; min-width: 100%; min-height: 100%; }
 .gui-el { position: absolute; cursor: pointer; overflow: visible; font-size: 0; box-sizing: border-box; }
-.gui-el:hover { outline: 2px solid #f0883e; outline-offset: -1px; z-index: 999; }
+/* hover outline removed — preview should match GUI exactly */
 .gui-el.selected { outline: 2px solid #58a6ff; outline-offset: -1px; z-index: 998; }
 .gui-el.highlight-flash { outline: 3px solid #d2a8ff; outline-offset: -1px; z-index: 1000; animation: flash 0.6s ease-out; }
 @keyframes flash { 0% { outline-color: #d2a8ff; } 100% { outline-color: transparent; } }
@@ -1273,36 +1371,52 @@ function connectWS() {
         document.getElementById('ws-status').className = 'ws-status disconnected';
         setTimeout(connectWS, 2000);
     };
-    ws.onerror = () => { ws.close(); };
+    ws.onerror = (e) => { console.error('[WS] Error:', e); ws.close(); };
     ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
+        let msg;
+        try {
+            msg = JSON.parse(e.data);
+        } catch (err) {
+            console.error('[WS] JSON parse error:', err, 'data:', e.data.slice(0, 200));
+            return;
+        }
+        console.log('[WS] Received:', msg.type, msg.data ? '(data present)' : '(no data)');
         switch(msg.type) {
-            case 'tree': treeData = msg.data; normalizeTree(treeData); renderTree(); if(autoRefresh) renderPreview(); break;
-            case 'perf': perfData = msg.data; updatePerf(); break;
-            case 'events':
+        case 'tree': treeData = msg.data; console.log('[DevTools] Tree data keys:', treeData ? Object.keys(treeData) : 'null'); normalizeTree(treeData); if(expandedNodes.size === 0) autoExpand(treeData, 2); renderTree(); console.log('[DevTools] After normalize, treeData.bounds:', treeData ? treeData.bounds : 'null'); if(autoRefresh) renderPreview(); break;
+        case 'perf': perfData = msg.data; updatePerf(); break;
+        case 'events':
+            if (Array.isArray(msg.data)) {
+                eventLogs = msg.data;
+                if (currentLogTab === 'events') renderLogs();
+            }
+            break;
+        case 'state':
+            if (msg.data) {
                 if (Array.isArray(msg.data)) {
-                    eventLogs = msg.data;
-                    if (currentLogTab === 'events') renderLogs();
-                }
-                break;
-            case 'state':
-                if (msg.data) {
+                    stateLogs.push(...msg.data);
+                } else {
                     stateLogs.push(msg.data);
-                    if (stateLogs.length > 500) stateLogs = stateLogs.slice(-500);
-                    if (currentLogTab === 'state') renderLogs();
                 }
-                break;
-            case 'lifecycle':
-                if (Array.isArray(msg.data)) {
-                    lifecycleLogs = msg.data;
-                    if (currentLogTab === 'lifecycle') renderLogs();
-                }
-                break;
-            case 'listeners': break;
+                if (stateLogs.length > 500) stateLogs = stateLogs.slice(-500);
+                if (currentLogTab === 'state') renderLogs();
+            }
+            break;
+        case 'lifecycle':
+            if (Array.isArray(msg.data)) {
+                lifecycleLogs = msg.data;
+                if (currentLogTab === 'lifecycle') renderLogs();
+            }
+            break;
+        case 'listeners': break;
         }
     };
 }
 connectWS();
+
+function escapeHTML(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
 function normalizeTree(node) {
     if (!node) return;
@@ -1314,6 +1428,17 @@ function normalizeTree(node) {
         node._eventCount = 0;
     }
     if (node.children) node.children.forEach(normalizeTree);
+}
+
+function autoExpand(node, maxDepth, depth) {
+    if (!node) return;
+    depth = depth || 0;
+    if (node._id && depth < maxDepth) {
+        expandedNodes.add(node._id);
+    }
+    if (node.children) {
+        node.children.forEach(child => autoExpand(child, maxDepth, depth + 1));
+    }
 }
 
 // ==================== Tree ====================
@@ -1400,7 +1525,7 @@ function findAndInspect(id) {
 function renderPreview() {
     const wrap = document.getElementById('preview');
     if (!treeData) {
-        wrap.innerHTML = '<div style="padding:20px;color:#8b949e">Waiting for tree data...</div>';
+        wrap.innerHTML = '<div style="padding:20px;color:#8b949e">Waiting for tree data... (WS should auto-connect)</div>';
         return;
     }
     if (!treeData.bounds) {
@@ -1413,8 +1538,16 @@ function renderPreview() {
     _previewElCount = 0;
     wrap.style.width = w + 'px';
     wrap.style.height = h + 'px';
+    // Match preview background to GUI root background if available
+    const rootBg = treeData.props && treeData.props.backgroundColor;
+    wrap.style.background = rootBg || '#0d1117';
     try {
-        wrap.innerHTML = buildPreviewEl(treeData, 0, 0);
+        const html = buildPreviewEl(treeData, 0, 0);
+        if (!html || html.length === 0) {
+            wrap.innerHTML = '<div style="padding:20px;color:#f85149">buildPreviewEl returned empty. treeData: ' + escapeHTML(JSON.stringify(treeData).slice(0, 300)) + '</div>';
+            return;
+        }
+        wrap.innerHTML = html;
     } catch(e) {
         wrap.innerHTML = '<div style="padding:20px;color:#f85149">Preview render error: ' + escapeHTML(e.message) + '<br><pre style="font-size:10px;color:#8b949e;margin-top:8px">' + escapeHTML(e.stack || '') + '</pre></div>';
         return;
@@ -1453,6 +1586,27 @@ function buildPreviewEl(node, parentX, parentY) {
         classes: node.classes || []
     };
 
+    // 读取实际样式属性（与 GUI 一致），回退到淡色类型色
+    const p = node.props || {};
+    let bgColor = '';
+    let borderColor = color + '88';
+    let borderRadius = '';
+
+    if (p.backgroundColor) bgColor = p.backgroundColor;
+    else if (p.bgColor) bgColor = p.bgColor;
+    else if (p.normalColor) bgColor = p.normalColor;
+
+    if (p.borderColor) borderColor = p.borderColor;
+
+    if (p.borderRadius) {
+        if (typeof p.borderRadius === 'object') {
+            const br = p.borderRadius;
+            borderRadius = (br.topLeft||0) + 'px ' + (br.topRight||0) + 'px ' + (br.bottomRight||0) + 'px ' + (br.bottomLeft||0) + 'px';
+        } else if (typeof p.borderRadius === 'number') {
+            borderRadius = p.borderRadius + 'px';
+        }
+    }
+
     let h = '<div class="' + cls + '"';
     h += ' data-gui-id="' + (node._id||'') + '"';
     h += ' data-gui-type="' + (node.type||'') + '"';
@@ -1461,11 +1615,12 @@ function buildPreviewEl(node, parentX, parentY) {
     h += ' style="left:' + relX + 'px;top:' + relY + 'px;';
     if (b.width > 0) h += 'width:' + b.width + 'px;';
     if (b.height > 0) h += 'height:' + b.height + 'px;';
-    h += 'border:1px solid ' + color + ';background:' + color + '44;';
-    h += 'box-shadow: inset 0 0 0 1px ' + color + '22;';
+    if (bgColor) h += 'background:' + bgColor + ';';
+    h += 'border:1px solid ' + borderColor + ';';
+    if (borderRadius) h += 'border-radius:' + borderRadius + ';';
     h += 'min-width:2px;min-height:2px;';
     if (b.width <= 0 || b.height <= 0) {
-        h += 'width:4px;height:4px;background:' + color + ';';
+        h += 'width:4px;height:4px;background:' + (bgColor || borderColor) + ';';
     }
     if (node.transform && node.transform.alpha !== undefined && node.transform.alpha < 1) {
         h += 'opacity:' + node.transform.alpha + ';';
@@ -1478,14 +1633,52 @@ function buildPreviewEl(node, parentX, parentY) {
         _previewElCount++;
         h += '<div class="el-tag" style="color:' + color + '">' + escapeHTML(label) + '</div>';
 
-        if (node.type === 'Text' && node.props && node.props.content) {
-            const fs = node.props.fontSize || 14;
-            const tc = node.props.color || '#fff';
-            const pt = (node.yoga && node.yoga.paddingTop) || 0;
-            const pl = (node.yoga && node.yoga.paddingLeft) || 0;
-            const pr = (node.yoga && node.yoga.paddingRight) || 0;
-            const tw = Math.max(0, b.width - pl - pr);
-            h += '<div class="el-text" style="top:' + pt + 'px;left:' + pl + 'px;width:' + tw + 'px;font-size:' + fs + 'px;color:' + tc + '">' + escapeHTML(String(node.props.content)) + '</div>';
+        if (p.content) {
+            const fs = p.fontSize || 16;
+            const tc = p.color || '#000';
+            const y = node.yoga || {};
+            const padLeft = (y.paddingLeft === y.paddingLeft) ? (y.paddingLeft || 0) : 0;
+            const padRight = (y.paddingRight === y.paddingRight) ? (y.paddingRight || 0) : 0;
+            const textWidth = Math.max(0, b.width - padLeft - padRight);
+            // Center text vertically within Text bounds (closer to user expectation than baseline offset)
+            h += '<div class="el-text" style="top:0;left:' + padLeft + 'px;width:' + textWidth + 'px;height:' + b.height + 'px;display:flex;align-items:center;font-size:' + fs + 'px;color:' + tc + '">' + escapeHTML(String(p.content)) + '</div>';
+        }
+
+        // ProgressBar: show fill portion
+        if (node.type === 'ProgressBar' && p.progress > 0 && p.fillColor) {
+            const fillW = b.width * p.progress;
+            h += '<div style="position:absolute;top:0;left:0;width:' + fillW + 'px;height:100%;background:' + p.fillColor + ';border-radius:inherit;opacity:0.9;"></div>';
+        }
+
+        // Checkbox: show box outline (always) + checkmark when checked
+        if (node.type === 'Checkbox') {
+            const boxSize = p.boxSize || 18;
+            const bc = p.borderColor || '#888';
+            h += '<div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:' + boxSize + 'px;height:' + boxSize + 'px;border:1.5px solid ' + bc + ';border-radius:3px;background:' + (p.backgroundColor || 'transparent') + ';"></div>';
+            if (p.checked) {
+                h += '<div style="position:absolute;left:3px;top:50%;transform:translateY(-50%);width:12px;height:12px;background:' + (p.checkColor || '#fff') + ';border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:9px;color:' + (p.checkColor || '#fff') + ';">✓</div>';
+            }
+        }
+
+        // Radio: show circle outline (always) + inner dot when selected
+        if (node.type === 'Radio') {
+            const boxSize = p.boxSize || 18;
+            const bc = p.borderColor || '#888';
+            h += '<div style="position:absolute;left:0;top:50%;transform:translateY(-50%);width:' + boxSize + 'px;height:' + boxSize + 'px;border:1.5px solid ' + bc + ';border-radius:50%;background:' + (p.backgroundColor || 'transparent') + ';"></div>';
+            if (p.selected) {
+                h += '<div style="position:absolute;left:5px;top:50%;transform:translateY(-50%);width:8px;height:8px;background:' + (p.innerColor || '#fff') + ';border-radius:50%;"></div>';
+            }
+        }
+
+        // Switch: show thumb circle
+        if (node.type === 'Switch' && p.thumbColor) {
+            const thumbR = (b.height / 2) - 2;
+            const thumbY = b.height / 2;
+            const leftX = thumbR + 2;
+            const rightX = b.width - thumbR - 2;
+            const progress = p.checked ? 1 : 0;
+            const thumbX = leftX + (rightX - leftX) * progress;
+            h += '<div style="position:absolute;left:' + thumbX + 'px;top:' + thumbY + 'px;transform:translate(-50%,-50%);width:' + (thumbR*2) + 'px;height:' + (thumbR*2) + 'px;background:' + p.thumbColor + ';border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.3);"></div>';
         }
     }
 
@@ -1692,7 +1885,7 @@ function renderLifecycleLogs(el) {
 // ==================== Perf ====================
 function updatePerf() {
     const p = perfData;
-    document.getElementById('perf-fps').textContent = p.lastFrameTime ? (1000/p.lastFrameTime/1e6).toFixed(0) : '--';
+    document.getElementById('perf-fps').textContent = p.lastFrameTime ? (1e9/p.lastFrameTime).toFixed(0) : '--';
     document.getElementById('perf-frame').textContent = p.lastFrameTime ? (p.lastFrameTime/1e6).toFixed(2)+'ms' : '--';
     document.getElementById('perf-layout').textContent = p.lastLayoutTime ? (p.lastLayoutTime/1e6).toFixed(2)+'ms' : '--';
     document.getElementById('perf-draw').textContent = p.lastDrawTime ? (p.lastDrawTime/1e6).toFixed(2)+'ms' : '--';

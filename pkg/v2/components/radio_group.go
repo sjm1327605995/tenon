@@ -101,7 +101,7 @@ func (rg *RadioGroup) SetOptions(options []string) *RadioGroup {
 	rg.options = options
 	rg.selected = -1
 	rg.buildRadios()
-	rg.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	rg.Mark(core.FlagNeedLayout)
 	return rg
 }
 

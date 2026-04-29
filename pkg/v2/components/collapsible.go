@@ -44,7 +44,7 @@ func (c *Collapsible) ElementType() string { return "Collapsible" }
 func (c *Collapsible) toggle() {
 	c.open = !c.open
 	c.contentWrap.SetVisible(c.open)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	if c.onChange != nil {
 		c.onChange(c.open)
 	}
@@ -54,7 +54,7 @@ func (c *Collapsible) toggle() {
 func (c *Collapsible) SetOpen(open bool) *Collapsible {
 	c.open = open
 	c.contentWrap.SetVisible(open)
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 	return c
 }
 

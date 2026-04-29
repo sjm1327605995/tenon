@@ -61,13 +61,7 @@ func (a *Alert) ElementType() string { return "Alert" }
 
 // Draw renders the alert background and border.
 func (a *Alert) Draw(screen *ebiten.Image) {
-	if !a.IsVisible() {
-		return
-	}
 	bounds := a.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	br := core.BorderRadius{TopLeft: core.GetTheme().BorderRadius, TopRight: core.GetTheme().BorderRadius, BottomRight: core.GetTheme().BorderRadius, BottomLeft: core.GetTheme().BorderRadius}
 	if a.bgColor != nil {
 		drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height, br, a.bgColor)

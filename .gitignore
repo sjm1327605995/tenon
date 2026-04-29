@@ -26,3 +26,11 @@ Thumbs.db
 # Local env
 .env
 .env.local
+
+# Logs & temp files
+*.log
+*.err
+*_test.png
+
+# Debug snapshots
+_debug_snapshot/

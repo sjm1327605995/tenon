@@ -33,15 +33,15 @@ func (img *Image) measure(node *yoga.Node, width float32, widthMode yoga.Measure
 // ElementType returns type identifier.
 func (img *Image) ElementType() string { return "Image" }
 
+// IsNative returns true as Image is a native rendering component.
+func (img *Image) IsNative() bool { return true }
+
 // Draw renders the image.
 func (img *Image) Draw(screen *ebiten.Image) {
-	if !img.IsVisible() || img.src == nil {
+	if img.src == nil {
 		return
 	}
 	bounds := img.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	op := &ebiten.DrawImageOptions{}
 	if img.drawOpts != nil {
@@ -98,16 +98,8 @@ func (img *Image) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	if img.src != other.src {
-		img.src = other.src
-		needDraw = true
-	}
-	if img.drawOpts != other.drawOpts {
-		img.drawOpts = other.drawOpts
-		needDraw = true
-	}
-	if needDraw {
-		img.Mark(core.FlagNeedDraw)
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &img.src, other.src)
+	syncField(sb, &img.drawOpts, other.drawOpts)
+	sb.MarkDraw(img)
 }

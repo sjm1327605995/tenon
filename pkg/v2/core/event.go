@@ -1,7 +1,5 @@
 package core
 
-import "github.com/hajimehoshi/ebiten/v2"
-
 // EventType 定义事件类型。
 type EventType int
 
@@ -28,8 +26,8 @@ type Event struct {
 	LocalY float32 // 目标组件本地坐标
 	DeltaX float32 // 滚轮水平增量
 	DeltaY float32 // 滚轮垂直增量
-	Key    ebiten.Key
-	Button ebiten.MouseButton
+	Key    Key
+	Button MouseButton
 	Width  float32 // 窗口新宽度（EventResize）
 	Height float32 // 窗口新高度（EventResize）
 	Target Element

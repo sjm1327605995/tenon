@@ -4,10 +4,10 @@ import (
 	"image/color"
 	"time"
 
-	"github.com/sjm1327605995/tenon"
 	"github.com/sjm1327605995/tenon/pkg/fonts"
 	"github.com/sjm1327605995/tenon/pkg/v2/components"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
+	"github.com/sjm1327605995/tenon/pkg/v2/debug"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -487,5 +487,5 @@ func main() {
 	core.SetTheme(core.DefaultShadcnLightTheme())
 
 	app := NewGalleryApp()
-	tenon.RunWithDebug(app, 1200, 800, 8765)
+	debug.RunWithDebug(app, 1200, 800, 8765)
 }

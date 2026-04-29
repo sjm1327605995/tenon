@@ -12,6 +12,17 @@ type State[T any] struct {
 	onSetHook func(oldVal, newVal T)
 }
 
+// renderTracker 在 Widget.Render() 期间收集 State 访问。
+type renderTracker struct {
+	widget Widget
+	active bool
+	states []stateNotifier
+}
+
+// activeRenderTracker 在 Render 期间指向当前 Engine 的 tracker。
+// 这是同步上下文指针，不构成持久全局状态。
+var activeRenderTracker *renderTracker
+
 var stateDebugHook func(elementType, key string, oldValue, newValue interface{})
 
 func SetStateDebugHook(hook func(elementType, key string, oldValue, newValue interface{})) {
@@ -27,7 +38,7 @@ func NewState[T any](v T) *State[T] {
 // 如果在 Widget.Render() 执行期间调用，会自动记录依赖关系，
 // 框架后续会自动订阅该 State，变化时触发 Widget 重建。
 func (s *State[T]) Get() T {
-	if renderTracker.active && renderTracker.widget != nil {
+	if activeRenderTracker != nil && activeRenderTracker.active && activeRenderTracker.widget != nil {
 		recordRenderState(s)
 	}
 	return s.value
@@ -80,24 +91,15 @@ type stateNotifier interface {
 
 // recordRenderState 记录一个 State 被当前 Widget 访问。
 func recordRenderState(s stateNotifier) {
-	if !renderTracker.active {
+	if activeRenderTracker == nil || !activeRenderTracker.active {
 		return
 	}
-	for _, existing := range renderTracker.states {
+	for _, existing := range activeRenderTracker.states {
 		if existing == s {
 			return
 		}
 	}
-	renderTracker.states = append(renderTracker.states, s)
-}
-
-// ==================== 全局渲染依赖追踪器 ====================
-
-// renderTracker 在 Widget.Render() 期间收集 State 访问。
-var renderTracker struct {
-	widget Widget
-	active bool
-	states []stateNotifier
+	activeRenderTracker.states = append(activeRenderTracker.states, s)
 }
 
 // ==================== 兼容旧 any 类型 State ====================

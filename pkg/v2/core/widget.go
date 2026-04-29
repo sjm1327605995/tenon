@@ -41,14 +41,16 @@ func (b *BaseWidget) Render() Element { return nil }
 // RenderWithTracking 执行 Render() 并自动追踪 State 依赖。
 // 框架在 flushBuildQueue 中调用此方法，用户无需关心。
 func (b *BaseWidget) RenderWithTracking() Element {
-	// 设置全局追踪上下文
-	renderTracker.widget = b.self
-	renderTracker.active = true
-	renderTracker.states = nil
+	if b.engine != nil {
+		b.engine.beginRenderTracking(b.self)
+	}
 
 	el := b.self.Render()
 
-	renderTracker.active = false
+	var states []stateNotifier
+	if b.engine != nil {
+		states = b.engine.endRenderTracking()
+	}
 
 	// 清理上一帧的订阅
 	for _, cleanup := range b.stateCleanups {
@@ -58,7 +60,7 @@ func (b *BaseWidget) RenderWithTracking() Element {
 
 	// 为本次 Render 访问的所有 State 建立订阅
 	// State 变化时自动触发 Widget 重建
-	for _, s := range renderTracker.states {
+	for _, s := range states {
 		cleanup := s._subscribeRebuild(func() {
 			b.self.RequestBuild()
 		})

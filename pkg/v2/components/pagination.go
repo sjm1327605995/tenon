@@ -10,57 +10,71 @@ import (
 // Pagination is a page navigation control.
 type Pagination struct {
 	core.BaseElement
-	totalPages int
-	current    int
-	onChange   func(page int)
+	totalPages  int
+	current     int
+	onChange    func(page int)
+	prevBtn     *Button
+	nextBtn     *Button
+	pageButtons []*Button
 }
 
 // NewPagination creates pagination controls.
 func NewPagination(totalPages int) *Pagination {
-	p := &Pagination{
-		totalPages: totalPages,
-		current:    1,
-	}
+	p := &Pagination{totalPages: totalPages, current: 1}
 	p.Init(p)
 	p.SetFlexDirection(yoga.FlexDirectionRow)
 	p.SetAlignItems(yoga.AlignCenter)
 	p.SetGap(yoga.GutterAll, 4)
-	p.buildButtons()
+	p.initButtons()
+	p.updateButtons()
 	return p
 }
 
-// ElementType returns type identifier.
-func (p *Pagination) ElementType() string { return "Pagination" }
+func (p *Pagination) initButtons() {
+	p.prevBtn = NewButton("←").SetVariant(ButtonOutline)
+	p.prevBtn.SetOnClick(func() { p.SetPage(p.current - 1) })
+	p.AppendChild(p.prevBtn)
 
-func (p *Pagination) buildButtons() {
-	p.ClearChildren()
-
-	prev := NewButton("←").SetVariant(ButtonOutline)
-	prev.SetOnClick(func() { p.SetPage(p.current - 1) })
-	if p.current <= 1 {
-		prev.SetDisabled(true)
+	maxVisible := 5
+	if p.totalPages < maxVisible {
+		maxVisible = p.totalPages
 	}
-	p.AppendChild(prev)
-
-	start, end := p.visibleRange()
-	for i := start; i <= end; i++ {
-		idx := i
-		btn := NewButton(fmt.Sprintf("%d", i))
-		if i == p.current {
-			btn.SetVariant(ButtonDefault)
-		} else {
-			btn.SetVariant(ButtonOutline)
-		}
-		btn.SetOnClick(func() { p.SetPage(idx) })
+	p.pageButtons = make([]*Button, maxVisible)
+	for i := 0; i < maxVisible; i++ {
+		btn := NewButton("")
+		p.pageButtons[i] = btn
 		p.AppendChild(btn)
 	}
 
-	next := NewButton("→").SetVariant(ButtonOutline)
-	next.SetOnClick(func() { p.SetPage(p.current + 1) })
-	if p.current >= p.totalPages {
-		next.SetDisabled(true)
+	p.nextBtn = NewButton("→").SetVariant(ButtonOutline)
+	p.nextBtn.SetOnClick(func() { p.SetPage(p.current + 1) })
+	p.AppendChild(p.nextBtn)
+}
+
+func (p *Pagination) updateButtons() {
+	start, end := p.visibleRange()
+
+	p.prevBtn.SetDisabled(p.current <= 1)
+
+	for i, btn := range p.pageButtons {
+		page := start + i
+		if page > end {
+			btn.SetDisplay(yoga.DisplayNone)
+		} else {
+			btn.SetDisplay(yoga.DisplayFlex)
+			btn.SetText(fmt.Sprintf("%d", page))
+			if page == p.current {
+				btn.SetVariant(ButtonDefault)
+			} else {
+				btn.SetVariant(ButtonOutline)
+			}
+			idx := page
+			btn.SetOnClick(func() { p.SetPage(idx) })
+		}
 	}
-	p.AppendChild(next)
+
+	p.nextBtn.SetDisabled(p.current >= p.totalPages)
+	p.Mark(core.FlagNeedLayout)
 }
 
 func (p *Pagination) visibleRange() (int, int) {
@@ -85,8 +99,7 @@ func (p *Pagination) SetPage(page int) *Pagination {
 		return p
 	}
 	p.current = page
-	p.buildButtons()
-	p.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	p.updateButtons()
 	if p.onChange != nil {
 		p.onChange(page)
 	}
@@ -97,11 +110,4 @@ func (p *Pagination) SetPage(page int) *Pagination {
 func (p *Pagination) SetOnChange(fn func(page int)) *Pagination {
 	p.onChange = fn
 	return p
-}
-
-func (p *Pagination) DebugProps() map[string]interface{} {
-	props := make(map[string]interface{})
-	props["totalPages"] = p.totalPages
-	props["current"] = p.current
-	return props
 }

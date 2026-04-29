@@ -65,13 +65,7 @@ func (t *Toast) ElementType() string { return "Toast" }
 
 // Draw renders toast background and optional icon indicator.
 func (t *Toast) Draw(screen *ebiten.Image) {
-	if !t.IsVisible() {
-		return
-	}
 	bounds := t.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	// Background
 	drawRoundedRectFill(screen, bounds.X, bounds.Y, bounds.Width, bounds.Height,
@@ -145,28 +139,24 @@ func (t *Toast) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
+	sb := &SyncBuilder{}
 	if t.visible != other.visible {
 		t.visible = other.visible
 		t.SetVisible(other.visible)
-		needDraw = true
+		sb.NeedDraw = true
 	}
 	if t.toastType != other.toastType {
 		t.toastType = other.toastType
 		t.setTypeColors(t.toastType)
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if t.duration != other.duration {
-		t.duration = other.duration
-	}
+	syncField(sb, &t.duration, other.duration)
 	if t.radius != other.radius || t.padding != other.padding {
 		t.radius = other.radius
 		t.padding = other.padding
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if needDraw {
-		t.Mark(core.FlagNeedDraw)
-	}
+	sb.MarkDraw(t)
 }
 
 func (t *Toast) setTypeColors(tt ToastType) {
@@ -251,3 +241,4 @@ func (tm *ToastManager) Update() error {
 	}
 	return nil
 }
+

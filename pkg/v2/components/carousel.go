@@ -53,7 +53,7 @@ func (c *Carousel) refresh() {
 	if c.currentIdx >= 0 && c.currentIdx < len(c.items) {
 		c.contentArea.Add(c.items[c.currentIdx])
 	}
-	c.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	c.Mark(core.FlagNeedLayout)
 }
 
 func (c *Carousel) prev() {

@@ -44,13 +44,7 @@ func (a *Avatar) ElementType() string { return "Avatar" }
 
 // Draw renders the circular avatar background.
 func (a *Avatar) Draw(screen *ebiten.Image) {
-	if !a.IsVisible() {
-		return
-	}
 	bounds := a.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 	r := bounds.Width / 2
 	cx := bounds.X + r
 	cy := bounds.Y + r

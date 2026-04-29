@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image/color"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/v2/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -58,8 +57,8 @@ func NewBadge(content string) *Badge {
 // ElementType returns type identifier.
 func (b *Badge) ElementType() string { return "Badge" }
 
-// Draw auto-computes pill-shaped borderRadius before delegating to View.
-func (b *Badge) Draw(screen *ebiten.Image) {
+// Update auto-computes pill-shaped borderRadius.
+func (b *Badge) Update() error {
 	if !b.dotMode {
 		bounds := b.GetBounds()
 		if bounds.Height > 0 {
@@ -69,7 +68,7 @@ func (b *Badge) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
-	b.View.Draw(screen)
+	return nil
 }
 
 // SetVariant changes the badge style.
@@ -161,22 +160,14 @@ func (b *Badge) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	// 同步 View 属性
 	b.View.SyncFrom(&other.View)
-	needDraw := false
-	if b.dotMode != other.dotMode {
-		b.dotMode = other.dotMode
-		needDraw = true
-	}
-	if b.maxCount != other.maxCount {
-		b.maxCount = other.maxCount
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &b.dotMode, other.dotMode)
+	syncField(sb, &b.maxCount, other.maxCount)
 	if b.variant != other.variant {
 		b.variant = other.variant
 		b.applyVariantStyles(core.GetTheme())
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if needDraw {
-		b.Mark(core.FlagNeedDraw)
-	}
+	sb.MarkDraw(b)
 }

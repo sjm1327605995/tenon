@@ -69,13 +69,10 @@ func (st *ShadowText) measure(node *yoga.Node, width float32, widthMode yoga.Mea
 
 // Draw renders shadow text.
 func (st *ShadowText) Draw(screen *ebiten.Image) {
-	if !st.IsVisible() || st.content == "" {
+	if st.content == "" {
 		return
 	}
 	bounds := st.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	face := st.getFace()
 	if face == nil {

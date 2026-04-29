@@ -77,7 +77,7 @@ func (dd *Dropdown) open() {
 	dd.isOpen = true
 	dd.panel.SetVisible(true)
 	dd.panel.SetDisplay(yoga.DisplayFlex)
-	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	dd.Mark(core.FlagNeedLayout)
 }
 
 func (dd *Dropdown) close() {
@@ -87,7 +87,7 @@ func (dd *Dropdown) close() {
 	dd.isOpen = false
 	dd.panel.SetVisible(false)
 	dd.panel.SetDisplay(yoga.DisplayNone)
-	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	dd.Mark(core.FlagNeedLayout)
 }
 
 // SetItems replaces all options.
@@ -103,7 +103,7 @@ func (dd *Dropdown) SetItems(items []string) *Dropdown {
 		dd.selectedIdx = -1
 		dd.trigger.SetText("")
 	}
-	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	dd.Mark(core.FlagNeedLayout)
 	return dd
 }
 
@@ -112,7 +112,7 @@ func (dd *Dropdown) AddItem(item string) *Dropdown {
 	dd.items = append(dd.items, item)
 	txt := NewText(item)
 	dd.listView.AddItem(txt)
-	dd.Mark(core.FlagNeedLayout | core.FlagNeedDraw)
+	dd.Mark(core.FlagNeedLayout)
 	return dd
 }
 
@@ -182,7 +182,6 @@ func (dd *Dropdown) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
 	if dd.selectedIdx != other.selectedIdx {
 		dd.selectedIdx = other.selectedIdx
 		if dd.selectedIdx >= 0 && dd.selectedIdx < len(dd.items) {
@@ -190,9 +189,6 @@ func (dd *Dropdown) SyncFrom(src core.Element) {
 		} else {
 			dd.trigger.SetText("")
 		}
-		needDraw = true
-	}
-	if needDraw {
-		dd.Mark(core.FlagNeedDraw)
+		// Text child auto-marks dirty; no need to mark composite
 	}
 }

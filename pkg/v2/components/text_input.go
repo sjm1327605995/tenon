@@ -72,33 +72,9 @@ func NewTextInput() *TextInput {
 // ElementType returns type identifier.
 func (ti *TextInput) ElementType() string { return "TextInput" }
 
-func (ti *TextInput) DebugProps() map[string]interface{} {
-	props := make(map[string]interface{})
-	props["placeholder"] = ti.placeholder
-	props["fontSize"] = ti.fontSize
-	props["padding"] = ti.padding
-	if ti.textColor != nil {
-		props["textColor"] = colorToCSS(ti.textColor)
-	}
-	if ti.borderColor != nil {
-		props["borderColor"] = colorToCSS(ti.borderColor)
-	}
-	if ti.bgColor != nil {
-		props["backgroundColor"] = colorToCSS(ti.bgColor)
-	}
-	props["isMultiline"] = ti.isMultiline
-	return props
-}
-
 // Draw renders the input field.
 func (ti *TextInput) Draw(screen *ebiten.Image) {
-	if !ti.IsVisible() {
-		return
-	}
 	bounds := ti.GetBounds()
-	if bounds.Width <= 0 || bounds.Height <= 0 {
-		return
-	}
 
 	isFocused := ti.isFocused()
 
@@ -382,7 +358,7 @@ func (ti *TextInput) HandleEvent(e *core.Event) bool {
 			e.Y >= bounds.Y && e.Y <= bounds.Y+bounds.Height {
 			ti.selecting = true
 			pos := ti.hitTestText(e.X, e.Y)
-			if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			if core.IsKeyPressed(core.KeyShift) {
 				start, end := ti.field.Selection()
 				if start == end {
 					ti.selectAnchor = start
@@ -423,48 +399,48 @@ func (ti *TextInput) HandleEvent(e *core.Event) bool {
 	return false
 }
 
-func (ti *TextInput) handleKeyDown(key ebiten.Key) bool {
+func (ti *TextInput) handleKeyDown(key core.Key) bool {
 	switch key {
-	case ebiten.KeyBackspace:
+	case core.KeyBackspace:
 		ti.handleBackspace()
 		return true
-	case ebiten.KeyDelete:
+	case core.KeyDelete:
 		ti.handleDelete()
 		return true
-	case ebiten.KeyLeft:
-		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+	case core.KeyLeft:
+		if core.IsKeyPressed(core.KeyShift) {
 			ti.extendSelection(-1)
 		} else {
 			ti.clearSelection()
 			ti.moveCursor(-1)
 		}
 		return true
-	case ebiten.KeyRight:
-		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+	case core.KeyRight:
+		if core.IsKeyPressed(core.KeyShift) {
 			ti.extendSelection(1)
 		} else {
 			ti.clearSelection()
 			ti.moveCursor(1)
 		}
 		return true
-	case ebiten.KeyEnter:
+	case core.KeyEnter:
 		if ti.isMultiline {
 			ti.insertRune('\n')
 		} else if ti.onSubmit != nil {
 			ti.onSubmit(ti.field.Text())
 		}
 		return true
-	case ebiten.KeyHome:
+	case core.KeyHome:
 		ti.clearSelection()
 		ti.field.SetSelection(0, 0)
 		return true
-	case ebiten.KeyEnd:
+	case core.KeyEnd:
 		text := ti.field.Text()
 		ti.clearSelection()
 		ti.field.SetSelection(len(text), len(text))
 		return true
 	}
-	if key == ebiten.KeyA && ebiten.IsKeyPressed(ebiten.KeyControl) {
+	if key == core.KeyA && core.IsKeyPressed(core.KeyCtrl) {
 		text := ti.field.Text()
 		ti.field.SetSelection(0, len(text))
 		return true
@@ -649,20 +625,14 @@ func (ti *TextInput) SyncFrom(src core.Element) {
 	if !ok {
 		return
 	}
-	needDraw := false
-	if ti.placeholder != other.placeholder {
-		ti.placeholder = other.placeholder
-		needDraw = true
-	}
-	if ti.isMultiline != other.isMultiline {
-		ti.isMultiline = other.isMultiline
-		needDraw = true
-	}
+	sb := &SyncBuilder{}
+	syncField(sb, &ti.placeholder, other.placeholder)
+	syncField(sb, &ti.isMultiline, other.isMultiline)
 	if ti.fontSize != other.fontSize {
 		ti.fontSize = other.fontSize
 		ti.fontFace = nil
 		ti.Mark(core.FlagNeedMeasure)
-		needDraw = true
+		sb.NeedDraw = true
 	}
 	if !colorsEqual(ti.textColor, other.textColor) || !colorsEqual(ti.placeholderColor, other.placeholderColor) ||
 		!colorsEqual(ti.cursorColor, other.cursorColor) || !colorsEqual(ti.borderColor, other.borderColor) ||
@@ -676,11 +646,9 @@ func (ti *TextInput) SyncFrom(src core.Element) {
 		ti.bgColor = other.bgColor
 		ti.selectionColor = other.selectionColor
 		ti.compositionColor = other.compositionColor
-		needDraw = true
+		sb.NeedDraw = true
 	}
-	if needDraw {
-		ti.Mark(core.FlagNeedDraw)
-	}
+	sb.MarkDraw(ti)
 }
 
 func (ti *TextInput) SetMultiline(v bool) *TextInput {
@@ -768,3 +736,4 @@ func absFloat32(v float32) float32 {
 	}
 	return v
 }
+
