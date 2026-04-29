@@ -7,8 +7,15 @@ package core
 // 自动依赖追踪：Widget.Render() 期间调用 Get() 会自动记录访问，
 // Render 完成后框架自动订阅这些 State，变化时自动触发 Widget 重建。
 type State[T any] struct {
-	value T
-	subs  []func(T)
+	value     T
+	subs      []func(T)
+	onSetHook func(oldVal, newVal T)
+}
+
+var stateDebugHook func(elementType, key string, oldValue, newValue interface{})
+
+func SetStateDebugHook(hook func(elementType, key string, oldValue, newValue interface{})) {
+	stateDebugHook = hook
 }
 
 // NewState 创建状态容器。
@@ -28,7 +35,14 @@ func (s *State[T]) Get() T {
 
 // Set 修改值并通知所有订阅者。
 func (s *State[T]) Set(v T) {
+	old := s.value
 	s.value = v
+	if s.onSetHook != nil {
+		s.onSetHook(old, v)
+	}
+	if stateDebugHook != nil {
+		stateDebugHook("", "", old, v)
+	}
 	for _, fn := range s.subs {
 		if fn != nil {
 			fn(v)

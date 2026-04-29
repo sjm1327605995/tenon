@@ -112,6 +112,9 @@ type Element interface {
 	OnKeyUp(callback EventCallback) Element
 	RemoveOnClick(callback EventCallback) Element
 
+	// === 框架内部 ===
+	FlushDelayedListeners()
+
 	// === 调试 ===
 	DebugInfo() DebugNode
 	DebugProps() map[string]interface{}
@@ -137,24 +140,30 @@ const (
 
 // LayoutBounds 描述组件在屏幕上的位置和尺寸。
 type LayoutBounds struct {
-	X, Y, Width, Height float32
+	X      float32 `json:"x"`
+	Y      float32 `json:"y"`
+	Width  float32 `json:"width"`
+	Height float32 `json:"height"`
 }
 
 // BorderRadius 描述四个角的圆角半径。
 type BorderRadius struct {
-	TopLeft, TopRight, BottomRight, BottomLeft float32
+	TopLeft     float32 `json:"topLeft"`
+	TopRight    float32 `json:"topRight"`
+	BottomRight float32 `json:"bottomRight"`
+	BottomLeft  float32 `json:"bottomLeft"`
 }
 
 // Transform 定义 2D 仿射变换参数，用于模拟 3D 倾斜、旋转和缩放效果。
 type Transform struct {
-	Rotation float32 // 旋转角度（度），顺时针为正
-	ScaleX   float32 // X 轴缩放，默认 1
-	ScaleY   float32 // Y 轴缩放，默认 1
-	SkewX    float32 // X 轴倾斜（度），用于模拟透视
-	SkewY    float32 // Y 轴倾斜（度）
-	OriginX  float32 // 变换原点 X 比例（0=左, 0.5=中心, 1=右），默认 0.5
-	OriginY  float32 // 变换原点 Y 比例（0=上, 0.5=中心, 1=下），默认 0.5
-	Alpha    float32 // 透明度 0-1，默认 1
+	Rotation float32 `json:"rotation"`
+	ScaleX   float32 `json:"scaleX"`
+	ScaleY   float32 `json:"scaleY"`
+	SkewX    float32 `json:"skewX"`
+	SkewY    float32 `json:"skewY"`
+	OriginX  float32 `json:"originX"`
+	OriginY  float32 `json:"originY"`
+	Alpha    float32 `json:"alpha"`
 }
 
 // DefaultTransform 返回无变换的默认值。
@@ -283,6 +292,9 @@ func (b *BaseElement) RemoveChild(child Element) {
 			if b.yoga != nil && child.GetYoga() != nil {
 				b.yoga.RemoveChild(child.GetYoga())
 			}
+			if b.engine != nil {
+				b.engine.recordLifecycle("unmount", child)
+			}
 			child.OnUnmount()
 			return
 		}
@@ -292,6 +304,9 @@ func (b *BaseElement) RemoveChild(child Element) {
 func (b *BaseElement) ClearChildren() {
 	for _, c := range b.children {
 		c.SetParent(nil)
+		if b.engine != nil {
+			b.engine.recordLifecycle("unmount", c)
+		}
 		c.OnUnmount()
 		if b.yoga != nil && c.GetYoga() != nil {
 			b.yoga.RemoveChild(c.GetYoga())
