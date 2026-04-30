@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/sjm1327605995/tenon/pkg/fonts"
-	"github.com/sjm1327605995/tenon/pkg/v2/components"
-	"github.com/sjm1327605995/tenon/pkg/v2/core"
-	"github.com/sjm1327605995/tenon/pkg/v2/debug"
+	"github.com/sjm1327605995/tenon/components"
+	"github.com/sjm1327605995/tenon/internal/core"
+	"github.com/sjm1327605995/tenon/pkg/debug"
+	"github.com/sjm1327605995/tenon/widgets"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -448,7 +449,7 @@ func (a *GalleryApp) Render() core.Element {
 	})
 
 	// Main content
-	content := core.NewSwitch(a.page).
+	content := widgets.NewSwitch(a.page).
 		Case("layout", func() core.Element { return NewLayoutPage().Render() }).
 		Case("forms", func() core.Element { return NewFormsPage().Render() }).
 		Case("navigation", func() core.Element { return NewNavigationPage().Render() }).
