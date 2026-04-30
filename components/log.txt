@@ -1,6 +1,0 @@
-time=2026-04-30T15:09:21.467+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-1 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
-time=2026-04-30T15:09:21.474+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-5 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
-time=2026-04-30T15:09:21.475+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-1 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
-time=2026-04-30T15:16:18.985+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-1 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
-time=2026-04-30T15:16:18.992+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-5 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
-time=2026-04-30T15:16:18.994+08:00 level=DEBUG msg="[ScrollView] EventScroll" rawDeltaY=-1 cappedDeltaY=-1 scrollY=20 maxScrollY=1164 scrollX=0 maxScrollX=0
