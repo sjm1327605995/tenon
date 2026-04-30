@@ -6,8 +6,9 @@ import (
 
 	"github.com/sjm1327605995/tenon"
 	"github.com/sjm1327605995/tenon/pkg/fonts"
-	"github.com/sjm1327605995/tenon/pkg/v2/components"
-	"github.com/sjm1327605995/tenon/pkg/v2/core"
+	"github.com/sjm1327605995/tenon/components"
+	"github.com/sjm1327605995/tenon/internal/core"
+	"github.com/sjm1327605995/tenon/widgets"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -46,7 +47,7 @@ func (g *ComponentGallery) Render() core.Element {
 		Add(navButtons...)
 
 	// Page content
-	content := core.NewSwitch(g.page).
+	content := widgets.NewSwitch(g.page).
 		Case("buttons", g.buildButtonsPage).
 		Case("inputs", g.buildInputsPage).
 		Case("controls", g.buildControlsPage).

@@ -2,7 +2,7 @@ package tenon
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/sjm1327605995/tenon/pkg/v2/core"
+	"github.com/sjm1327605995/tenon/internal/core"
 )
 
 type (

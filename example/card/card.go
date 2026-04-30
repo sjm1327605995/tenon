@@ -9,8 +9,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"github.com/sjm1327605995/tenon/pkg/v2/components"
-	"github.com/sjm1327605995/tenon/pkg/v2/core"
+	"github.com/sjm1327605995/tenon/components"
+	"github.com/sjm1327605995/tenon/internal/core"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
