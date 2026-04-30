@@ -6,7 +6,7 @@ import "github.com/sjm1327605995/tenon/internal/core"
 // If is a declarative conditional rendering element.
 // It shows the "then" branch when condition is true, otherwise the "else" branch.
 type If struct {
-	core.BaseElement
+	core.BaseWidget
 	condition *core.State[bool]
 	thenFn    func() core.Element
 	elseFn    func() core.Element
@@ -19,6 +19,11 @@ func NewIf(condition *core.State[bool]) *If {
 	i := &If{condition: condition}
 	i.Init(i)
 	return i
+}
+
+// Render builds the conditional element tree.
+func (i *If) Render() core.Element {
+	return i.show(i.condition.Get())
 }
 
 // Then sets the branch shown when condition is true.
@@ -34,11 +39,9 @@ func (i *If) Else(fn func() core.Element) *If {
 }
 
 // OnMount mounts and subscribes to condition changes.
-func (i *If) OnMount(engine *core.Engine) {
-	i.BaseElement.OnMount(engine)
-	i.show(i.condition.Get())
+func (i *If) OnMount() {
 	i.cleanup = i.condition.Subscribe(func(v bool) {
-		i.show(v)
+		i.RequestBuild()
 	})
 }
 
@@ -48,14 +51,9 @@ func (i *If) OnUnmount() {
 		i.cleanup()
 		i.cleanup = nil
 	}
-	if i.current != nil {
-		i.RemoveChild(i.current)
-		i.current = nil
-	}
-	i.BaseElement.OnUnmount()
 }
 
-func (i *If) show(cond bool) {
+func (i *If) show(cond bool) core.Element {
 	var fn func() core.Element
 	if cond {
 		fn = i.thenFn
@@ -63,23 +61,7 @@ func (i *If) show(cond bool) {
 		fn = i.elseFn
 	}
 	if fn == nil {
-		if i.current != nil {
-			i.RemoveChild(i.current)
-			i.current = nil
-		}
-		return
+		return nil
 	}
-	if i.current != nil {
-		i.RemoveChild(i.current)
-		i.current = nil
-	}
-	newEl := fn()
-	if newEl != nil {
-		i.current = newEl
-		i.AppendChild(newEl)
-		i.Mark(core.FlagNeedLayout)
-	}
+	return fn()
 }
-
-// ElementType returns type identifier.
-func (i *If) ElementType() string { return "If" }

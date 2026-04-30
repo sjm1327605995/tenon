@@ -7,7 +7,7 @@ import "github.com/sjm1327605995/tenon/internal/core"
 // 它根据 core.State 的值自动切换显示的子 core.Element，用户不需要写 switch 或手动管理子节点。
 // Switch 本身是 core.Element，可以像 View、Text 一样被挂载到树中。
 type Switch[T comparable] struct {
-	core.BaseElement
+	core.BaseWidget
 	state     *core.State[T]
 	cases     map[T]func() core.Element
 	defaultFn func() core.Element
@@ -25,6 +25,11 @@ func NewSwitch[T comparable](state *core.State[T]) *Switch[T] {
 	return s
 }
 
+// Render builds the switched element tree.
+func (s *Switch[T]) Render() core.Element {
+	return s.show(s.state.Get())
+}
+
 // Case 注册一个分支。fn 是延迟创建函数，只在切换到该分支时调用。
 func (s *Switch[T]) Case(key T, fn func() core.Element) *Switch[T] {
 	s.cases[key] = fn
@@ -38,15 +43,10 @@ func (s *Switch[T]) Default(fn func() core.Element) *Switch[T] {
 }
 
 // OnMount 挂载时自动订阅 core.State 并显示当前分支。
-func (s *Switch[T]) OnMount(engine *core.Engine) {
-	s.BaseElement.OnMount(engine)
-
-	// 立即显示当前值对应的分支
-	s.show(s.state.Get())
-
+func (s *Switch[T]) OnMount() {
 	// 订阅后续变化
 	s.cleanup = s.state.Subscribe(func(v T) {
-		s.show(v)
+		s.RequestBuild()
 	})
 }
 
@@ -56,38 +56,15 @@ func (s *Switch[T]) OnUnmount() {
 		s.cleanup()
 		s.cleanup = nil
 	}
-	if s.current != nil {
-		s.RemoveChild(s.current)
-		s.current = nil
-	}
-	s.BaseElement.OnUnmount()
 }
 
-func (s *Switch[T]) show(key T) {
+func (s *Switch[T]) show(key T) core.Element {
 	fn, ok := s.cases[key]
 	if !ok && s.defaultFn != nil {
 		fn = s.defaultFn
 	}
 	if fn == nil {
-		if s.current != nil {
-			s.RemoveChild(s.current)
-			s.current = nil
-		}
-		return
+		return nil
 	}
-
-	if s.current != nil {
-		s.RemoveChild(s.current)
-		s.current = nil
-	}
-
-	newEl := fn()
-	if newEl != nil {
-		s.current = newEl
-		s.AppendChild(newEl)
-		s.Mark(core.FlagNeedLayout)
-	}
+	return fn()
 }
-
-// ElementType 返回类型标识。
-func (s *Switch[T]) ElementType() string { return "Switch" }

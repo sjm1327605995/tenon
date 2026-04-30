@@ -15,7 +15,7 @@ type Widget interface {
 	RequestBuild()
 
 	// OnMount / OnUnmount 生命周期
-	OnMount(engine *Engine)
+	OnMount()
 	OnUnmount()
 }
 
@@ -78,7 +78,9 @@ func (b *BaseWidget) RequestBuild() {
 	}
 }
 
-func (b *BaseWidget) OnMount(engine *Engine) { b.engine = engine }
+func (b *BaseWidget) SetEngine(engine *Engine) { b.engine = engine }
+func (b *BaseWidget) OnMount()                           {}
+func (b *BaseWidget) GetEngine() *Engine                { return b.engine }
 func (b *BaseWidget) OnUnmount() {
 	// 清理所有 State 订阅
 	for _, cleanup := range b.stateCleanups {

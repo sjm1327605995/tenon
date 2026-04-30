@@ -148,7 +148,10 @@ func (e *Engine) Mount() {
 		return
 	}
 	setThemeChangeNotifier(e.RequestRedrawAll)
-	e.rootWidget.OnMount(e)
+	if bw, ok := e.rootWidget.(interface{ SetEngine(*Engine) }); ok {
+		bw.SetEngine(e)
+	}
+	e.rootWidget.OnMount()
 	e.rootElement = e.rootWidget.Render()
 	if e.rootElement != nil {
 		e.onElementMounted(e.rootElement)

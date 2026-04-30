@@ -63,7 +63,7 @@ func (g *ComponentGallery) Render() core.Element {
 	root.SetHeightPercent(100)
 	root.SetPadding(yoga.EdgeAll, 24)
 	root.SetBackgroundColor(core.GetTheme().BackgroundColor)
-	root.Add(nav, content)
+	root.Add(nav, content.Render())
 
 	return root
 }

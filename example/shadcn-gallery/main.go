@@ -464,7 +464,7 @@ func (a *GalleryApp) Render() core.Element {
 	scroll := components.NewScrollView()
 	scroll.SetFlexGrow(1)
 	scroll.SetHeightPercent(100)
-	scroll.Content().Add(content)
+	scroll.Content().Add(content.Render())
 
 	// Root layout
 	root := components.NewView()
