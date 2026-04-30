@@ -29,6 +29,7 @@ Thumbs.db
 
 # Logs & temp files
 *.log
+log.txt
 *.err
 *_test.png
 
