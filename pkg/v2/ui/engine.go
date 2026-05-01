@@ -145,9 +145,7 @@ func (e *Engine) Update() error {
 		e.flushBuild()
 	}
 
-	needsYogaLayout := e.owner.HasPendingLayout()
-
-	if needsYogaLayout && e.rootRenderObject != nil && e.rootRenderObject.GetYoga() != nil {
+	if e.rootRenderObject != nil && e.rootRenderObject.GetYoga() != nil {
 		rootYoga := e.rootRenderObject.GetYoga()
 		rootYoga.StyleSetWidth(float32(e.screenWidth))
 		rootYoga.StyleSetHeight(float32(e.screenHeight))
@@ -156,7 +154,7 @@ func (e *Engine) Update() error {
 
 	e.owner.FlushLayout()
 
-	if needsYogaLayout && e.rootRenderObject != nil {
+	if e.rootRenderObject != nil {
 		e.syncBounds(e.rootRenderObject)
 	}
 
