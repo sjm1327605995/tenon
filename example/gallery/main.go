@@ -8,56 +8,208 @@ import (
 	"github.com/sjm1327605995/tenon/pkg/fonts"
 )
 
-type galleryApp struct {
-	counter int
-
-	// Checkbox
-	checked1, checked2 bool
-
-	// Switch
-	switch1, switch2 bool
-
-	// Radio
-	radioIdx int
-
-	// Slider
-	sliderVal float32
-
-	// Tabs
-	activeTab int
-
-	// Breadcrumb
-	breadcrumbIdx int
-
-	// Pagination
-	page int
-
-	// Accordion
-	expanded map[int]bool
-
-	// Toggle
-	toggle1, toggle2 bool
-
-	// Textarea
-	textarea string
-
-	// Calendar
-	selectedDate time.Time
-
-	// AnimatedContainer
-	acExpanded bool
+func galleryCheckbox() tenon.Widget {
+	checked1, checked2 := false, false
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Checkbox("Accept terms and conditions", checked1, func(v bool) {
+				setState(func() { checked1 = v })
+			}),
+			tenon.Checkbox("Subscribe to newsletter", checked2, func(v bool) {
+				setState(func() { checked2 = v })
+			}),
+		).Gapf(4)
+	})
 }
+
+func gallerySwitch() tenon.Widget {
+	s1, s2 := false, false
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Switch(s1, func(v bool) {
+				setState(func() { s1 = v })
+			}),
+			tenon.Switch(s2, func(v bool) {
+				setState(func() { s2 = v })
+			}),
+		).Gapf(4)
+	})
+}
+
+func galleryRadio() tenon.Widget {
+	radioIdx := 0
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Radio("Option A", radioIdx == 0, func(v bool) {
+				if v { setState(func() { radioIdx = 0 }) }
+			}),
+			tenon.Radio("Option B", radioIdx == 1, func(v bool) {
+				if v { setState(func() { radioIdx = 1 }) }
+			}),
+			tenon.Radio("Option C", radioIdx == 2, func(v bool) {
+				if v { setState(func() { radioIdx = 2 }) }
+			}),
+		).Gapf(4)
+	})
+}
+
+func gallerySlider() tenon.Widget {
+	val := float32(50)
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Text(fmt.Sprintf("Value: %.0f", val)).FontSize(14),
+			tenon.Slider(0, 100, val, func(v float32) {
+				setState(func() { val = v })
+			}),
+		).Gapf(4)
+	})
+}
+
+func galleryTabs() tenon.Widget {
+	active := 0
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Tabs(
+			[]tenon.TabItem{
+				{Label: "Account", Content: tenon.Text("Manage your account settings.").FontSize(14)},
+				{Label: "Password", Content: tenon.Text("Change your password.").FontSize(14)},
+				{Label: "Notifications", Content: tenon.Text("Set notification preferences.").FontSize(14)},
+			},
+			active,
+			func(idx int) { setState(func() { active = idx }) },
+		)
+	})
+}
+
+func galleryBreadcrumb() tenon.Widget {
+	idx := 2
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Breadcrumb(
+			[]tenon.BreadcrumbItem{
+				{Label: "Home", IsActive: idx == 0, OnTap: func() { setState(func() { idx = 0 }) }},
+				{Label: "Products", IsActive: idx == 1, OnTap: func() { setState(func() { idx = 1 }) }},
+				{Label: "Electronics", IsActive: idx == 2, OnTap: func() { setState(func() { idx = 2 }) }},
+			},
+			" / ",
+		)
+	})
+}
+
+func galleryPagination() tenon.Widget {
+	page := 1
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Text(fmt.Sprintf("Current page: %d", page)).FontSize(14),
+			tenon.Pagination(page, 10, func(p int) {
+				setState(func() { page = p })
+			}),
+		).Gapf(4)
+	})
+}
+
+func galleryAccordion() tenon.Widget {
+	expanded := map[int]bool{0: true}
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Accordion(
+			[]tenon.AccordionPane{
+				{Title: "Is it accessible?", Content: tenon.Text("Yes. It adheres to the WAI-ARIA design pattern.").FontSize(14)},
+				{Title: "Is it styled?", Content: tenon.Text("Yes. It comes with default styles that match the other components.").FontSize(14)},
+				{Title: "Is it animated?", Content: tenon.Text("Yes. It's animated by default, but you can disable it.").FontSize(14)},
+			},
+			expanded,
+			func(idx int) {
+				setState(func() {
+					expanded[idx] = !expanded[idx]
+				})
+			},
+		)
+	})
+}
+
+func galleryToggle() tenon.Widget {
+	t1, t2 := false, false
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Row(
+			tenon.Toggle("Bold", t1, func(v bool) {
+				setState(func() { t1 = v })
+			}),
+			tenon.Toggle("Italic", t2, func(v bool) {
+				setState(func() { t2 = v })
+			}),
+		).Gapf(8)
+	})
+}
+
+func galleryTextarea() tenon.Widget {
+	text := ""
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Textarea(text, func(v string) {
+				setState(func() { text = v })
+			}),
+			tenon.Text(fmt.Sprintf("Length: %d", len(text))).FontSize(12),
+		).Gapf(4)
+	})
+}
+
+func galleryCalendar() tenon.Widget {
+	selected := time.Now()
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Text(fmt.Sprintf("Selected: %s", selected.Format("2006-01-02"))).FontSize(14),
+			tenon.Calendar(selected.Year(), selected.Month(), selected, func(d time.Time) {
+				setState(func() { selected = d })
+			}),
+		).Gapf(4)
+	})
+}
+
+func galleryAnimatedContainer() tenon.Widget {
+	expanded := false
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		var w, h float32 = 200, 50
+		bg := *tenon.NewColor(59, 130, 246, 255)
+		r := float32(8)
+		if expanded {
+			w, h = 300, 80
+			bg = *tenon.NewColor(239, 68, 68, 255)
+			r = 16
+		}
+		return tenon.Column(
+			tenon.Row(
+				tenon.NewAnimatedContainer().
+					WithChild(tenon.Text("Tap Toggle").FontSize(14).Color(tenon.NewColor(255, 255, 255, 255))).
+					WithSize(w, h).
+					WithBackground(bg).
+					WithRadius(r).
+					WithDuration(300 * time.Millisecond).
+					WithCurve(tenon.EaseInOutCurve{}),
+			).AlignItems(tenon.AlignFlexStart),
+			tenon.Button("Toggle Size & Color").OnTap(func() {
+				setState(func() { expanded = !expanded })
+			}),
+		).Gapf(12)
+	})
+}
+
+func galleryCounter() tenon.Widget {
+	count := 0
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Row(
+			tenon.Button(fmt.Sprintf("Counter: %d", count)).OnTap(func() {
+				setState(func() { count++ })
+			}),
+			tenon.Button("Reset").Variantf(tenon.ButtonOutline).OnTap(func() {
+				setState(func() { count = 0 })
+			}),
+		).Gapf(8)
+	})
+}
+
+type galleryApp struct{}
 
 func (g *galleryApp) Build() tenon.Widget {
 	t := tenon.GetTheme()
 	muted := t.TextMutedColor
-
-	if g.expanded == nil {
-		g.expanded = map[int]bool{0: true}
-	}
-	if g.selectedDate.IsZero() {
-		g.selectedDate = time.Now()
-	}
 
 	return tenon.Scroll(
 		tenon.Column(
@@ -93,14 +245,7 @@ func (g *galleryApp) Build() tenon.Widget {
 				NewCounterButton(0),
 			).Gapf(8),
 			tenon.Row(
-				tenon.Button(fmt.Sprintf("Global Counter: %d", g.counter)).OnTap(func() {
-					g.counter++
-					tenon.Rebuild()
-				}),
-				tenon.Button("Reset Global").Variantf(tenon.ButtonOutline).OnTap(func() {
-					g.counter = 0
-					tenon.Rebuild()
-				}),
+				galleryCounter(),
 			).Gapf(8),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -160,98 +305,43 @@ func (g *galleryApp) Build() tenon.Widget {
 
 			// Checkbox
 			sectionTitle("Checkbox"),
-			tenon.Column(
-				tenon.Checkbox("Accept terms and conditions", g.checked1, func(v bool) {
-					g.checked1 = v
-					tenon.Rebuild()
-				}),
-				tenon.Checkbox("Subscribe to newsletter", g.checked2, func(v bool) {
-					g.checked2 = v
-					tenon.Rebuild()
-				}),
-			).Gapf(4),
+			galleryCheckbox(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Switch
 			sectionTitle("Switch"),
-			tenon.Column(
-				tenon.Switch(g.switch1, func(v bool) {
-					g.switch1 = v
-					tenon.Rebuild()
-				}),
-				tenon.Switch(g.switch2, func(v bool) {
-					g.switch2 = v
-					tenon.Rebuild()
-				}),
-			).Gapf(4),
+			gallerySwitch(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Radio
 			sectionTitle("Radio"),
-			tenon.Column(
-				tenon.Radio("Option A", g.radioIdx == 0, func(v bool) {
-					if v { g.radioIdx = 0; tenon.Rebuild() }
-				}),
-				tenon.Radio("Option B", g.radioIdx == 1, func(v bool) {
-					if v { g.radioIdx = 1; tenon.Rebuild() }
-				}),
-				tenon.Radio("Option C", g.radioIdx == 2, func(v bool) {
-					if v { g.radioIdx = 2; tenon.Rebuild() }
-				}),
-			).Gapf(4),
+			galleryRadio(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Slider
 			sectionTitle("Slider"),
-			tenon.Column(
-				tenon.Text(fmt.Sprintf("Value: %.0f", g.sliderVal)).FontSize(14).Color(muted),
-				tenon.Slider(0, 100, g.sliderVal, func(v float32) {
-					g.sliderVal = v
-					tenon.Rebuild()
-				}),
-			).Gapf(4),
+			gallerySlider(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Tabs
 			sectionTitle("Tabs"),
-			tenon.Tabs(
-				[]tenon.TabItem{
-					{Label: "Account", Content: tenon.Text("Manage your account settings.").FontSize(14)},
-					{Label: "Password", Content: tenon.Text("Change your password.").FontSize(14)},
-					{Label: "Notifications", Content: tenon.Text("Set notification preferences.").FontSize(14)},
-				},
-				g.activeTab,
-				func(idx int) { g.activeTab = idx; tenon.Rebuild() },
-			),
+			galleryTabs(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Breadcrumb
 			sectionTitle("Breadcrumb"),
-			tenon.Breadcrumb(
-				[]tenon.BreadcrumbItem{
-					{Label: "Home", IsActive: g.breadcrumbIdx == 0, OnTap: func() { g.breadcrumbIdx = 0; tenon.Rebuild() }},
-					{Label: "Products", IsActive: g.breadcrumbIdx == 1, OnTap: func() { g.breadcrumbIdx = 1; tenon.Rebuild() }},
-					{Label: "Electronics", IsActive: g.breadcrumbIdx == 2, OnTap: func() { g.breadcrumbIdx = 2; tenon.Rebuild() }},
-				},
-				" / ",
-			),
+			galleryBreadcrumb(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Pagination
 			sectionTitle("Pagination"),
-			tenon.Column(
-				tenon.Text(fmt.Sprintf("Current page: %d", g.page)).FontSize(14).Color(muted),
-				tenon.Pagination(g.page, 10, func(p int) {
-					g.page = p
-					tenon.Rebuild()
-				}),
-			).Gapf(4),
+			galleryPagination(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
@@ -270,92 +360,31 @@ func (g *galleryApp) Build() tenon.Widget {
 
 			// Accordion
 			sectionTitle("Accordion"),
-			tenon.Accordion(
-				[]tenon.AccordionPane{
-					{Title: "Is it accessible?", Content: tenon.Text("Yes. It adheres to the WAI-ARIA design pattern.").FontSize(14)},
-					{Title: "Is it styled?", Content: tenon.Text("Yes. It comes with default styles that match the other components.").FontSize(14)},
-					{Title: "Is it animated?", Content: tenon.Text("Yes. It's animated by default, but you can disable it.").FontSize(14)},
-				},
-				g.expanded,
-				func(idx int) {
-					g.expanded[idx] = !g.expanded[idx]
-					tenon.Rebuild()
-				},
-			),
+			galleryAccordion(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Toggle
 			sectionTitle("Toggle"),
-			tenon.Row(
-				tenon.Toggle("Bold", g.toggle1, func(v bool) {
-					g.toggle1 = v
-					tenon.Rebuild()
-				}),
-				tenon.Toggle("Italic", g.toggle2, func(v bool) {
-					g.toggle2 = v
-					tenon.Rebuild()
-				}),
-			).Gapf(8),
+			galleryToggle(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Textarea
 			sectionTitle("Textarea"),
-			tenon.Column(
-				tenon.Textarea(g.textarea, func(v string) {
-					g.textarea = v
-					tenon.Rebuild()
-				}),
-				tenon.Text(fmt.Sprintf("Length: %d", len(g.textarea))).FontSize(12).Color(muted),
-			).Gapf(4),
+			galleryTextarea(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Calendar
 			sectionTitle("Calendar"),
-			tenon.Column(
-				tenon.Text(fmt.Sprintf("Selected: %s", g.selectedDate.Format("2006-01-02"))).FontSize(14).Color(muted),
-				tenon.Calendar(g.selectedDate.Year(), g.selectedDate.Month(), g.selectedDate, func(d time.Time) {
-					g.selectedDate = d
-					tenon.Rebuild()
-				}),
-			).Gapf(4),
+			galleryCalendar(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// AnimatedContainer
 			sectionTitle("AnimatedContainer"),
-			tenon.Column(
-				tenon.Row(
-					tenon.NewAnimatedContainer().
-						WithChild(tenon.Text("Tap Toggle").FontSize(14).Color(tenon.NewColor(255, 255, 255, 255))).
-						WithSize(func() (float32, float32) {
-							if g.acExpanded {
-								return 300, 80
-							}
-							return 200, 50
-						}()).
-						WithBackground(func() tenon.Color {
-							if g.acExpanded {
-								return *tenon.NewColor(239, 68, 68, 255)
-							}
-							return *tenon.NewColor(59, 130, 246, 255)
-						}()).
-						WithRadius(func() float32 {
-							if g.acExpanded {
-								return 16
-							}
-							return 8
-						}()).
-						WithDuration(300 * time.Millisecond).
-						WithCurve(tenon.EaseInOutCurve{}),
-				).AlignItems(tenon.AlignFlexStart),
-				tenon.Button("Toggle Size & Color").OnTap(func() {
-					g.acExpanded = !g.acExpanded
-					tenon.Rebuild()
-				}),
-			).Gapf(12),
+			galleryAnimatedContainer(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
@@ -423,7 +452,7 @@ func main() {
 	if err := fonts.InitDefaultFont(); err != nil {
 		panic("failed to init font: " + err.Error())
 	}
-	app := &galleryApp{counter: 0}
+	app := &galleryApp{}
 	tenon.SetTheme(tenon.DefaultLightTheme())
 	tenon.Run(app.Build, 900, 800)
 }
