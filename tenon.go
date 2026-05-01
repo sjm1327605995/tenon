@@ -1,49 +1,173 @@
 package tenon
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/sjm1327605995/tenon/internal/core"
+	"github.com/sjm1327605995/tenon/pkg/v2/render"
+	"github.com/sjm1327605995/tenon/pkg/v2/shadcn"
+	"github.com/sjm1327605995/tenon/pkg/v2/ui"
+	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
 )
 
+// 核心类型别名，用户可直接使用。
 type (
-	Widget       = core.Widget
-	BaseWidget   = core.BaseWidget
-	Element      = core.Element
-	BaseElement  = core.BaseElement
-	LayoutBounds = core.LayoutBounds
-	Event        = core.Event
-	EventType    = core.EventType
-	BorderRadius = core.BorderRadius
-	Theme        = core.Theme
-	Engine        = core.Engine
-	Animation     = core.Animation
-	Tween         = core.Tween
-	StyleRegistry = core.StyleRegistry
+	Widget      = ui.Widget
+	Engine      = ui.Engine
+	Theme       = ui.Theme
+	EdgeInsets  = ui.EdgeInsets
+	Color       = render.Color
+	FlexDirection = ui.FlexDirection
+	Justify     = ui.Justify
+	Align       = ui.Align
+	Wrap        = ui.Wrap
+	PositionType = ui.PositionType
+	Display     = ui.Display
+	Overflow    = ui.Overflow
+	Edge        = ui.Edge
+	Gutter      = ui.Gutter
 )
 
-var defaultStyleRegistry = core.NewStyleRegistry()
-
+// 核心函数。
 var (
-	GetTheme          = core.GetTheme
-	SetTheme          = core.SetTheme
-	DefaultLightTheme = core.DefaultLightTheme
-	DefaultDarkTheme  = core.DefaultDarkTheme
-	DefaultAntTheme   = core.DefaultAntTheme
-	RegisterStyle     = defaultStyleRegistry.RegisterStyle
-	LogDebug          = core.LogDebug
-	NewTween          = core.NewTween
-	LerpFloat32       = core.LerpFloat32
+	NewEngine             = ui.NewEngine
+	Rebuild               = ui.RebuildDefault
+	SetTheme              = ui.SetTheme
+	GetTheme              = ui.GetTheme
+	DefaultLightTheme     = ui.DefaultLightTheme
+	DefaultDarkTheme      = ui.DefaultDarkTheme
+	EdgeInsetsAll         = ui.EdgeInsetsAll
+	EdgeInsetsSymmetric   = ui.EdgeInsetsSymmetric
+	EdgeInsetsOnly        = ui.EdgeInsetsOnly
+	NewColor              = render.NewColor
+	NewColorFrom          = render.NewColorFrom
 )
 
-func Run(root core.Widget, width, height int) {
-	engine := core.NewEngine(root, width, height)
-	engine.SetStyleRegistry(defaultStyleRegistry.Clone())
-	engine.Mount()
-	ebiten.SetWindowSize(width, height)
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	if err := ebiten.RunGame(engine); err != nil {
-		panic(err)
-	}
+// Widget 构造函数，SwiftUI-like API。
+var (
+	Text       = widgets.Text
+	Row        = widgets.Row
+	Column     = widgets.Column
+	Container  = widgets.Container
+	Button     = widgets.Button
+	Image      = widgets.Image
+	Stack      = widgets.Stack
+	Positioned = widgets.Positioned
+	Scroll     = widgets.Scroll
+	TextField  = widgets.TextField
+)
+
+// Shadcn 组件。
+var (
+	Badge       = shadcn.Badge
+	DotBadge    = shadcn.DotBadge
+	CountBadge  = shadcn.CountBadge
+	Separator   = shadcn.ShadcnSeparator
+	Avatar      = shadcn.Avatar
+	Card        = shadcn.ShadcnCard
+	Alert       = shadcn.ShadcnAlert
+	Label       = shadcn.Label
+	Skeleton    = shadcn.Skeleton
+	ProgressBar = shadcn.ProgressBar
+	Checkbox    = shadcn.Checkbox
+	Switch      = shadcn.Switch
+	Radio       = shadcn.Radio
+	Slider      = shadcn.Slider
+	Tabs        = shadcn.ShadcnTabs
+	Breadcrumb  = shadcn.ShadcnBreadcrumb
+	Pagination  = shadcn.ShadcnPagination
+	Table       = shadcn.ShadcnTable
+	Accordion   = shadcn.ShadcnAccordion
+	Toggle      = shadcn.ShadcnToggle
+	Textarea    = shadcn.ShadcnTextarea
+	Calendar    = shadcn.ShadcnCalendar
+)
+
+// Shadcn 类型别名。
+type (
+	TabItem         = shadcn.TabItem
+	BreadcrumbItem  = shadcn.BreadcrumbItem
+	AccordionPane   = shadcn.AccordionPane
+)
+
+// Yoga/Flex 常量快捷导出。
+const (
+	FlexDirectionColumn  = ui.FlexDirectionColumn
+	FlexDirectionRow     = ui.FlexDirectionRow
+	JustifyFlexStart     = ui.JustifyFlexStart
+	JustifyCenter        = ui.JustifyCenter
+	JustifyFlexEnd       = ui.JustifyFlexEnd
+	JustifySpaceBetween  = ui.JustifySpaceBetween
+	JustifySpaceAround   = ui.JustifySpaceAround
+	JustifySpaceEvenly   = ui.JustifySpaceEvenly
+	AlignAuto            = ui.AlignAuto
+	AlignFlexStart       = ui.AlignFlexStart
+	AlignCenter          = ui.AlignCenter
+	AlignFlexEnd         = ui.AlignFlexEnd
+	AlignStretch         = ui.AlignStretch
+	AlignBaseline        = ui.AlignBaseline
+	WrapNoWrap           = ui.WrapNoWrap
+	WrapWrap             = ui.WrapWrap
+	PositionTypeRelative = ui.PositionTypeRelative
+	PositionTypeAbsolute = ui.PositionTypeAbsolute
+	DisplayFlex          = ui.DisplayFlex
+	DisplayNone          = ui.DisplayNone
+	OverflowVisible      = ui.OverflowVisible
+	OverflowHidden       = ui.OverflowHidden
+	OverflowScroll       = ui.OverflowScroll
+	EdgeLeft             = ui.EdgeLeft
+	EdgeTop              = ui.EdgeTop
+	EdgeRight            = ui.EdgeRight
+	EdgeBottom           = ui.EdgeBottom
+	EdgeStart            = ui.EdgeStart
+	EdgeEnd              = ui.EdgeEnd
+	EdgeHorizontal       = ui.EdgeHorizontal
+	EdgeVertical         = ui.EdgeVertical
+	EdgeAll              = ui.EdgeAll
+	GutterColumn         = ui.GutterColumn
+	GutterRow            = ui.GutterRow
+	GutterAll            = ui.GutterAll
+)
+
+// Run 启动 ebiten 窗口并运行应用。
+// 等同于 engine := NewEngine(buildFunc, width, height); engine.Run()
+func Run(buildFunc ui.BuildFunc, width, height int) {
+	engine := ui.NewEngine(buildFunc, width, height)
+	engine.Run()
 }
 
+// Button 变体
+const (
+	ButtonDefault     = widgets.ButtonDefault
+	ButtonSecondary   = widgets.ButtonSecondary
+	ButtonOutline     = widgets.ButtonOutline
+	ButtonGhost       = widgets.ButtonGhost
+	ButtonDestructive = widgets.ButtonDestructive
+	ButtonLink        = widgets.ButtonLink
+)
 
+// Badge 变体
+const (
+	BadgeDefault     = shadcn.BadgeDefault
+	BadgeSecondary   = shadcn.BadgeSecondary
+	BadgeOutline     = shadcn.BadgeOutline
+	BadgeDestructive = shadcn.BadgeDestructive
+)
+
+// Alert 变体
+const (
+	AlertDefault     = shadcn.AlertDefault
+	AlertDestructive = shadcn.AlertDestructive
+)
+
+// Separator 方向
+const (
+	SeparatorHorizontal = shadcn.SeparatorHorizontal
+	SeparatorVertical   = shadcn.SeparatorVertical
+)
+
+// ObjectFit 快捷导出
+const (
+	ObjectFitCover     = render.ObjectFitCover
+	ObjectFitContain   = render.ObjectFitContain
+	ObjectFitFill      = render.ObjectFitFill
+	ObjectFitNone      = render.ObjectFitNone
+	ObjectFitScaleDown = render.ObjectFitScaleDown
+)
