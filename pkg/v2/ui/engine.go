@@ -3,6 +3,7 @@
 import (
 	"image/color"
 	"sort"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -12,6 +13,11 @@ import (
 
 // defaultEngine 是当前运行的全局 Engine 实例，供 Rebuild() 等快捷函数使用。
 var defaultEngine *Engine
+
+// DefaultEngine 返回当前全局 Engine 实例。
+func DefaultEngine() *Engine {
+	return defaultEngine
+}
 
 // Engine is the core engine of Tenon v2, managing Widget, Element, and RenderObject trees.
 type Engine struct {
@@ -29,6 +35,9 @@ type Engine struct {
 	needsBuild    bool
 	dirtyElements []Element
 	building      bool
+
+	activeAnimations []*AnimationController
+	lastTickTime     time.Time
 
 	lastMouseX      float32
 	lastMouseY      float32
@@ -76,6 +85,10 @@ func (e *Engine) GetRootRenderObject() render.RenderObject {
 	return e.rootRenderObject
 }
 
+func (e *Engine) GetRootElement() Element {
+	return e.rootElement
+}
+
 // Mount mounts the root widget and triggers the first build.
 func (e *Engine) Mount() {
 	e.needsBuild = true
@@ -95,12 +108,46 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 	return outsideWidth, outsideHeight
 }
 
+func (e *Engine) RegisterAnimation(a *AnimationController) {
+	for _, existing := range e.activeAnimations {
+		if existing == a {
+			return
+		}
+	}
+	e.activeAnimations = append(e.activeAnimations, a)
+}
+
+func (e *Engine) UnregisterAnimation(a *AnimationController) {
+	for i, existing := range e.activeAnimations {
+		if existing == a {
+			e.activeAnimations = append(e.activeAnimations[:i], e.activeAnimations[i+1:]...)
+			return
+		}
+	}
+}
+
 func (e *Engine) Update() error {
+	now := time.Now()
+	if e.lastTickTime.IsZero() {
+		e.lastTickTime = now
+	}
+	dt := now.Sub(e.lastTickTime)
+	e.lastTickTime = now
+
+	// Tick active animations
+	if len(e.activeAnimations) > 0 {
+		for _, a := range e.activeAnimations {
+			a.Tick(dt)
+		}
+	}
+
 	if e.needsBuild || len(e.dirtyElements) > 0 {
 		e.flushBuild()
 	}
 
-	if e.rootRenderObject != nil && e.rootRenderObject.GetYoga() != nil {
+	needsYogaLayout := e.owner.HasPendingLayout()
+
+	if needsYogaLayout && e.rootRenderObject != nil && e.rootRenderObject.GetYoga() != nil {
 		rootYoga := e.rootRenderObject.GetYoga()
 		rootYoga.StyleSetWidth(float32(e.screenWidth))
 		rootYoga.StyleSetHeight(float32(e.screenHeight))
@@ -109,7 +156,7 @@ func (e *Engine) Update() error {
 
 	e.owner.FlushLayout()
 
-	if e.rootRenderObject != nil {
+	if needsYogaLayout && e.rootRenderObject != nil {
 		e.syncBounds(e.rootRenderObject)
 	}
 

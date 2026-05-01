@@ -307,6 +307,36 @@ func (g *galleryApp) Build() tenon.Widget {
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
+			// AnimatedContainer
+			sectionTitle("AnimatedContainer"),
+			tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+				expanded := false
+				var w, h float32 = 200, 50
+				bg := *tenon.NewColor(59, 130, 246, 255)
+				r := float32(8)
+				if expanded {
+					w, h = 300, 80
+					bg = *tenon.NewColor(239, 68, 68, 255)
+					r = 16
+				}
+				return tenon.Column(
+					tenon.Row(
+						tenon.NewAnimatedContainer().
+							WithChild(tenon.Text("Tap Toggle").FontSize(14).Color(tenon.NewColor(255, 255, 255, 255))).
+							WithSize(w, h).
+							WithBackground(bg).
+							WithRadius(r).
+							WithDuration(300 * time.Millisecond).
+							WithCurve(tenon.EaseInOutCurve{}),
+					).AlignItems(tenon.AlignFlexStart),
+					tenon.Button("Toggle Size & Color").OnTap(func() {
+						setState(func() { expanded = !expanded })
+					}),
+				).Gapf(12)
+			}),
+
+			tenon.Separator(tenon.SeparatorHorizontal),
+
 			// Separator demo
 			sectionTitle("Separator"),
 			tenon.Row(

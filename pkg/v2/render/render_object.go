@@ -348,6 +348,11 @@ func (p *PipelineOwner) FlushLayout() {
 	}
 }
 
+// HasPendingLayout 返回是否有待执行的布局任务。
+func (p *PipelineOwner) HasPendingLayout() bool {
+	return len(p.needsLayoutList) > 0
+}
+
 // FlushPaint 执行所有标记了 needsPaint 的 RenderObject 的绘制准备（此处仅清标记，实际绘制在 Engine.Draw 中遍历）。
 func (p *PipelineOwner) FlushPaint() {
 	list := p.needsPaintList
