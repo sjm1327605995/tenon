@@ -190,6 +190,9 @@ func (b *BaseRenderObject) RemoveChild(child RenderObject) {
 
 func (b *BaseRenderObject) Attach(owner *PipelineOwner) {
 	b.owner = owner
+	if b.needsLayout && b.owner != nil {
+		b.owner.NeedsLayoutAdd(b.self)
+	}
 	for _, child := range b.children {
 		if child.GetOwner() == nil {
 			child.Attach(owner)
