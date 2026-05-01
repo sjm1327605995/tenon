@@ -9,29 +9,30 @@ import (
 
 // 核心类型别名，用户可直接使用。
 type (
-	Widget          = ui.Widget
-	Element         = ui.Element
-	StatefulWidget  = ui.StatefulWidget
-	State           = ui.State
-	BaseState       = ui.BaseState
-	BaseWidget      = ui.BaseWidget
-	BuildContext    = ui.BuildContext
-	Builder         = ui.Builder
-	StatefulBuilder = ui.StatefulBuilder
-	GlobalKey       = ui.GlobalKey
-	Engine          = ui.Engine
-	Theme           = ui.Theme
-	EdgeInsets      = ui.EdgeInsets
-	Color           = render.Color
-	FlexDirection   = ui.FlexDirection
-	Justify         = ui.Justify
-	Align           = ui.Align
-	Wrap            = ui.Wrap
-	PositionType    = ui.PositionType
-	Display         = ui.Display
-	Overflow        = ui.Overflow
-	Edge            = ui.Edge
-	Gutter          = ui.Gutter
+	Widget            = ui.Widget
+	Element           = ui.Element
+	StatefulWidget    = ui.StatefulWidget
+	State             = ui.State
+	BaseState         = ui.BaseState
+	BaseWidget        = ui.BaseWidget
+	BuildContext      = ui.BuildContext
+	Builder           = ui.Builder
+	StatefulBuilder   = ui.StatefulBuilder
+	GlobalKey         = ui.GlobalKey
+	Engine            = ui.Engine
+	Theme             = ui.Theme
+	EdgeInsets        = ui.EdgeInsets
+	Color             = render.Color
+	FlexDirection     = ui.FlexDirection
+	Justify           = ui.Justify
+	Align             = ui.Align
+	Wrap              = ui.Wrap
+	PositionType      = ui.PositionType
+	Display           = ui.Display
+	Overflow          = ui.Overflow
+	Edge              = ui.Edge
+	Gutter            = ui.Gutter
+	AnimatedContainer = widgets.AnimatedContainer
 )
 
 // 核心函数。
@@ -75,16 +76,17 @@ const (
 
 // Widget 构造函数，SwiftUI-like API。
 var (
-	Text       = widgets.Text
-	Row        = widgets.Row
-	Column     = widgets.Column
-	Container  = widgets.Container
-	Button     = widgets.Button
-	Image      = widgets.Image
-	Stack      = widgets.Stack
-	Positioned = widgets.Positioned
-	Scroll     = widgets.Scroll
-	TextField  = widgets.TextField
+	Text               = widgets.Text
+	Row                = widgets.Row
+	Column             = widgets.Column
+	Container          = widgets.Container
+	Button             = widgets.Button
+	Image              = widgets.Image
+	Stack              = widgets.Stack
+	Positioned         = widgets.Positioned
+	Scroll             = widgets.Scroll
+	TextField          = widgets.TextField
+	NewAnimatedContainer = widgets.NewAnimatedContainer
 )
 
 // Shadcn 组件。

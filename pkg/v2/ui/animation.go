@@ -1,6 +1,9 @@
 package ui
 
-import "time"
+import (
+	"reflect"
+	"time"
+)
 
 // AnimationStatus 表示动画控制器的当前状态。
 type AnimationStatus int
@@ -19,7 +22,30 @@ type AnimationController struct {
 	UpperBound float64 // 默认 1
 	Value      float64 // 当前值
 	Status     AnimationStatus
-	running    bool // 内部运行标志
+	running    bool      // 内部运行标志
+	listeners  []func()  // 值变化监听器
+}
+
+// AddListener 注册值变化监听器。
+func (a *AnimationController) AddListener(fn func()) {
+	a.listeners = append(a.listeners, fn)
+}
+
+// RemoveListener 移除值变化监听器。
+func (a *AnimationController) RemoveListener(fn func()) {
+	for i, l := range a.listeners {
+		if reflect.ValueOf(l).Pointer() == reflect.ValueOf(fn).Pointer() {
+			a.listeners = append(a.listeners[:i], a.listeners[i+1:]...)
+			return
+		}
+	}
+}
+
+// notifyListeners 通知所有监听器值已变化。
+func (a *AnimationController) notifyListeners() {
+	for _, fn := range a.listeners {
+		fn()
+	}
 }
 
 // Forward 开始从当前值向 UpperBound 推进。
@@ -55,7 +81,11 @@ func (a *AnimationController) Tick(dt time.Duration) bool {
 			a.Status = AnimationDismissed
 		}
 		a.running = false
-		return a.Value != oldValue
+		changed := a.Value != oldValue
+		if changed {
+			a.notifyListeners()
+		}
+		return changed
 	}
 
 	oldValue := a.Value
@@ -67,6 +97,7 @@ func (a *AnimationController) Tick(dt time.Duration) bool {
 			a.Value = a.UpperBound
 			a.Status = AnimationCompleted
 			a.running = false
+			a.notifyListeners()
 			return true
 		}
 	} else if a.Status == AnimationReverse {
@@ -75,13 +106,18 @@ func (a *AnimationController) Tick(dt time.Duration) bool {
 			a.Value = a.LowerBound
 			a.Status = AnimationDismissed
 			a.running = false
+			a.notifyListeners()
 			return true
 		}
 	} else {
 		return false
 	}
 
-	return a.Value != oldValue
+	changed := a.Value != oldValue
+	if changed {
+		a.notifyListeners()
+	}
+	return changed
 }
 
 // Tween 是值区间插值器。

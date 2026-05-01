@@ -81,6 +81,10 @@ type StatefulElement struct {
 	buildContext *elementBuildContext
 }
 
+func (s *StatefulElement) GetState() State {
+	return s.state
+}
+
 func (s *StatefulElement) Mount(parent Element, slot int) {
 	s.ComponentElement.Mount(parent, slot)
 
