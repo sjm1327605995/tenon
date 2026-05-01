@@ -54,6 +54,25 @@ var (
 	NewColorFrom          = render.NewColorFrom
 )
 
+// 动画类型别名。
+type (
+	AnimationController = ui.AnimationController
+	AnimationStatus     = ui.AnimationStatus
+	Tween[T any]        = ui.Tween[T]
+	Animation[T any]    = ui.Animation[T]
+	Curve               = ui.Curve
+	LinearCurve         = ui.LinearCurve
+	EaseInOutCurve      = ui.EaseInOutCurve
+)
+
+// 动画常量。
+const (
+	AnimationDismissed = ui.AnimationDismissed
+	AnimationForward   = ui.AnimationForward
+	AnimationReverse   = ui.AnimationReverse
+	AnimationCompleted = ui.AnimationCompleted
+)
+
 // Widget 构造函数，SwiftUI-like API。
 var (
 	Text       = widgets.Text
