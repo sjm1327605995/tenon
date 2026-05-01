@@ -189,10 +189,14 @@ func (r *RenderObjectElement) Mount(parent Element, slot int) {
 		}
 	}
 	if r.RenderObject != nil {
-		// 将 RenderObject 挂载到父 RenderObject 树
-		if parent != nil {
-			if parentRO := parent.FindRenderObject(); parentRO != nil {
-				parentRO.AddChild(r.RenderObject)
+		// 将 RenderObject 挂载到最近的 RenderObjectElement 祖先
+		// 跳过 ComponentElement（如 StatefulElement），因为它们没有自己的 RenderObject
+		for p := parent; p != nil; p = p.GetParent() {
+			if proe, ok := p.(interface{ GetRenderObject() render.RenderObject }); ok {
+				if pro := proe.GetRenderObject(); pro != nil {
+					pro.AddChild(r.RenderObject)
+					break
+				}
 			}
 		}
 	}
@@ -210,10 +214,14 @@ func (r *RenderObjectElement) Update(newWidget Widget) {
 
 func (r *RenderObjectElement) Unmount() {
 	if r.RenderObject != nil {
-		// 从父 RenderObject 移除
-		if r.parent != nil {
-			if parentRO := r.parent.FindRenderObject(); parentRO != nil {
-				parentRO.RemoveChild(r.RenderObject)
+		// 从最近的 RenderObjectElement 祖先移除
+		// 跳过 ComponentElement（如 StatefulElement），因为它们没有自己的 RenderObject
+		for p := r.parent; p != nil; p = p.GetParent() {
+			if proe, ok := p.(interface{ GetRenderObject() render.RenderObject }); ok {
+				if pro := proe.GetRenderObject(); pro != nil {
+					pro.RemoveChild(r.RenderObject)
+					break
+				}
 			}
 		}
 		r.RenderObject.Detach()

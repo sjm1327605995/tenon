@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon"
 	"github.com/sjm1327605995/tenon/pkg/fonts"
 )
@@ -188,6 +190,81 @@ func galleryAnimatedContainer() tenon.Widget {
 				setState(func() { expanded = !expanded })
 			}),
 		).Gapf(12)
+	})
+}
+
+func galleryImage() tenon.Widget {
+	// 创建示例图片：蓝绿渐变
+	img := ebiten.NewImage(120, 80)
+	for y := 0; y < 80; y++ {
+		for x := 0; x < 120; x++ {
+			r := uint8(50 + x)
+			g := uint8(100 + y)
+			b := uint8(200)
+			img.Set(x, y, color.NRGBA{R: r, G: g, B: b, A: 255})
+		}
+	}
+	return tenon.Row(
+		tenon.Image(img).W(120).H(80).Radius(8),
+		tenon.Image(img).W(80).H(80).Radius(40),
+		tenon.Image(img).W(100).H(60),
+	).Gapf(12)
+}
+
+func galleryTextField() tenon.Widget {
+	name, email := "", ""
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Row(
+				tenon.Container(tenon.Text("Name:").FontSize(14)).W(60),
+				tenon.TextField(name).
+					W(200).
+					OnChange(func(v string) { setState(func() { name = v }) }),
+			).Gapf(8).AlignItems(tenon.AlignCenter),
+			tenon.Row(
+				tenon.Container(tenon.Text("Email:").FontSize(14)).W(60),
+				tenon.TextField(email).
+					W(200).
+					OnChange(func(v string) { setState(func() { email = v }) }),
+			).Gapf(8).AlignItems(tenon.AlignCenter),
+			tenon.Text(fmt.Sprintf("Name: %s | Email: %s", name, email)).FontSize(12).Color(tenon.GetTheme().TextMutedColor),
+		).Gapf(8)
+	})
+}
+
+func galleryStack() tenon.Widget {
+	return tenon.Stack(
+		tenon.Container(tenon.Text("")).W(300).H(120).Background(*tenon.NewColor(243, 244, 246, 255)).Radius(8),
+		tenon.Positioned(
+			tenon.Badge("Top-Left", tenon.BadgeDefault),
+		).L(8).T(8),
+		tenon.Positioned(
+			tenon.Badge("Top-Right", tenon.BadgeSecondary),
+		).R(8).T(8),
+		tenon.Positioned(
+			tenon.Badge("Bottom-Left", tenon.BadgeOutline),
+		).L(8).B(8),
+		tenon.Positioned(
+			tenon.Badge("Bottom-Right", tenon.BadgeDestructive),
+		).R(8).B(8),
+		tenon.Positioned(
+			tenon.Text("Center").FontSize(14),
+		).L(120).T(48),
+	)
+}
+
+func galleryEditableText() tenon.Widget {
+	text := "Click to edit this text"
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.EditableText(text).
+				Size(16).
+				Color(tenon.GetTheme().TextColor).
+				OnChange(func(v string) {
+					setState(func() { text = v })
+				}),
+			tenon.Text(fmt.Sprintf("Content: %s", text)).FontSize(12).Color(tenon.GetTheme().TextMutedColor),
+		).Gapf(4)
 	})
 }
 
@@ -379,6 +456,30 @@ func (g *galleryApp) Build() tenon.Widget {
 			// Calendar
 			sectionTitle("Calendar"),
 			galleryCalendar(),
+
+			tenon.Separator(tenon.SeparatorHorizontal),
+
+			// Image
+			sectionTitle("Image"),
+			galleryImage(),
+
+			tenon.Separator(tenon.SeparatorHorizontal),
+
+			// TextField
+			sectionTitle("TextField"),
+			galleryTextField(),
+
+			tenon.Separator(tenon.SeparatorHorizontal),
+
+			// Stack / Positioned
+			sectionTitle("Stack & Positioned"),
+			galleryStack(),
+
+			tenon.Separator(tenon.SeparatorHorizontal),
+
+			// EditableText
+			sectionTitle("EditableText"),
+			galleryEditableText(),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
 
