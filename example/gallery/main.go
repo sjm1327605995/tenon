@@ -9,21 +9,21 @@ import (
 )
 
 type galleryApp struct {
-	counter      int
-	checkbox1    bool
-	checkbox2    bool
-	switch1      bool
-	switch2      bool
-	radioIdx     int
-	sliderVal    float32
-	activeTab    int
-	currentPage  int
+	counter       int
+	checkbox1     bool
+	checkbox2     bool
+	switch1       bool
+	switch2       bool
+	radioIdx      int
+	sliderVal     float32
+	activeTab     int
+	currentPage   int
 	toggle1       bool
 	toggle2       bool
 	breadcrumbIdx int
 	expanded      map[int]bool
-	textareaVal  string
-	selectedDate time.Time
+	textareaVal   string
+	selectedDate  time.Time
 }
 
 func newGalleryApp() *galleryApp {
@@ -70,15 +70,20 @@ func (g *galleryApp) Build() tenon.Widget {
 				tenon.Button("Destructive").Variantf(tenon.ButtonDestructive).OnTap(func() {}),
 				tenon.Button("Link").Variantf(tenon.ButtonLink).OnTap(func() {}),
 			).Gapf(8),
+			// CounterButton: StatefulWidget demo, state encapsulated inside component
 			tenon.Row(
-				tenon.Button(fmt.Sprintf("Clicked %d", g.counter)).OnTap(func() {
+				NewCounterButton(0),
+			).Gapf(8),
+			// Traditional manual Rebuild mode still works
+			tenon.Row(
+				tenon.Button(fmt.Sprintf("Global Counter: %d", g.counter)).OnTap(func() {
 					g.counter++
-						tenon.Rebuild()
-					}),
-				tenon.Button("Reset").Variantf(tenon.ButtonOutline).OnTap(func() {
+					tenon.Rebuild()
+				}),
+				tenon.Button("Reset Global").Variantf(tenon.ButtonOutline).OnTap(func() {
 					g.counter = 0
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 			).Gapf(8),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -176,8 +181,8 @@ func (g *galleryApp) Build() tenon.Widget {
 				tenon.Text(fmt.Sprintf("Value: %.0f", g.sliderVal)).FontSize(14).Color(muted),
 				tenon.Slider(0, 100, g.sliderVal, func(v float32) {
 					g.sliderVal = v
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 			).Gapf(4),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -215,8 +220,8 @@ func (g *galleryApp) Build() tenon.Widget {
 				tenon.Text(fmt.Sprintf("Current page: %d", g.currentPage)).FontSize(14).Color(muted),
 				tenon.Pagination(g.currentPage, 10, func(p int) {
 					g.currentPage = p
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 			).Gapf(4),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -245,8 +250,8 @@ func (g *galleryApp) Build() tenon.Widget {
 				g.expanded,
 				func(idx int) {
 					g.expanded[idx] = !g.expanded[idx]
-						tenon.Rebuild()
-					},
+					tenon.Rebuild()
+				},
 			),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -256,12 +261,12 @@ func (g *galleryApp) Build() tenon.Widget {
 			tenon.Row(
 				tenon.Toggle("Bold", g.toggle1, func(v bool) {
 					g.toggle1 = v
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 				tenon.Toggle("Italic", g.toggle2, func(v bool) {
 					g.toggle2 = v
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 			).Gapf(8),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -271,8 +276,8 @@ func (g *galleryApp) Build() tenon.Widget {
 			tenon.Column(
 				tenon.Textarea(g.textareaVal, func(v string) {
 					g.textareaVal = v
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 				tenon.Text(fmt.Sprintf("Length: %d", len(g.textareaVal))).FontSize(12).Color(muted),
 			).Gapf(4),
 
@@ -284,8 +289,8 @@ func (g *galleryApp) Build() tenon.Widget {
 				tenon.Text(fmt.Sprintf("Selected: %s", g.selectedDate.Format("2006-01-02"))).FontSize(14).Color(muted),
 				tenon.Calendar(g.selectedDate.Year(), g.selectedDate.Month(), g.selectedDate, func(d time.Time) {
 					g.selectedDate = d
-						tenon.Rebuild()
-					}),
+					tenon.Rebuild()
+				}),
 			).Gapf(4),
 
 			tenon.Separator(tenon.SeparatorHorizontal),
@@ -306,6 +311,51 @@ func sectionTitle(text string) tenon.Widget {
 	return tenon.Label(text)
 }
 
+// ========== CounterButton: StatefulWidget Demo ==========
+
+type CounterButton struct {
+	tenon.BaseWidget
+	initial int
+}
+
+func NewCounterButton(initial int) CounterButton {
+	return CounterButton{initial: initial}
+}
+
+func (c CounterButton) CreateElement() tenon.Element {
+	return tenon.NewStatefulElement(c)
+}
+
+func (c CounterButton) CreateState() tenon.State {
+	s := &counterState{}
+	s.Init(s)
+	return s
+}
+
+type counterState struct {
+	tenon.BaseState
+	count int
+}
+
+func (s *counterState) InitState() {
+	s.count = s.GetWidget().(CounterButton).initial
+}
+
+func (s *counterState) Build(ctx tenon.BuildContext) tenon.Widget {
+	return tenon.Row(
+		tenon.Button(fmt.Sprintf("Stateful Counter: %d", s.count)).OnTap(func() {
+			s.SetState(func() {
+				s.count++
+			})
+		}),
+		tenon.Button("Reset").Variantf(tenon.ButtonOutline).OnTap(func() {
+			s.SetState(func() {
+				s.count = s.GetWidget().(CounterButton).initial
+			})
+		}),
+	).Gapf(8)
+}
+
 func main() {
 	if err := fonts.InitDefaultFont(); err != nil {
 		panic("failed to init font: " + err.Error())
@@ -314,5 +364,3 @@ func main() {
 	tenon.SetTheme(tenon.DefaultLightTheme())
 	tenon.Run(app.Build, 900, 800)
 }
-
-

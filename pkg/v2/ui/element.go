@@ -1,8 +1,28 @@
 package ui
 
 import (
+	"sync"
+
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 )
+
+// globalKeyRegistry 维护 GlobalKey 到 Element 的映射。
+var globalKeyRegistry sync.Map
+
+func registerGlobalKey(key *GlobalKey, element Element) {
+	globalKeyRegistry.Store(key, element)
+}
+
+func unregisterGlobalKey(key *GlobalKey) {
+	globalKeyRegistry.Delete(key)
+}
+
+func getGlobalKeyElement(key *GlobalKey) Element {
+	if v, ok := globalKeyRegistry.Load(key); ok {
+		return v.(Element)
+	}
+	return nil
+}
 
 // Element 是 Element 树中的节点，负责 Widget 的生命周期管理和 RenderObject 的创建/更新。
 // 对应 Flutter 的 Element。
@@ -43,6 +63,11 @@ func (b *BaseElement) GetSlot() int          { return b.slot }
 func (b *BaseElement) Mount(parent Element, slot int) {
 	b.parent = parent
 	b.slot = slot
+	if key := b.widget.GetKey(); key != nil {
+		if gk, ok := key.(*GlobalKey); ok {
+			registerGlobalKey(gk, b.self)
+		}
+	}
 }
 
 func (b *BaseElement) Update(newWidget Widget) {
@@ -50,6 +75,11 @@ func (b *BaseElement) Update(newWidget Widget) {
 }
 
 func (b *BaseElement) Unmount() {
+	if key := b.widget.GetKey(); key != nil {
+		if gk, ok := key.(*GlobalKey); ok {
+			unregisterGlobalKey(gk)
+		}
+	}
 	b.parent = nil
 }
 

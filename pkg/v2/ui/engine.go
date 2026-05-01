@@ -26,7 +26,9 @@ type Engine struct {
 	screenWidth  int
 	screenHeight int
 
-	needsBuild bool
+	needsBuild    bool
+	dirtyElements []Element
+	building      bool
 
 	lastMouseX      float32
 	lastMouseY      float32
@@ -60,6 +62,16 @@ func RebuildDefault() {
 	}
 }
 
+// scheduleBuildFor 将指定 Element 加入 dirty 队列，供局部 rebuild 使用。
+func (e *Engine) scheduleBuildFor(element Element) {
+	if e.building {
+		// 如果在 build 过程中触发，直接加入 dirty 队列，下一轮处理
+		e.dirtyElements = append(e.dirtyElements, element)
+		return
+	}
+	e.dirtyElements = append(e.dirtyElements, element)
+}
+
 func (e *Engine) GetRootRenderObject() render.RenderObject {
 	return e.rootRenderObject
 }
@@ -84,7 +96,7 @@ func (e *Engine) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (e *Engine) Update() error {
-	if e.needsBuild {
+	if e.needsBuild || len(e.dirtyElements) > 0 {
 		e.flushBuild()
 	}
 
@@ -308,8 +320,38 @@ func (e *Engine) Draw(screen *ebiten.Image) {
 // ==================== Widget diff & build ====================
 
 func (e *Engine) flushBuild() {
-	e.needsBuild = false
+	if e.building {
+		return
+	}
+	e.building = true
+	defer func() { e.building = false }()
 
+	// 循环处理，因为 rebuild 可能产生新的 dirty elements
+	// 限制循环次数防止无限递归
+	for loop := 0; loop < 10; loop++ {
+		hasWork := len(e.dirtyElements) > 0 || e.needsBuild
+		if !hasWork {
+			break
+		}
+
+		// 1. 处理局部 dirty elements（StatefulElement 的 setState）
+		dirtyList := e.dirtyElements
+		e.dirtyElements = nil
+		for _, el := range dirtyList {
+			if se, ok := el.(*StatefulElement); ok {
+				se.rebuild()
+			}
+		}
+
+		// 2. 处理全局 rebuild（buildFunc + Rebuild）
+		if e.needsBuild {
+			e.needsBuild = false
+			e.flushGlobalBuild()
+		}
+	}
+}
+
+func (e *Engine) flushGlobalBuild() {
 	newRootWidget := e.buildFunc()
 	if newRootWidget == nil {
 		return
