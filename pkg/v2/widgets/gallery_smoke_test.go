@@ -46,3 +46,42 @@ func TestGallerySmoke(t *testing.T) {
 	}
 	check(ro, 0)
 }
+
+// TestGalleryScrollSmoke 模拟 Gallery 的 Scroll + Column + Text 结构
+func TestGalleryScrollSmoke(t *testing.T) {
+	app := func() ui.Widget {
+		return Scroll(
+			Column(
+				Text("Line 1").FontSize(16),
+				Text("Line 2").FontSize(16),
+				Text("Line 3").FontSize(16),
+			).Gapf(8),
+		)
+	}
+
+	eng := ui.NewEngine(app, 900, 800)
+	eng.Mount()
+	eng.Update()
+
+	ro := eng.GetRootRenderObject()
+	if ro == nil {
+		t.Fatal("rootRenderObject is nil")
+	}
+
+	bounds := ro.GetBounds()
+	t.Logf("root bounds: %+v", bounds)
+
+	if bounds.Width <= 0 || bounds.Height <= 0 {
+		t.Errorf("expected root bounds > 0, got %+v", bounds)
+	}
+
+	var check func(ro render.RenderObject, depth int)
+	check = func(ro render.RenderObject, depth int) {
+		b := ro.GetBounds()
+		t.Logf("%*s%T bounds=%+v children=%d", depth*2, "", ro, b, len(ro.GetChildren()))
+		for _, child := range ro.GetChildren() {
+			check(child, depth+1)
+		}
+	}
+	check(ro, 0)
+}
