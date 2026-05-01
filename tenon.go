@@ -86,6 +86,7 @@ var (
 	Positioned         = widgets.Positioned
 	Scroll             = widgets.Scroll
 	TextField          = widgets.TextField
+	EditableText       = widgets.EditableText
 	NewAnimatedContainer = widgets.NewAnimatedContainer
 )
 

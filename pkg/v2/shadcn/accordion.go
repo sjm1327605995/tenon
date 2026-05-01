@@ -51,9 +51,11 @@ func ShadcnAccordion(items []AccordionPane, expanded map[int]bool, onChange func
 			})
 
 		// Stack: ghost button fills area, header text overlays on top
+		// Use Positioned for the trigger to avoid flex layout circular dependency
+		// (HPct on a non-positioned child inside a Stack with auto-height).
 		triggerStack := widgets.Stack(
-			widgets.Container(trigger).WPct(100).HPct(100),
 			widgets.Container(header).Pad(ui.EdgeInsetsSymmetric(12, 0)).WPct(100),
+			widgets.Positioned(widgets.Container(trigger).WPct(100).HPct(100)).L(0).T(0),
 		)
 
 		children = append(children, triggerStack)

@@ -35,6 +35,13 @@ func NewRenderEditableText() *RenderEditableText {
 	return r
 }
 
+func (r *RenderEditableText) HitTest(x, y float32) bool {
+	if !r.visible {
+		return false
+	}
+	return r.bounds.Contains(x, y)
+}
+
 func (r *RenderEditableText) Focus() {
 	r.focused = true
 	r.showCursor = true
