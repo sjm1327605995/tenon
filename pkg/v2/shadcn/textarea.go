@@ -1,0 +1,20 @@
+package shadcn
+
+import (
+	"github.com/sjm1327605995/tenon/pkg/v2/render"
+	"github.com/sjm1327605995/tenon/pkg/v2/ui"
+	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
+)
+
+// ShadcnTextarea renders a multi-line text input.
+// It is currently a TextField with increased default height.
+func ShadcnTextarea(initial string, onChange func(string)) ui.Widget {
+	t := ui.GetTheme()
+	return widgets.TextField(initial).
+		Bg(render.Color{R: 255, G: 255, B: 255, A: 255}).
+		Border(colorToRender(t.InputBorderColor), 1).
+		Radius(t.InputBorderRadius).
+		Pad(ui.EdgeInsetsAll(12)).
+		H(80).
+		OnChange(onChange)
+}
