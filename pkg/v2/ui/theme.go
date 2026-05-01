@@ -2,6 +2,7 @@ package ui
 
 import (
 	"image/color"
+	"reflect"
 )
 
 // Theme 定义 Tenon UI 的全局视觉主题。
@@ -104,6 +105,51 @@ func GetTheme() *Theme {
 	}
 	return currentTheme
 }
+
+// ========== InheritedTheme ==========
+
+// InheritedTheme 将 Theme 作为 InheritedWidget 注入树中，
+// 支持跨层访问和自动通知。
+type InheritedTheme struct {
+	BaseWidget
+	theme *Theme
+	child Widget
+}
+
+// ThemeOf 从 BuildContext 中获取当前主题。
+// 优先查找 InheritedTheme，fallback 到全局 GetTheme。
+func ThemeOf(ctx BuildContext) *Theme {
+	if ctx == nil {
+		return GetTheme()
+	}
+	if iw, ok := ctx.DependOnInheritedWidgetOfExactType(inheritedThemeType); ok {
+		return iw.(*InheritedTheme).theme
+	}
+	return GetTheme()
+}
+
+var inheritedThemeType = reflect.TypeOf(InheritedTheme{})
+
+func (i InheritedTheme) UpdateShouldNotify(oldWidget InheritedWidget) bool {
+	old := oldWidget.(InheritedTheme)
+	return i.theme != old.theme
+}
+
+func (i InheritedTheme) CreateElement() Element {
+	e := NewInheritedElement(i)
+	return e
+}
+
+func (i InheritedTheme) BuildChild(ctx BuildContext) Widget {
+	return i.child
+}
+
+// ThemeProvider 创建主题包裹层。
+func ThemeProvider(theme *Theme, child Widget) InheritedTheme {
+	return InheritedTheme{theme: theme, child: child}
+}
+
+
 
 // DefaultLightTheme 返回 Shadcn/UI Neutral 风格的浅色主题。
 func DefaultLightTheme() *Theme {

@@ -9,28 +9,42 @@ import (
 
 // 核心类型别名，用户可直接使用。
 type (
-	Widget      = ui.Widget
-	Engine      = ui.Engine
-	Theme       = ui.Theme
-	EdgeInsets  = ui.EdgeInsets
-	Color       = render.Color
-	FlexDirection = ui.FlexDirection
-	Justify     = ui.Justify
-	Align       = ui.Align
-	Wrap        = ui.Wrap
-	PositionType = ui.PositionType
-	Display     = ui.Display
-	Overflow    = ui.Overflow
-	Edge        = ui.Edge
-	Gutter      = ui.Gutter
+	Widget          = ui.Widget
+	Element         = ui.Element
+	StatefulWidget  = ui.StatefulWidget
+	State           = ui.State
+	BaseState       = ui.BaseState
+	BaseWidget      = ui.BaseWidget
+	BuildContext    = ui.BuildContext
+	Builder         = ui.Builder
+	StatefulBuilder = ui.StatefulBuilder
+	GlobalKey       = ui.GlobalKey
+	Engine          = ui.Engine
+	Theme           = ui.Theme
+	EdgeInsets      = ui.EdgeInsets
+	Color           = render.Color
+	FlexDirection   = ui.FlexDirection
+	Justify         = ui.Justify
+	Align           = ui.Align
+	Wrap            = ui.Wrap
+	PositionType    = ui.PositionType
+	Display         = ui.Display
+	Overflow        = ui.Overflow
+	Edge            = ui.Edge
+	Gutter          = ui.Gutter
 )
 
 // 核心函数。
 var (
 	NewEngine             = ui.NewEngine
+	NewStatefulElement    = ui.NewStatefulElement
 	Rebuild               = ui.RebuildDefault
 	SetTheme              = ui.SetTheme
 	GetTheme              = ui.GetTheme
+	ThemeOf               = ui.ThemeOf
+	NewBuilder            = ui.NewBuilder
+	NewStatefulBuilder    = ui.NewStatefulBuilder
+	NewGlobalKey          = ui.NewGlobalKey
 	DefaultLightTheme     = ui.DefaultLightTheme
 	DefaultDarkTheme      = ui.DefaultDarkTheme
 	EdgeInsetsAll         = ui.EdgeInsetsAll
@@ -127,9 +141,12 @@ const (
 )
 
 // Run 启动 ebiten 窗口并运行应用。
-// 等同于 engine := NewEngine(buildFunc, width, height); engine.Run()
+// 根 Widget 会自动包裹在 ThemeProvider 中。
 func Run(buildFunc ui.BuildFunc, width, height int) {
-	engine := ui.NewEngine(buildFunc, width, height)
+	wrappedBuildFunc := func() ui.Widget {
+		return ui.ThemeProvider(ui.GetTheme(), buildFunc())
+	}
+	engine := ui.NewEngine(wrappedBuildFunc, width, height)
 	engine.Run()
 }
 

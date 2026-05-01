@@ -54,7 +54,7 @@ type badgeElement struct {
 
 func (e *badgeElement) CreateRenderObject() render.RenderObject {
 	r := render.NewRenderBox()
-	applyBadgeProps(r, badgeWidget{}, e.GetWidget().(badgeWidget))
+	applyBadgeProps(r, badgeWidget{}, e.GetWidget().(badgeWidget), true)
 	return r
 }
 
@@ -62,7 +62,7 @@ func (e *badgeElement) UpdateRenderObject(oldWidget ui.Widget) {
 	r := e.GetRenderObject().(*render.RenderBox)
 	old := oldWidget.(badgeWidget)
 	w := e.GetWidget().(badgeWidget)
-	applyBadgeProps(r, old, w)
+	applyBadgeProps(r, old, w, false)
 }
 
 func (e *badgeElement) Mount(parent ui.Element, slot int) {
@@ -85,8 +85,8 @@ func (e *badgeElement) UpdateChild(oldWidget ui.Widget) {
 	e.Child = ui.UpdateChild(e, e.Child, child)
 }
 
-func applyBadgeProps(r *render.RenderBox, old, w badgeWidget) {
-	if old.dotMode != w.dotMode {
+func applyBadgeProps(r *render.RenderBox, old, w badgeWidget, force bool) {
+	if force || old.dotMode != w.dotMode {
 		if w.dotMode {
 			r.StyleSetWidth(8)
 			r.StyleSetHeight(8)
@@ -111,10 +111,10 @@ func applyBadgeProps(r *render.RenderBox, old, w badgeWidget) {
 
 	bg, border := getBadgeColors(w.variant)
 	oldBg, oldBorder := getBadgeColors(old.variant)
-	if !render.ColorPtrEquals(oldBg, bg) {
+	if force || !render.ColorPtrEquals(oldBg, bg) {
 		r.SetBackgroundColor(bg)
 	}
-	if !render.ColorPtrEquals(oldBorder, border) {
+	if force || !render.ColorPtrEquals(oldBorder, border) {
 		if border != nil {
 			r.SetBorderColor(border)
 			r.SetBorderWidth(1)

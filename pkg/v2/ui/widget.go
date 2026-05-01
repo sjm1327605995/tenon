@@ -79,6 +79,58 @@ func (k *LocalKey) String() string {
 	return fmt.Sprintf("LocalKey(%d)", k.id)
 }
 
+// GlobalKey 是全局唯一的 Key，可跨树访问对应的 Element/State。
+type GlobalKey struct {
+	id int64
+}
+
+var globalKeyCounter int64
+
+// NewGlobalKey 创建一个新的全局唯一 Key。
+func NewGlobalKey() *GlobalKey {
+	id := atomic.AddInt64(&globalKeyCounter, 1)
+	return &GlobalKey{id: id}
+}
+
+func (k *GlobalKey) Equals(other Key) bool {
+	if o, ok := other.(*GlobalKey); ok {
+		return k.id == o.id
+	}
+	return false
+}
+
+func (k *GlobalKey) String() string {
+	return fmt.Sprintf("GlobalKey(%d)", k.id)
+}
+
+// CurrentContext 返回与该 GlobalKey 关联的 BuildContext。
+func (k *GlobalKey) CurrentContext() BuildContext {
+	if el := getGlobalKeyElement(k); el != nil {
+		if se, ok := el.(*StatefulElement); ok {
+			return se.buildContext
+		}
+	}
+	return nil
+}
+
+// CurrentWidget 返回与该 GlobalKey 关联的 Widget。
+func (k *GlobalKey) CurrentWidget() Widget {
+	if el := getGlobalKeyElement(k); el != nil {
+		return el.GetWidget()
+	}
+	return nil
+}
+
+// CurrentState 返回与该 GlobalKey 关联的 State（如果是 StatefulElement）。
+func (k *GlobalKey) CurrentState() State {
+	if el := getGlobalKeyElement(k); el != nil {
+		if se, ok := el.(*StatefulElement); ok {
+			return se.state
+		}
+	}
+	return nil
+}
+
 // BaseWidget 提供 Widget 的默认实现。
 // 用户自定义 Widget 可内嵌此结构体。
 type BaseWidget struct {
