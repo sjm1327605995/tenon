@@ -1,9 +1,10 @@
 module github.com/sjm1327605995/tenon
 
-go 1.25.1
+go 1.24.0
+
+toolchain go1.24.2
 
 require (
-	github.com/gorilla/websocket v1.5.3
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
 	golang.org/x/image v0.31.0
 )

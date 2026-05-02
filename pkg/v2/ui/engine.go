@@ -2,6 +2,7 @@
 
 import (
 	"image/color"
+	"math"
 	"sort"
 	"time"
 
@@ -45,6 +46,12 @@ type Engine struct {
 	mouseDownTarget render.RenderObject
 	hoverTarget     render.RenderObject
 	focusTarget     render.RenderObject
+
+	// 拖放状态
+	dragActive      bool
+	dragData        any
+	dragSource      render.RenderObject
+	dragDropTarget  render.RenderObject
 }
 
 // NewEngine creates a new Engine.
@@ -212,8 +219,16 @@ func (e *Engine) handleMouseInput() {
 		if e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
 			e.mouseDownTarget = target
-			if target != nil && target.GetOnMouseDown() != nil {
-				target.GetOnMouseDown()()
+			if target != nil {
+				// 启动拖放：如果 target 携带 dragData
+				if data := target.GetDragData(); data != nil {
+					e.dragActive = true
+					e.dragData = data
+					e.dragSource = target
+				}
+				if target.GetOnMouseDown() != nil {
+					target.GetOnMouseDown()()
+				}
 			}
 		}
 	} else if isPressed && e.mouseDown {
@@ -221,9 +236,40 @@ func (e *Engine) handleMouseInput() {
 		if e.mouseDownTarget != nil {
 			e.mouseDownTarget.HandleDrag(e.lastMouseX, e.lastMouseY)
 		}
+		if e.dragActive && e.rootRenderObject != nil {
+			// 查找当前鼠标下的 DropTarget（排除 dragSource 自身）
+			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
+			if target == e.dragSource {
+				target = nil
+			}
+			if target != e.dragDropTarget {
+				if e.dragDropTarget != nil && e.dragDropTarget.GetOnDragLeave() != nil {
+					e.dragDropTarget.GetOnDragLeave()()
+				}
+				if target != nil && target.GetOnDragEnter() != nil {
+					target.GetOnDragEnter()(e.dragData)
+				}
+				e.dragDropTarget = target
+			}
+		}
 	} else if !isPressed && e.mouseDown {
 		// Mouse up / click
 		e.mouseDown = false
+
+		// 处理拖放结束
+		if e.dragActive {
+			if e.dragDropTarget != nil && e.dragDropTarget.GetOnDrop() != nil {
+				e.dragDropTarget.GetOnDrop()(e.dragData)
+			}
+			if e.dragDropTarget != nil && e.dragDropTarget.GetOnDragLeave() != nil {
+				e.dragDropTarget.GetOnDragLeave()()
+			}
+			e.dragActive = false
+			e.dragData = nil
+			e.dragSource = nil
+			e.dragDropTarget = nil
+		}
+
 		if e.mouseDownTarget != nil && e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
 			if target == e.mouseDownTarget && target.GetOnClick() != nil {
@@ -458,7 +504,6 @@ func (e *Engine) syncBounds(ro render.RenderObject) {
 	}
 }
 
-// ==================== Draw ====================
 
 func (e *Engine) drawRenderObject(screen *ebiten.Image, ro render.RenderObject, parentOffset render.Offset) {
 	if ro == nil || !ro.IsVisible() {
@@ -469,6 +514,17 @@ func (e *Engine) drawRenderObject(screen *ebiten.Image, ro render.RenderObject, 
 		return
 	}
 
+	t := ro.GetTransform()
+	if !t.IsIdentity() {
+		e.drawRenderObjectWithTransform(screen, ro, parentOffset, t)
+		return
+	}
+
+	e._drawRenderObject(screen, ro, parentOffset)
+}
+
+func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject, parentOffset render.Offset) {
+	bounds := ro.GetBounds()
 	ro.Paint(screen, parentOffset)
 
 	absX := parentOffset.X + bounds.X
@@ -502,6 +558,36 @@ func (e *Engine) drawRenderObject(screen *ebiten.Image, ro render.RenderObject, 
 	for _, child := range children {
 		e.drawRenderObject(childScreen, child, childOffset)
 	}
+}
+
+func (e *Engine) drawRenderObjectWithTransform(screen *ebiten.Image, ro render.RenderObject, parentOffset render.Offset, t render.Transform) {
+	bounds := ro.GetBounds()
+	iw, ih := int(bounds.Width), int(bounds.Height)
+	if iw <= 0 || ih <= 0 {
+		return
+	}
+
+	temp := ebiten.NewImage(iw, ih)
+	defer temp.Dispose()
+
+	// 将子树绘制到临时 surface，节点的 (0,0) 对齐到 temp 的 (0,0)
+	e._drawRenderObject(temp, ro, render.Offset{X: -bounds.X, Y: -bounds.Y})
+
+	var geoM ebiten.GeoM
+	ox := float64(bounds.Width * t.OriginX)
+	oy := float64(bounds.Height * t.OriginY)
+	geoM.Translate(-ox, -oy)
+	geoM.Skew(float64(t.SkewX), float64(t.SkewY))
+	geoM.Rotate(float64(t.Rotation) * math.Pi / 180)
+	geoM.Scale(float64(t.ScaleX), float64(t.ScaleY))
+	geoM.Translate(ox, oy)
+	geoM.Translate(float64(parentOffset.X+bounds.X), float64(parentOffset.Y+bounds.Y))
+
+	op := &ebiten.DrawImageOptions{GeoM: geoM}
+	if t.Alpha < 1 {
+		op.ColorScale.Scale(float32(t.Alpha), float32(t.Alpha), float32(t.Alpha), float32(t.Alpha))
+	}
+	screen.DrawImage(temp, op)
 }
 
 // ==================== Run ====================
