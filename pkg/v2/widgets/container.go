@@ -30,6 +30,11 @@ type ContainerWidget struct {
 	justify          yoga.Justify
 	alignItemsVal    yoga.Align
 	onClick          func()
+	zIndex           int
+	rotation         float32
+	scaleX           float32
+	scaleY           float32
+	alpha            float32
 }
 
 // Container 创建容器 Widget，包裹一个子 Widget。
@@ -108,6 +113,33 @@ func (c ContainerWidget) Marginf(insets ui.EdgeInsets) ContainerWidget {
 
 func (c ContainerWidget) OnTap(fn func()) ContainerWidget {
 	c.onClick = fn
+	return c
+}
+
+func (c ContainerWidget) ZIndex(v int) ContainerWidget {
+	c.zIndex = v
+	return c
+}
+
+func (c ContainerWidget) Rotate(deg float32) ContainerWidget {
+	c.rotation = deg
+	return c
+}
+
+func (c ContainerWidget) Scale(x, y float32) ContainerWidget {
+	c.scaleX = x
+	c.scaleY = y
+	return c
+}
+
+func (c ContainerWidget) Opacity(a float32) ContainerWidget {
+	if a < 0 {
+		a = 0
+	}
+	if a > 1 {
+		a = 1
+	}
+	c.alpha = a
 	return c
 }
 
@@ -238,5 +270,24 @@ func applyContainerProps(r *render.RenderBox, old, w ContainerWidget) {
 	}
 	if old.alignItemsVal != w.alignItemsVal {
 		r.StyleSetAlignItems(w.alignItemsVal)
+	}
+
+	if old.zIndex != w.zIndex {
+		r.SetZIndex(w.zIndex)
+	}
+
+	if old.rotation != w.rotation || old.scaleX != w.scaleX || old.scaleY != w.scaleY || old.alpha != w.alpha {
+		t := r.GetTransform()
+		t.Rotation = w.rotation
+		if w.scaleX != 0 || w.scaleY != 0 {
+			t.ScaleX = w.scaleX
+			t.ScaleY = w.scaleY
+		}
+		t.Alpha = w.alpha
+		if t.OriginX == 0 && t.OriginY == 0 {
+			t.OriginX = 0.5
+			t.OriginY = 0.5
+		}
+		r.SetTransform(t)
 	}
 }

@@ -60,6 +60,10 @@ type RenderObject interface {
 	IsVisible() bool
 	SetVisible(v bool)
 
+	// 变换
+	GetTransform() Transform
+	SetTransform(t Transform)
+
 	// Z-Index（绘制顺序）
 	GetZIndex() int
 	SetZIndex(v int)
@@ -81,6 +85,16 @@ type RenderObject interface {
 	GetOnMouseDown() func()
 	SetOnMouseUp(fn func())
 	GetOnMouseUp() func()
+
+	// 拖放协议
+	GetDragData() any
+	SetDragData(v any)
+	GetOnDragEnter() func(data any)
+	SetOnDragEnter(fn func(data any))
+	GetOnDragLeave() func()
+	SetOnDragLeave(fn func())
+	GetOnDrop() func(data any)
+	SetOnDrop(fn func(data any))
 }
 
 // Bounds 描述 RenderObject 在父坐标系中的位置和尺寸。
@@ -112,6 +126,12 @@ type BaseRenderObject struct {
 	onMouseLeave  func()
 	onMouseDown   func()
 	onMouseUp     func()
+
+	// 拖放协议
+	dragData      any
+	onDragEnter   func(data any)
+	onDragLeave   func()
+	onDrop        func(data any)
 
 	// 变换
 	transform Transform
@@ -283,6 +303,15 @@ func (b *BaseRenderObject) SetOnMouseDown(fn func())   { b.onMouseDown = fn }
 func (b *BaseRenderObject) GetOnMouseDown() func()     { return b.onMouseDown }
 func (b *BaseRenderObject) SetOnMouseUp(fn func())     { b.onMouseUp = fn }
 func (b *BaseRenderObject) GetOnMouseUp() func()       { return b.onMouseUp }
+
+func (b *BaseRenderObject) GetDragData() any          { return b.dragData }
+func (b *BaseRenderObject) SetDragData(v any)         { b.dragData = v }
+func (b *BaseRenderObject) GetOnDragEnter() func(data any) { return b.onDragEnter }
+func (b *BaseRenderObject) SetOnDragEnter(fn func(data any)) { b.onDragEnter = fn }
+func (b *BaseRenderObject) GetOnDragLeave() func()    { return b.onDragLeave }
+func (b *BaseRenderObject) SetOnDragLeave(fn func())  { b.onDragLeave = fn }
+func (b *BaseRenderObject) GetOnDrop() func(data any) { return b.onDrop }
+func (b *BaseRenderObject) SetOnDrop(fn func(data any)) { b.onDrop = fn }
 
 func (b *BaseRenderObject) GetTransform() Transform {
 	return b.transform
