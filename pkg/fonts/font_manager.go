@@ -84,6 +84,18 @@ func (fm *FontManager) LoadFontFromBytes(family FontFamily, fontData []byte) err
 		return fmt.Errorf("font family '%s' already loaded", family)
 	}
 
+	return fm.loadFontLocked(family, fontData)
+}
+
+// ReloadFontFromBytes 重新加载字体（覆盖已存在的字体族）
+func (fm *FontManager) ReloadFontFromBytes(family FontFamily, fontData []byte) error {
+	fm.mu.Lock()
+	defer fm.mu.Unlock()
+
+	return fm.loadFontLocked(family, fontData)
+}
+
+func (fm *FontManager) loadFontLocked(family FontFamily, fontData []byte) error {
 	source, err := text.NewGoTextFaceSource(bytes.NewReader(fontData))
 	if err != nil {
 		return fmt.Errorf("failed to load font: %v", err)

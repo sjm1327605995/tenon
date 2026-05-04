@@ -146,6 +146,7 @@ type BaseRenderObject struct {
 func (b *BaseRenderObject) Init(self RenderObject) {
 	b.self = self
 	b.visible = true
+	b.transform = DefaultTransform()
 }
 
 // === 树关系 ===

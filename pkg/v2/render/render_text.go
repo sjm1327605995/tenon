@@ -91,6 +91,10 @@ func (r *RenderText) measure(
 	}
 }
 
+func (r *RenderText) SplitLines(face text.Face, maxWidth float64, widthMode yoga.MeasureMode) []string {
+	return r.splitLines(face, maxWidth, widthMode)
+}
+
 func (r *RenderText) splitLines(face text.Face, maxWidth float64, widthMode yoga.MeasureMode) []string {
 	if r.Content == "" {
 		return nil
@@ -148,17 +152,20 @@ func (r *RenderText) Paint(screen *ebiten.Image, offset Offset) {
 
 	lineHeight := float64(r.FontSize) * 1.2
 
-	lines := r.splitLines(face.Face, float64(bounds.Width), yoga.MeasureModeAtMost)
-	if r.MaxLines > 0 && len(lines) > r.MaxLines {
-		lines = lines[:r.MaxLines]
+	var lines []string
+	if r.MaxLines == 1 {
+		// 单行模式：不做软换行，让 text/v2.Draw 直接绘制整行
+		lines = []string{r.Content}
+	} else {
+		lines = r.splitLines(face.Face, float64(bounds.Width), yoga.MeasureModeAtMost)
+		if r.MaxLines > 0 && len(lines) > r.MaxLines {
+			lines = lines[:r.MaxLines]
+		}
 	}
 	if len(lines) == 0 {
 		return
 	}
 
-	// ebiten text/v2 的 GeoM.Translate 在默认 AlignStart 下定位的是
-	// 文字渲染区域的左上角（即文字块的顶部），不是基线。
-	// 第一行文字顶部直接对齐 bounds.Y，文字刚好填满 bounds。
 	content := strings.Join(lines, "\n")
 
 	op := &text.DrawOptions{}

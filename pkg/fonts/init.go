@@ -1,6 +1,7 @@
 package fonts
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -33,6 +34,23 @@ func LoadFontFromFile(family FontFamily, filePath string) error {
 	defer file.Close()
 
 	return fontManager.LoadFontFromReader(family, file)
+}
+
+// ReloadFontFromFile 重新从文件加载字体（覆盖已存在的字体族）
+func ReloadFontFromFile(family FontFamily, filePath string) error {
+	fontManager := GetFontManager()
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	fontData, err := io.ReadAll(file)
+	if err != nil {
+		return fmt.Errorf("failed to read font data: %v", err)
+	}
+	return fontManager.ReloadFontFromBytes(family, fontData)
 }
 
 // LoadFontFromBytes 从字节加载字体（便捷函数）
