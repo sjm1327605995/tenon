@@ -104,6 +104,12 @@ func (s *StatefulElement) Mount(parent Element, slot int) {
 		init.InitState()
 	}
 
+	// 调用 DidChangeDependencies（如果实现了）
+	// Flutter 规范：首次 mount 后调用，此时 InheritedWidget 依赖已可用
+	if ddc, ok := s.state.(interface{ DidChangeDependencies() }); ok {
+		ddc.DidChangeDependencies()
+	}
+
 	// 首次 build
 	s.child = UpdateChild(s, nil, s.state.Build(s.buildContext))
 }
@@ -170,4 +176,13 @@ func (s *StatefulElement) markNeedsBuild() {
 	if defaultEngine != nil {
 		defaultEngine.scheduleBuildFor(s)
 	}
+}
+
+// didChangeDependencies 通知 State 依赖的 InheritedWidget 已变化。
+// 由 InheritedElement.notifyDependents 调用。
+func (s *StatefulElement) didChangeDependencies() {
+	if ddc, ok := s.state.(interface{ DidChangeDependencies() }); ok {
+		ddc.DidChangeDependencies()
+	}
+	s.markNeedsBuild()
 }
