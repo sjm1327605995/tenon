@@ -55,6 +55,9 @@ type Engine struct {
 
 	// 焦点管理
 	focusManager *FocusManager
+
+	// 调试工具
+	perfOverlay *PerformanceOverlay
 }
 
 // NewEngine creates a new Engine.
@@ -65,6 +68,7 @@ func NewEngine(buildFunc BuildFunc, width, height int) *Engine {
 		screenHeight: height,
 		owner:        render.NewPipelineOwner(),
 		focusManager: NewFocusManager(),
+		perfOverlay:  NewPerformanceOverlay(),
 	}
 	defaultEngine = e
 	return e
@@ -99,6 +103,11 @@ func (e *Engine) GetRootRenderObject() render.RenderObject {
 // GetFocusManager 返回焦点管理器。
 func (e *Engine) GetFocusManager() *FocusManager {
 	return e.focusManager
+}
+
+// GetPerformanceOverlay 返回性能覆盖层。
+func (e *Engine) GetPerformanceOverlay() *PerformanceOverlay {
+	return e.perfOverlay
 }
 
 func (e *Engine) GetRootElement() Element {
@@ -194,6 +203,11 @@ func (e *Engine) Update() error {
 	}
 
 	e.tickBlink()
+
+	// 记录帧统计
+	if e.perfOverlay != nil {
+		e.perfOverlay.RecordFrame(0, 0, 0)
+	}
 
 	return nil
 }
@@ -472,6 +486,10 @@ func (e *Engine) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{R: 255, G: 255, B: 255, A: 255})
 	if e.rootRenderObject != nil {
 		e.drawRenderObject(screen, e.rootRenderObject, render.Offset{})
+	}
+	// 性能覆盖层
+	if e.perfOverlay != nil {
+		e.perfOverlay.Paint(screen, render.Offset{})
 	}
 }
 
