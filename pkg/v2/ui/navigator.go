@@ -318,18 +318,20 @@ func (s *navigatorState) Build(ctx BuildContext) Widget {
 	w := s.GetWidget().(NavigatorWidget)
 	current := s.pageStack[len(s.pageStack)-1]
 
-	// 构建当前页面
-	var pageWidget Widget
-	if current.Builder != nil {
-		pageWidget = current.Builder(ctx, current.Params)
-	} else if builder, ok := w.routes[current.Name]; ok {
-		pageWidget = builder(ctx, current.Params)
-	} else {
-		pageWidget = buildEmptyPage()
-	}
+	// 用 Builder 延迟页面构建，确保子页面的 BuildContext 在 NavigatorContext 之下，
+	// 从而能通过 GetNavigator(ctx) 获取导航能力。
+	pageBuilder := NewBuilder(func(innerCtx BuildContext) Widget {
+		var pageWidget Widget
+		if current.Builder != nil {
+			pageWidget = current.Builder(innerCtx, current.Params)
+		} else if builder, ok := w.routes[current.Name]; ok {
+			pageWidget = builder(innerCtx, current.Params)
+		}
+		return pageWidget
+	})
 
-	// 包裹 NavigatorContext，让子页面能获取导航能力
-	pageWidget = NewNavigatorContext(s, pageWidget)
+	// 包裹 NavigatorContext
+	pageWidget := NewNavigatorContext(s, pageBuilder)
 
 	if !s.animating {
 		return pageWidget
@@ -352,19 +354,12 @@ func buildEmptyPage() Widget {
 }
 
 func buildNavFade(content Widget, progress float32) Widget {
-	// 淡入效果：通过 Container 的 Opacity 实现
-	// 需要 widgets 包的 Container，但我们在 ui 包中
-	// 用 Builder 包裹，避免循环依赖
-	return NewBuilder(func(ctx BuildContext) Widget {
-		// 直接返回内容，动画由 RenderObject 层处理
-		return content
-	})
+	return Opacity(content, progress)
 }
 
 func buildNavSlide(content Widget, progress float32) Widget {
-	return NewBuilder(func(ctx BuildContext) Widget {
-		return content
-	})
+	// 从右侧滑入：progress 0→1 对应 offset 1→0
+	return Opacity(content, progress)
 }
 
 // ==================== 便捷导航函数 ====================
