@@ -52,6 +52,9 @@ type Engine struct {
 	dragData        any
 	dragSource      render.RenderObject
 	dragDropTarget  render.RenderObject
+
+	// 焦点管理
+	focusManager *FocusManager
 }
 
 // NewEngine creates a new Engine.
@@ -61,6 +64,7 @@ func NewEngine(buildFunc BuildFunc, width, height int) *Engine {
 		screenWidth:  width,
 		screenHeight: height,
 		owner:        render.NewPipelineOwner(),
+		focusManager: NewFocusManager(),
 	}
 	defaultEngine = e
 	return e
@@ -90,6 +94,11 @@ func (e *Engine) scheduleBuildFor(element Element) {
 
 func (e *Engine) GetRootRenderObject() render.RenderObject {
 	return e.rootRenderObject
+}
+
+// GetFocusManager 返回焦点管理器。
+func (e *Engine) GetFocusManager() *FocusManager {
+	return e.focusManager
 }
 
 func (e *Engine) GetRootElement() Element {
@@ -371,6 +380,16 @@ func (e *Engine) getAbsolutePosition(ro render.RenderObject) (float32, float32) 
 }
 
 func (e *Engine) handleKeyboardInput() {
+	// Tab 键切换焦点
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		if ebiten.IsKeyPressed(ebiten.KeyShift) {
+			e.focusManager.PreviousFocus()
+		} else {
+			e.focusManager.NextFocus()
+		}
+		return
+	}
+
 	if e.focusTarget == nil {
 		return
 	}
