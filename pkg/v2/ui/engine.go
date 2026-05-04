@@ -58,6 +58,7 @@ type Engine struct {
 
 	// 调试工具
 	perfOverlay *PerformanceOverlay
+	inspector    *Inspector
 }
 
 // NewEngine creates a new Engine.
@@ -108,6 +109,14 @@ func (e *Engine) GetFocusManager() *FocusManager {
 // GetPerformanceOverlay 返回性能覆盖层。
 func (e *Engine) GetPerformanceOverlay() *PerformanceOverlay {
 	return e.perfOverlay
+}
+
+// GetInspector 返回元素树检查器。
+func (e *Engine) GetInspector() *Inspector {
+	if e.inspector == nil {
+		e.inspector = NewInspector(e)
+	}
+	return e.inspector
 }
 
 func (e *Engine) GetRootElement() Element {
@@ -394,6 +403,17 @@ func (e *Engine) getAbsolutePosition(ro render.RenderObject) (float32, float32) 
 }
 
 func (e *Engine) handleKeyboardInput() {
+	// F12 切换检查器
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		e.GetInspector().Toggle()
+		return
+	}
+	// F11 切换性能覆盖层
+	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
+		e.perfOverlay.Toggle()
+		return
+	}
+
 	// Tab 键切换焦点
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -490,6 +510,11 @@ func (e *Engine) Draw(screen *ebiten.Image) {
 	// 性能覆盖层
 	if e.perfOverlay != nil {
 		e.perfOverlay.Paint(screen, render.Offset{})
+	}
+	// 检查器覆盖层
+	if e.inspector != nil {
+		e.inspector.Update()
+		e.inspector.Paint(screen, render.Offset{})
 	}
 }
 
