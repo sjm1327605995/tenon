@@ -98,7 +98,7 @@ func (i *InheritedElement) removeDependent(dependent Element) {
 func (i *InheritedElement) notifyDependents() {
 	for dependent := range i.dependents {
 		if se, ok := dependent.(*StatefulElement); ok {
-			se.markNeedsBuild()
+			se.didChangeDependencies()
 		}
 	}
 }
