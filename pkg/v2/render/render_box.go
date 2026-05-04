@@ -12,15 +12,16 @@ import (
 type RenderBox struct {
 	BaseRenderObject
 
-	BackgroundColor  *Color
-	BorderRadius     BorderRadius
-	BorderColor      *Color
-	BorderWidth      float32
-	ShadowColor      *Color
-	ShadowBlur       float32
-	ShadowOffsetX    float32
-	ShadowOffsetY    float32
-	clipChildren     bool
+	BackgroundColor    *Color
+	BorderRadius       BorderRadius
+	BorderColor        *Color
+	BorderWidth        float32
+	FocusedBorderColor *Color
+	ShadowColor        *Color
+	ShadowBlur         float32
+	ShadowOffsetX      float32
+	ShadowOffsetY      float32
+	clipChildren       bool
 }
 
 func NewRenderBox() *RenderBox {
@@ -92,14 +93,30 @@ func (r *RenderBox) paintContent(screen *ebiten.Image, b Bounds) {
 		}
 	}
 
-	// 绘制边框
-	if r.BorderColor != nil && r.BorderWidth > 0 {
+	// 绘制边框（子元素 focus 时使用 FocusedBorderColor）
+	borderColor := r.BorderColor
+	if r.hasFocusedChild() && r.FocusedBorderColor != nil {
+		borderColor = r.FocusedBorderColor
+	}
+	if borderColor != nil && r.BorderWidth > 0 {
 		if !r.BorderRadius.IsZero() {
-			DrawRoundedRectStroke(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, r.BorderColor)
+			DrawRoundedRectStroke(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, borderColor)
 		} else {
-			DrawBorder(screen, x, y, w, h, r.BorderWidth, r.BorderColor)
+			DrawBorder(screen, x, y, w, h, r.BorderWidth, borderColor)
 		}
 	}
+}
+
+// hasFocusedChild 检查直接子元素是否有处于 focus 状态的。
+func (r *RenderBox) hasFocusedChild() bool {
+	for _, child := range r.children {
+		if f, ok := child.(interface{ IsFocused() bool }); ok {
+			if f.IsFocused() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // SetBackgroundColor 设置背景色。
@@ -141,6 +158,14 @@ func (r *RenderBox) SetBorderWidth(v float32) {
 		return
 	}
 	r.BorderWidth = v
+	r.MarkNeedsPaint()
+}
+
+func (r *RenderBox) SetFocusedBorderColor(c *Color) {
+	if r.FocusedBorderColor != nil && r.FocusedBorderColor.Equals(c) {
+		return
+	}
+	r.FocusedBorderColor = c
 	r.MarkNeedsPaint()
 }
 

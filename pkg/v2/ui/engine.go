@@ -169,7 +169,20 @@ func (e *Engine) Update() error {
 
 	e.handleMouseInput()
 
-	e.handleKeyboardInput()
+	// 优先使用 textinput API 处理 IME 输入（中文/日文/韩文输入法）
+	textInputHandled := false
+	if e.focusTarget != nil {
+		if h, ok := e.focusTarget.(interface {
+			UpdateTextInput(absX, absY int) bool
+		}); ok {
+			absX, absY := e.getAbsolutePosition(e.focusTarget)
+			textInputHandled = h.UpdateTextInput(int(absX), int(absY))
+		}
+	}
+
+	if !textInputHandled {
+		e.handleKeyboardInput()
+	}
 
 	e.tickBlink()
 
@@ -218,6 +231,7 @@ func (e *Engine) handleMouseInput() {
 		e.mouseDown = true
 		if e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
+
 			e.mouseDownTarget = target
 			if target != nil {
 				// 启动拖放：如果 target 携带 dragData
@@ -272,7 +286,7 @@ func (e *Engine) handleMouseInput() {
 
 		if e.mouseDownTarget != nil && e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
-			if target == e.mouseDownTarget && target.GetOnClick() != nil {
+			if target != nil && target == e.mouseDownTarget && target.GetOnClick() != nil {
 				target.GetOnClick()()
 			}
 			if e.mouseDownTarget.GetOnMouseUp() != nil {
@@ -317,9 +331,43 @@ func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 		}); ok {
 			return ro
 		}
+		// 如果当前节点本身不是 focuser，检查直接子节点（例如 TextField 的 RenderBox -> RenderEditableText）
+		for _, child := range ro.GetChildren() {
+			if _, ok := child.(interface {
+				Focus()
+				Blur()
+				IsFocused() bool
+			}); ok {
+				return child
+			}
+		}
 		ro = ro.GetParent()
 	}
 	return nil
+}
+
+// getAbsolutePosition 计算 RenderObject 在屏幕上的绝对视觉位置（考虑 scroll offset）。
+func (e *Engine) getAbsolutePosition(ro render.RenderObject) (float32, float32) {
+	var x, y float32
+	// 收集从根节点到当前节点的路径
+	path := []render.RenderObject{}
+	for ro != nil {
+		path = append(path, ro)
+		ro = ro.GetParent()
+	}
+	// 从根到当前节点累加
+	for i := len(path) - 1; i >= 0; i-- {
+		node := path[i]
+		b := node.GetBounds()
+		x += b.X
+		y += b.Y
+		if scroller, ok := node.(interface{ GetScrollOffset() render.Offset }); ok {
+			so := scroller.GetScrollOffset()
+			x -= so.X
+			y -= so.Y
+		}
+	}
+	return x, y
 }
 
 func (e *Engine) handleKeyboardInput() {
@@ -370,7 +418,7 @@ func (e *Engine) tickBlink() {
 
 func (e *Engine) findScrollParent(ro render.RenderObject) render.RenderObject {
 	for ro != nil {
-		if _, ok := ro.(interface{ GetScrollOffset() render.Offset }); ok {
+		if _, ok := ro.(interface{ ScrollBy(dx, dy float32) }); ok {
 			return ro
 		}
 		ro = ro.GetParent()
@@ -544,7 +592,7 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 			int(bounds.Width), int(bounds.Height))
 		if sub != nil {
 			childScreen = sub
-			childOffset = render.Offset{X: -scrollX, Y: -scrollY}
+			// childOffset remains as global offset; SubImage uses global coordinates for DrawImage
 		}
 	}
 
