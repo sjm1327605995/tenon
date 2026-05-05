@@ -30,6 +30,10 @@ type RenderEditableText struct {
 	onChanged        func(string)
 	onSubmitted      func(string)
 
+	// 选区
+	selectionStart int // 选区起始位置（-1 表示无选区）
+	selectionEnd   int // 选区结束位置
+
 	// textinput.Field 提供 IME 支持（中文/日文/韩文输入法）
 	field *textinput.Field
 
@@ -222,6 +226,124 @@ func (r *RenderEditableText) UpdateTextInput(absX, absY int) bool {
 	r.ensureCursorVisible()
 	r.MarkNeedsPaint()
 	return true
+}
+
+// ==================== 选区操作 ====================
+
+// HasSelection 是否有选区。
+func (r *RenderEditableText) HasSelection() bool {
+	return r.selectionStart >= 0 && r.selectionStart != r.selectionEnd
+}
+
+// GetSelection 返回选区的起止位置（start, end），无选区返回 (-1, -1)。
+func (r *RenderEditableText) GetSelection() (int, int) {
+	if !r.HasSelection() {
+		return -1, -1
+	}
+	if r.selectionStart <= r.selectionEnd {
+		return r.selectionStart, r.selectionEnd
+	}
+	return r.selectionEnd, r.selectionStart
+}
+
+// SetSelection 设置选区。
+func (r *RenderEditableText) SetSelection(start, end int) {
+	r.selectionStart = start
+	r.selectionEnd = end
+}
+
+// ClearSelection 清除选区。
+func (r *RenderEditableText) ClearSelection() {
+	r.selectionStart = -1
+	r.selectionEnd = -1
+}
+
+// SelectAll 全选。
+func (r *RenderEditableText) SelectAll() {
+	r.selectionStart = 0
+	r.selectionEnd = len([]rune(r.Content))
+}
+
+// SelectedText 获取选中的文本。
+func (r *RenderEditableText) SelectedText() string {
+	if !r.HasSelection() {
+		return ""
+	}
+	runes := []rune(r.Content)
+	s, e := r.GetSelection()
+	if s < 0 || e > len(runes) {
+		return ""
+	}
+	return string(runes[s:e])
+}
+
+// DeleteSelection 删除选区内容。
+func (r *RenderEditableText) DeleteSelection() bool {
+	if !r.HasSelection() {
+		return false
+	}
+	runes := []rune(r.Content)
+	s, e := r.GetSelection()
+	r.Content = string(append(runes[:s], runes[e:]...))
+	r.cursorPos = s
+	r.ClearSelection()
+	if r.onChanged != nil {
+		r.onChanged(r.Content)
+	}
+	r.MarkNeedsPaint()
+	return true
+}
+
+// ==================== 剪贴板操作 ====================
+
+// Copy 将选中文本复制到剪贴板（返回选中的文本）。
+func (r *RenderEditableText) Copy(clipboardWrite func(string)) string {
+	selected := r.SelectedText()
+	if selected != "" && clipboardWrite != nil {
+		clipboardWrite(selected)
+	}
+	return selected
+}
+
+// Cut 剪切选中文本到剪贴板。
+func (r *RenderEditableText) Cut(clipboardWrite func(string)) string {
+	selected := r.SelectedText()
+	if selected != "" && clipboardWrite != nil {
+		clipboardWrite(selected)
+		r.DeleteSelection()
+	}
+	return selected
+}
+
+// Paste 从剪贴板粘贴文本。
+func (r *RenderEditableText) Paste(clipboardRead func() string) {
+	if clipboardRead == nil {
+		return
+	}
+	text := clipboardRead()
+	if text == "" {
+		return
+	}
+	// 先删除选区
+	r.DeleteSelection()
+	// 插入文本
+	runes := []rune(r.Content)
+	insertRunes := []rune(text)
+	if r.cursorPos >= len(runes) {
+		runes = append(runes, insertRunes...)
+	} else {
+		newRunes := make([]rune, 0, len(runes)+len(insertRunes))
+		newRunes = append(newRunes, runes[:r.cursorPos]...)
+		newRunes = append(newRunes, insertRunes...)
+		newRunes = append(newRunes, runes[r.cursorPos:]...)
+		runes = newRunes
+	}
+	r.cursorPos += len(insertRunes)
+	r.Content = string(runes)
+	if r.onChanged != nil {
+		r.onChanged(r.Content)
+	}
+	r.MarkNeedsPaint()
 }
 
 // HandleInput 处理键盘输入（传统方式，不支持 IME。

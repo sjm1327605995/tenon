@@ -55,6 +55,8 @@ type Engine struct {
 
 	// 焦点管理
 	focusManager *FocusManager
+	// 快捷键管理
+	shortcutManager *ShortcutManager
 
 	// 调试工具
 	perfOverlay *PerformanceOverlay
@@ -115,7 +117,13 @@ func (e *Engine) GetPerformanceOverlay() *PerformanceOverlay {
 	return e.perfOverlay
 }
 
-// GetInspector 返回元素树检查器。
+// GetShortcutManager 返回快捷键管理器。
+func (e *Engine) GetShortcutManager() *ShortcutManager {
+	if e.shortcutManager == nil {
+		e.shortcutManager = NewShortcutManager()
+	}
+	return e.shortcutManager
+}
 func (e *Engine) GetInspector() *Inspector {
 	if e.inspector == nil {
 		e.inspector = NewInspector(e)
@@ -403,6 +411,11 @@ func (e *Engine) handleKeyboardInput() {
 		return
 	}
 
+	// 快捷键
+	if e.shortcutManager != nil && e.shortcutManager.Handle() {
+		return
+	}
+
 	// Tab 键切换焦点
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		if ebiten.IsKeyPressed(ebiten.KeyShift) {
@@ -441,6 +454,26 @@ func (e *Engine) handleKeyboardInput() {
 	home := inpututil.IsKeyJustPressed(ebiten.KeyHome)
 	end := inpututil.IsKeyJustPressed(ebiten.KeyEnd)
 	selectAll := inpututil.IsKeyJustPressed(ebiten.KeyA) && ebiten.IsKeyPressed(ebiten.KeyControl)
+
+	// 剪贴板操作
+	ctrl := ebiten.IsKeyPressed(ebiten.KeyControl)
+	if ctrl {
+		if ch, ok := tryGetClipboardHandler(e.focusTarget); ok {
+			clipboard := GetClipboard()
+			if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+				ch.Copy(clipboard.Write)
+				return
+			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyX) {
+				ch.Cut(clipboard.Write)
+				return
+			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyV) {
+				ch.Paste(clipboard.Read)
+				return
+			}
+		}
+	}
 
 	if len(chars) > 0 || backspace || enter || left || right || home || end || selectAll {
 		f.HandleInput(chars, backspace, enter, left, right, home, end, selectAll)
