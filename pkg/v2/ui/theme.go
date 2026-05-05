@@ -123,7 +123,7 @@ func ThemeOf(ctx BuildContext) *Theme {
 		return GetTheme()
 	}
 	if iw, ok := ctx.DependOnInheritedWidgetOfExactType(inheritedThemeType); ok {
-		return iw.(*InheritedTheme).theme
+		return iw.(InheritedTheme).theme
 	}
 	return GetTheme()
 }

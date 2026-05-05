@@ -55,6 +55,46 @@ func NewRenderEditableText() *RenderEditableText {
 	return r
 }
 
+func (r *RenderEditableText) measure(
+	node *yoga.Node,
+	width float32,
+	widthMode yoga.MeasureMode,
+	height float32,
+	heightMode yoga.MeasureMode,
+) yoga.Size {
+	size := r.RenderText.measure(node, width, widthMode, height, heightMode)
+	// EditableText 不应被 measure 为 0 尺寸，否则无法接收点击和绘制光标
+	minW := float32(r.FontSize) * 0.6
+	if size.Width <= 0 {
+		if widthMode == yoga.MeasureModeExactly && width > 0 {
+			size.Width = width
+		} else if widthMode == yoga.MeasureModeAtMost && width > 0 {
+			if minW < width {
+				size.Width = minW
+			} else {
+				size.Width = width
+			}
+		} else {
+			size.Width = minW
+		}
+	}
+	if size.Height <= 0 {
+		minH := r.FontSize * 1.2
+		if heightMode == yoga.MeasureModeExactly && height > 0 {
+			size.Height = height
+		} else if heightMode == yoga.MeasureModeAtMost && height > 0 {
+			if minH < height {
+				size.Height = minH
+			} else {
+				size.Height = height
+			}
+		} else {
+			size.Height = minH
+		}
+	}
+	return size
+}
+
 func (r *RenderEditableText) HitTest(x, y float32) bool {
 	if !r.visible {
 		return false

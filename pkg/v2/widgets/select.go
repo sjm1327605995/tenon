@@ -52,11 +52,21 @@ func (s SelectWidget) CreateState() ui.State {
 
 type selectState struct {
 	ui.BaseState
-	open bool
+	open       bool
+	dismisserID int
 }
 
-func (s *selectState) InitState()                        {}
-func (s *selectState) Dispose()                          {}
+func (s *selectState) InitState() {
+	s.dismisserID = ui.RegisterPopupDismisser(func() {
+		if s.open {
+			s.open = false
+			s.SetState(nil)
+		}
+	})
+}
+func (s *selectState) Dispose() {
+	ui.UnregisterPopupDismisser(s.dismisserID)
+}
 func (s *selectState) DidUpdateWidget(old ui.Widget) {}
 
 func (s *selectState) Build(ctx ui.BuildContext) ui.Widget {
@@ -66,7 +76,11 @@ func (s *selectState) Build(ctx ui.BuildContext) ui.Widget {
 	if !s.open {
 		return trigger
 	}
-	return Column(trigger, s.buildDropdown(w, theme)).Gapf(2)
+	// 使用 Stack + Positioned 让 dropdown 悬浮显示，不占用布局空间
+	return Stack(
+		trigger,
+		Positioned(s.buildDropdown(w, theme)).T(40).L(0).W(w.Width).Z(100),
+	).Z(100)
 }
 
 func (s *selectState) buildTrigger(w SelectWidget, theme *ui.Theme) ui.Widget {
@@ -91,6 +105,7 @@ func (s *selectState) buildTrigger(w SelectWidget, theme *ui.Theme) ui.Widget {
 		Radius(theme.BorderRadius).
 		Pad(ui.EdgeInsets{Top: 8, Right: 12, Bottom: 8, Left: 12}).
 		W(w.Width).
+		H(40).
 		OnTap(func() {
 			if !w.Disabled {
 				s.open = !s.open
@@ -185,11 +200,21 @@ func (m MultiSelectWidget) CreateState() ui.State {
 
 type multiSelectState struct {
 	ui.BaseState
-	open bool
+	open       bool
+	dismisserID int
 }
 
-func (s *multiSelectState) InitState()                       {}
-func (s *multiSelectState) Dispose()                         {}
+func (s *multiSelectState) InitState() {
+	s.dismisserID = ui.RegisterPopupDismisser(func() {
+		if s.open {
+			s.open = false
+			s.SetState(nil)
+		}
+	})
+}
+func (s *multiSelectState) Dispose() {
+	ui.UnregisterPopupDismisser(s.dismisserID)
+}
 func (s *multiSelectState) DidUpdateWidget(old ui.Widget) {}
 
 func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {

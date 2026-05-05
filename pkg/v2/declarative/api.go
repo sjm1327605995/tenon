@@ -258,9 +258,9 @@ func (i InputWidget) CreateElement() ui.Element             { return newBuilder(
 func (i InputWidget) GetKey() ui.Key                        { return ui.NilKey{} }
 func (i InputWidget) unwrap() ui.Widget {
 	if i.multiline {
-		return widgets.Textarea(i.placeholder)
+		return widgets.Textarea("").Placeholder(i.placeholder)
 	}
-	w := widgets.TextField(i.placeholder)
+	w := widgets.TextField("").Placeholder(i.placeholder)
 	if i.onChange != nil {
 		w = w.OnChange(i.onChange)
 	}

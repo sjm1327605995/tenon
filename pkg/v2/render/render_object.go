@@ -139,6 +139,9 @@ type BaseRenderObject struct {
 	// Z-Index（绘制顺序，值越大越在上层）
 	zIndex int
 
+	// 焦点状态
+	focused bool
+
 	// Yoga 节点（可选，由子类决定是否创建）
 	yoga *yoga.Node
 }
