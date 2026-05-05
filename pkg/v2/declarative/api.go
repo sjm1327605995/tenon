@@ -1,17 +1,14 @@
 // Package declarative 提供 React/SwiftUI 风格的声明式 UI API。
 //
-// 使用示例：
-//
 //	app := declarative.VStack(
 //	    declarative.Text("Hello").FontSize(24),
-//	    declarative.HStack(
-//	        declarative.Button("Click").Style(ButtonPrimary),
-//	    ).Gap(8),
+//	    declarative.Button("Click").Style(ButtonPrimary),
 //	).Padding(16)
 package declarative
 
 import (
 	"image/color"
+	"reflect"
 	"time"
 
 	"github.com/sjm1327605995/tenon"
@@ -40,24 +37,90 @@ var (
 	Transparent = color.RGBA{}
 )
 
+// ==================== builder: 统一的声明式 Element ====================
+
+// builder 是所有声明式包装类型的统一 Element。
+// 它持有底层 Element，Update 时解包声明式类型再 diff。
+type builder struct {
+	ui.BaseElement
+	inner ui.Element // 底层真实的 Element
+}
+
+func newBuilder(w ui.Widget) *builder {
+	b := &builder{}
+	b.BaseElement.Init(b, w)
+	return b
+}
+
+func (b *builder) Mount(parent ui.Element, slot int) {
+	b.BaseElement.Mount(parent, slot)
+	real := b.unwrap(b.GetWidget())
+	b.inner = real.CreateElement()
+	b.inner.Mount(b, 0)
+}
+
+func (b *builder) Update(newWidget ui.Widget) {
+	b.BaseElement.Update(newWidget)
+	real := b.unwrap(newWidget)
+	if b.inner != nil && ui.CanUpdate(b.inner.GetWidget(), real) {
+		b.inner.Update(real)
+	} else {
+		if b.inner != nil {
+			b.inner.Unmount()
+		}
+		b.inner = real.CreateElement()
+		b.inner.Mount(b, 0)
+	}
+}
+
+func (b *builder) Unmount() {
+	if b.inner != nil {
+		b.inner.Unmount()
+		b.inner = nil
+	}
+	b.BaseElement.Unmount()
+}
+
+func (b *builder) GetChildren() []ui.Element {
+	if b.inner == nil {
+		return nil
+	}
+	return []ui.Element{b.inner}
+}
+
+func (b *builder) FindRenderObject() render.RenderObject {
+	if b.inner != nil {
+		return b.inner.FindRenderObject()
+	}
+	return nil
+}
+
+// unwrap 将声明式包装类型解包为底层 Widget。
+type unwrapper interface {
+	unwrap() ui.Widget
+}
+
+func (b *builder) unwrap(w ui.Widget) ui.Widget {
+	if u, ok := w.(unwrapper); ok {
+		return u.unwrap()
+	}
+	return w
+}
+
 // ==================== VStack / HStack ====================
 
-// VStack 垂直排列子组件。
 func VStack(children ...Widget) FlexBox {
 	return FlexBox{children: children, direction: yoga.FlexDirectionColumn}
 }
 
-// HStack 水平排列子组件。
 func HStack(children ...Widget) FlexBox {
 	return FlexBox{children: children, direction: yoga.FlexDirectionRow}
 }
 
-// Spacer 弹性空白。
 func Spacer() FlexBox {
 	return FlexBox{flexGrow: 1}
 }
 
-// FlexBox 实现 Widget 接口，可直接作为子组件使用。
 type FlexBox struct {
 	children   []Widget
 	direction  yoga.FlexDirection
@@ -73,11 +136,9 @@ func (f FlexBox) Padding(v float32) FlexBox       { f.padding = ui.EdgeInsetsAll
 func (f FlexBox) Justify(v yoga.Justify) FlexBox  { f.justify = v; return f }
 func (f FlexBox) Align(v yoga.Align) FlexBox      { f.alignItems = v; return f }
 func (f FlexBox) Grow(v float32) FlexBox          { f.flexGrow = v; return f }
-
-func (f FlexBox) CreateElement() ui.Element { return f.build().CreateElement() }
-func (f FlexBox) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (f FlexBox) build() ui.Widget {
+func (f FlexBox) CreateElement() ui.Element       { return newBuilder(f) }
+func (f FlexBox) GetKey() ui.Key                  { return ui.NilKey{} }
+func (f FlexBox) unwrap() ui.Widget {
 	if f.direction == yoga.FlexDirectionRow {
 		r := widgets.Row(f.children...)
 		if f.gap > 0 {
@@ -122,11 +183,9 @@ type TextWidget struct {
 func (t TextWidget) FontSize(v float32) TextWidget { t.fontSize = v; return t }
 func (t TextWidget) Color(c color.Color) TextWidget { t.c = c; return t }
 func (t TextWidget) MaxLines(n int) TextWidget      { t.maxLines = n; return t }
-
-func (t TextWidget) CreateElement() ui.Element { return t.build().CreateElement() }
-func (t TextWidget) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (t TextWidget) build() ui.Widget {
+func (t TextWidget) CreateElement() ui.Element       { return newBuilder(t) }
+func (t TextWidget) GetKey() ui.Key                  { return ui.NilKey{} }
+func (t TextWidget) unwrap() ui.Widget {
 	w := widgets.Text(t.content)
 	if t.fontSize > 0 {
 		w = w.FontSize(t.fontSize)
@@ -169,11 +228,9 @@ func (b ButtonWidget) Style(v ButtonStyle) ButtonWidget { b.style = v; return b 
 func (b ButtonWidget) OnClick(fn func()) ButtonWidget   { b.onClick = fn; return b }
 func (b ButtonWidget) Disabled(v bool) ButtonWidget     { b.disabled = v; return b }
 func (b ButtonWidget) Loading(v bool) ButtonWidget      { b.loading = v; return b }
-
-func (b ButtonWidget) CreateElement() ui.Element { return b.build().CreateElement() }
-func (b ButtonWidget) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (b ButtonWidget) build() ui.Widget {
+func (b ButtonWidget) CreateElement() ui.Element        { return newBuilder(b) }
+func (b ButtonWidget) GetKey() ui.Key                   { return ui.NilKey{} }
+func (b ButtonWidget) unwrap() ui.Widget {
 	return widgets.Button(b.label).
 		Variantf(b.style).
 		OnTap(b.onClick).
@@ -197,11 +254,9 @@ type InputWidget struct {
 func (i InputWidget) OnChange(fn func(string)) InputWidget { i.onChange = fn; return i }
 func (i InputWidget) OnSubmit(fn func(string)) InputWidget { i.onSubmit = fn; return i }
 func (i InputWidget) Multiline() InputWidget                { i.multiline = true; return i }
-
-func (i InputWidget) CreateElement() ui.Element { return i.build().CreateElement() }
-func (i InputWidget) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (i InputWidget) build() ui.Widget {
+func (i InputWidget) CreateElement() ui.Element             { return newBuilder(i) }
+func (i InputWidget) GetKey() ui.Key                        { return ui.NilKey{} }
+func (i InputWidget) unwrap() ui.Widget {
 	if i.multiline {
 		return widgets.Textarea(i.placeholder)
 	}
@@ -242,11 +297,9 @@ func (c ContainerBox) Margin(v float32) ContainerBox               { c.margin = 
 func (c ContainerBox) Width(v float32) ContainerBox                { c.width = v; return c }
 func (c ContainerBox) Height(v float32) ContainerBox               { c.height = v; return c }
 func (c ContainerBox) OnClick(fn func()) ContainerBox              { c.onClick = fn; return c }
-
-func (c ContainerBox) CreateElement() ui.Element { return c.build().CreateElement() }
-func (c ContainerBox) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (c ContainerBox) build() ui.Widget {
+func (c ContainerBox) CreateElement() ui.Element                   { return newBuilder(c) }
+func (c ContainerBox) GetKey() ui.Key                              { return ui.NilKey{} }
+func (c ContainerBox) unwrap() ui.Widget {
 	w := widgets.Container(c.child)
 	if c.bg != nil {
 		w = w.Background(*c.bg)
@@ -290,11 +343,9 @@ type AnimatedBox struct {
 
 func (a AnimatedBox) Duration(d time.Duration) AnimatedBox { a.duration = d; return a }
 func (a AnimatedBox) EaseInOut() AnimatedBox               { a.curve = ui.EaseInOutCurve{}; return a }
-
-func (a AnimatedBox) CreateElement() ui.Element { return a.build().CreateElement() }
-func (a AnimatedBox) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (a AnimatedBox) build() ui.Widget {
+func (a AnimatedBox) CreateElement() ui.Element             { return newBuilder(a) }
+func (a AnimatedBox) GetKey() ui.Key                        { return ui.NilKey{} }
+func (a AnimatedBox) unwrap() ui.Widget {
 	ac := widgets.NewAnimatedContainer().WithChild(a.child).WithDuration(a.duration)
 	if a.curve != nil {
 		ac = ac.WithCurve(a.curve)
@@ -315,11 +366,9 @@ type NavigatorBox struct {
 }
 
 func (n NavigatorBox) Transition(t ui.PageTransition) NavigatorBox { n.transition = t; return n }
-
-func (n NavigatorBox) CreateElement() ui.Element { return n.build().CreateElement() }
-func (n NavigatorBox) GetKey() ui.Key            { return ui.NilKey{} }
-
-func (n NavigatorBox) build() ui.Widget {
+func (n NavigatorBox) CreateElement() ui.Element                   { return newBuilder(n) }
+func (n NavigatorBox) GetKey() ui.Key                              { return ui.NilKey{} }
+func (n NavigatorBox) unwrap() ui.Widget {
 	w := ui.Navigator(n.routes, n.initial)
 	if n.transition != ui.TransitionNone {
 		w = w.WithTransition(n.transition)
@@ -335,26 +384,12 @@ func Localization(locale string, translations map[string]map[string]string, chil
 
 // ==================== 便捷函数 ====================
 
-func L(ctx BuildContext, key string) string {
-	return ui.L(ctx, key)
-}
+func L(ctx BuildContext, key string) string          { return ui.L(ctx, key) }
+func GetNavigator(ctx BuildContext) ui.NavigatorState { return ui.GetNavigator(ctx) }
+func Push(ctx BuildContext, name string, params ...RouteParams) { ui.NavPush(ctx, name, params...) }
+func Pop(ctx BuildContext)                           { ui.NavPop(ctx) }
+func SetTheme(t *ui.Theme)                           { ui.SetTheme(t) }
+func Run(buildFunc ui.BuildFunc, width, height int)  { tenon.Run(buildFunc, width, height) }
 
-func GetNavigator(ctx BuildContext) ui.NavigatorState {
-	return ui.GetNavigator(ctx)
-}
-
-func Push(ctx BuildContext, name string, params ...RouteParams) {
-	ui.NavPush(ctx, name, params...)
-}
-
-func Pop(ctx BuildContext) {
-	ui.NavPop(ctx)
-}
-
-func SetTheme(t *ui.Theme) {
-	ui.SetTheme(t)
-}
-
-func Run(buildFunc ui.BuildFunc, width, height int) {
-	tenon.Run(buildFunc, width, height)
-}
+// 确保 reflect 被使用（避免 import 报错）
+var _ = reflect.TypeOf
