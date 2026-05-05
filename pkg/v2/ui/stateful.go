@@ -2,41 +2,56 @@ package ui
 
 import "github.com/sjm1327605995/tenon/pkg/v2/render"
 
+// ==================== State 生命周期接口 ====================
+// 将 State 的可选生命周期方法定义为命名接口，
+// 避免 StatefulElement 中散落的 interface{} 断言。
+
+// stateBinder 是 State 内部绑定接口。
+type stateBinder interface {
+	bind(element *StatefulElement, widget Widget)
+}
+
+// stateInitStater 实现 InitState 生命周期。
+type stateInitStater interface {
+	InitState()
+}
+
+// stateDidChangeDepender 实现 DidChangeDependencies 生命周期。
+type stateDidChangeDepender interface {
+	DidChangeDependencies()
+}
+
+// stateDidUpdater 实现 DidUpdateWidget 生命周期。
+type stateDidUpdater interface {
+	DidUpdateWidget(oldWidget Widget)
+}
+
+// stateDisposer 实现 Dispose 生命周期。
+type stateDisposer interface {
+	Dispose()
+}
+
 // StatefulWidget 是有内部状态的 Widget。
-// 对应 Flutter 的 StatefulWidget。
 type StatefulWidget interface {
 	Widget
 	CreateState() State
 }
 
 // State 是有状态组件的状态持有者。
-// 用户自定义 State 应嵌入 BaseState。
 type State interface {
-	// Build 构建该状态下的 UI。
 	Build(ctx BuildContext) Widget
-
-	// SetState 执行状态变更并标记组件需要 rebuild。
 	SetState(fn func())
-
-	// GetWidget 返回当前绑定的 Widget（可能已更新）。
 	GetWidget() Widget
-
-	// GetContext 返回 BuildContext。
 	GetContext() BuildContext
-
-	// 内部绑定用，用户不应直接调用
-	bind(element *StatefulElement, widget Widget)
 }
 
 // BaseState 提供 State 的默认实现。
-// 用户自定义 State 必须嵌入此结构体，并在 CreateState 中设置 self。
 type BaseState struct {
 	self    State
 	element *StatefulElement
 	widget  Widget
 }
 
-// Init 初始化 BaseState，应在 CreateState 中调用。
 func (b *BaseState) Init(self State) {
 	b.self = self
 }
@@ -66,7 +81,7 @@ func (b *BaseState) GetContext() BuildContext {
 	return b.element.buildContext
 }
 
-// NewStatefulElement 创建 StatefulElement 并初始化。
+// NewStatefulElement 创建 StatefulElement。
 func NewStatefulElement(widget StatefulWidget) *StatefulElement {
 	e := &StatefulElement{}
 	e.ComponentElement.BaseElement.Init(e, widget)
@@ -91,26 +106,20 @@ func (s *StatefulElement) Mount(parent Element, slot int) {
 	widget := s.GetWidget().(StatefulWidget)
 	s.state = widget.CreateState()
 
-	// 绑定 element 和 widget 到 state
-	if bs, ok := s.state.(interface{ bind(*StatefulElement, Widget) }); ok {
+	if bs, ok := s.state.(stateBinder); ok {
 		bs.bind(s, widget)
 	}
 
-	// 创建 BuildContext
 	s.buildContext = &elementBuildContext{element: s}
 
-	// 调用 InitState（如果实现了）
-	if init, ok := s.state.(interface{ InitState() }); ok {
+	if init, ok := s.state.(stateInitStater); ok {
 		init.InitState()
 	}
 
-	// 调用 DidChangeDependencies（如果实现了）
-	// Flutter 规范：首次 mount 后调用，此时 InheritedWidget 依赖已可用
-	if ddc, ok := s.state.(interface{ DidChangeDependencies() }); ok {
+	if ddc, ok := s.state.(stateDidChangeDepender); ok {
 		ddc.DidChangeDependencies()
 	}
 
-	// 首次 build
 	s.child = UpdateChild(s, nil, s.state.Build(s.buildContext))
 }
 
@@ -118,31 +127,26 @@ func (s *StatefulElement) Update(newWidget Widget) {
 	oldWidget := s.GetWidget()
 	s.ComponentElement.Update(newWidget)
 
-	// 更新 state 持有的 widget 引用
-	if bs, ok := s.state.(interface{ bind(*StatefulElement, Widget) }); ok {
+	if bs, ok := s.state.(stateBinder); ok {
 		bs.bind(s, newWidget)
 	}
 
-	// 调用 DidUpdateWidget（如果实现了）
-	if duw, ok := s.state.(interface{ DidUpdateWidget(Widget) }); ok {
+	if duw, ok := s.state.(stateDidUpdater); ok {
 		duw.DidUpdateWidget(oldWidget)
 	}
 
-	// rebuild
 	s.child = UpdateChild(s, s.child, s.state.Build(s.buildContext))
 }
 
 func (s *StatefulElement) Unmount() {
-	// 调用 Dispose（如果实现了）
-	if d, ok := s.state.(interface{ Dispose() }); ok {
+	if d, ok := s.state.(stateDisposer); ok {
 		d.Dispose()
 	}
 	if s.child != nil {
 		s.child.Unmount()
 		s.child = nil
 	}
-	// 解除 state 对 element 的引用
-	if bs, ok := s.state.(interface{ bind(*StatefulElement, Widget) }); ok {
+	if bs, ok := s.state.(stateBinder); ok {
 		bs.bind(nil, nil)
 	}
 	s.ComponentElement.Unmount()
@@ -162,7 +166,6 @@ func (s *StatefulElement) FindRenderObject() render.RenderObject {
 	return nil
 }
 
-// rebuild 被 flushBuild 调用，重新执行 Build 并 diff 子树。
 func (s *StatefulElement) rebuild() {
 	if s.state == nil {
 		return
@@ -170,18 +173,14 @@ func (s *StatefulElement) rebuild() {
 	s.child = UpdateChild(s, s.child, s.state.Build(s.buildContext))
 }
 
-// markNeedsBuild 将自身标记为 dirty，下一帧 flushBuild 时会重新调用 Build。
 func (s *StatefulElement) markNeedsBuild() {
-	// 通过全局 Engine 调度 rebuild
 	if defaultEngine != nil {
 		defaultEngine.scheduleBuildFor(s)
 	}
 }
 
-// didChangeDependencies 通知 State 依赖的 InheritedWidget 已变化。
-// 由 InheritedElement.notifyDependents 调用。
 func (s *StatefulElement) didChangeDependencies() {
-	if ddc, ok := s.state.(interface{ DidChangeDependencies() }); ok {
+	if ddc, ok := s.state.(stateDidChangeDepender); ok {
 		ddc.DidChangeDependencies()
 	}
 	s.markNeedsBuild()
