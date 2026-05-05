@@ -31,6 +31,7 @@ func (s skeletonWidget) CreateElement() ui.Element {
 
 type skeletonElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *skeletonElement) CreateRenderObject() render.RenderObject {
@@ -44,9 +45,15 @@ func (e *skeletonElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
+func (e *skeletonElement) Mount(parent ui.Element, slot int) {
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
+	e.RenderObjectElement.Mount(parent, slot)
+}
+
 func (e *skeletonElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(skeletonWidget)
-	r := e.GetRenderObject().(*render.RenderBox)
+	r := e.ro
 	old := oldWidget.(skeletonWidget)
 
 	// Background color is theme-derived; always update in case theme changed

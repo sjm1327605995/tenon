@@ -50,6 +50,7 @@ func (b badgeWidget) CreateElement() ui.Element {
 
 type badgeElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *badgeElement) CreateRenderObject() render.RenderObject {
@@ -59,14 +60,15 @@ func (e *badgeElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *badgeElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderBox)
+	r := e.ro
 	old := oldWidget.(badgeWidget)
 	w := e.GetWidget().(badgeWidget)
 	applyBadgeProps(r, old, w, false)
 }
 
 func (e *badgeElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(badgeWidget)
 	if !w.dotMode && w.content != "" {

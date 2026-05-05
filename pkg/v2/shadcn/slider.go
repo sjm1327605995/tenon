@@ -27,6 +27,7 @@ func (s sliderWidget) CreateElement() ui.Element {
 
 type sliderElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderSlider
 }
 
 func (e *sliderElement) CreateRenderObject() render.RenderObject {
@@ -43,9 +44,15 @@ func (e *sliderElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
+func (e *sliderElement) Mount(parent ui.Element, slot int) {
+	e.ro = e.CreateRenderObject().(*render.RenderSlider)
+	e.RenderObject = e.ro
+	e.RenderObjectElement.Mount(parent, slot)
+}
+
 func (e *sliderElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(sliderWidget)
-	r := e.GetRenderObject().(*render.RenderSlider)
+	r := e.ro
 	r.MinValue = w.MinValue
 	r.MaxValue = w.MaxValue
 	r.SetValue(w.Value)
