@@ -90,6 +90,22 @@ func tryGetBlinker(ro render.RenderObject) (Blinker, bool) {
 	return b, ok
 }
 
+// ClipboardHandler 是支持剪贴板操作的 RenderObject。
+type ClipboardHandler interface {
+	render.RenderObject
+	Copy(clipboardWrite func(string)) string
+	Cut(clipboardWrite func(string)) string
+	Paste(clipboardRead func() string)
+	HasSelection() bool
+	SelectAll()
+}
+
+// tryGetClipboardHandler 尝试将 RenderObject 转为 ClipboardHandler。
+func tryGetClipboardHandler(ro render.RenderObject) (ClipboardHandler, bool) {
+	c, ok := ro.(ClipboardHandler)
+	return c, ok
+}
+
 // scrollParent 在祖先中查找可滚动的 RenderObject。
 func scrollParent(ro render.RenderObject) (Scrollabler, bool) {
 	for ro != nil {
