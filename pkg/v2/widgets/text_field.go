@@ -74,10 +74,12 @@ func (e EditableTextWidget) CreateElement() ui.Element {
 // EditableTextElement 是 EditableTextWidget 对应的 Element。
 type EditableTextElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderEditableText
 }
 
 func (e *EditableTextElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderEditableText)
+	e.RenderObject = e.ro
 	e.RenderObjectElement.Mount(parent, slot)
 }
 
@@ -97,28 +99,25 @@ func (e *EditableTextElement) CreateRenderObject() render.RenderObject {
 
 func (e *EditableTextElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(EditableTextWidget)
-	r := e.GetRenderObject().(*render.RenderEditableText)
 	old := oldWidget.(EditableTextWidget)
 
 	if old.fontSize != w.fontSize {
-		r.SetFontSize(w.fontSize)
+		e.ro.SetFontSize(w.fontSize)
 	}
 	if !render.ColorEquals(old.textColor, w.textColor) {
-		r.SetColor(w.textColor)
+		e.ro.SetColor(w.textColor)
 	}
 	if old.placeholder != w.placeholder {
-		r.SetPlaceholder(w.placeholder)
+		e.ro.SetPlaceholder(w.placeholder)
 	}
 	if !render.ColorEquals(old.placeholderColor, w.placeholderColor) {
-		r.SetPlaceholderColor(w.placeholderColor)
+		e.ro.SetPlaceholderColor(w.placeholderColor)
 	}
 	if old.multiline != w.multiline {
-		r.SetMultiline(w.multiline)
+		e.ro.SetMultiline(w.multiline)
 	}
-	// onChanged / onSubmitted are function pointers; update unconditionally
-	r.SetOnChanged(w.onChanged)
-	r.SetOnSubmitted(w.onSubmitted)
-	// Content is not updated here; mutated directly by keyboard input via SetContent
+	e.ro.SetOnChanged(w.onChanged)
+	e.ro.SetOnSubmitted(w.onSubmitted)
 }
 
 // ========== TextFieldWidget ==========
@@ -242,6 +241,7 @@ func (t TextFieldWidget) CreateElement() ui.Element {
 // TextFieldElement 是 TextFieldWidget 对应的 Element。
 type TextFieldElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *TextFieldElement) CreateRenderObject() render.RenderObject {
@@ -252,10 +252,9 @@ func (e *TextFieldElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *TextFieldElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderBox)
 	old := oldWidget.(TextFieldWidget)
 	w := e.GetWidget().(TextFieldWidget)
-	applyTextFieldProps(r, old, w)
+	applyTextFieldProps(e.ro, old, w)
 }
 
 func (e *TextFieldElement) UpdateChild(oldWidget ui.Widget) {
@@ -264,7 +263,8 @@ func (e *TextFieldElement) UpdateChild(oldWidget ui.Widget) {
 }
 
 func (e *TextFieldElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(TextFieldWidget)
 	e.Child = ui.UpdateChild(e, nil, w.buildEditable())

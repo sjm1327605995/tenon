@@ -63,6 +63,7 @@ func (b ButtonWidget) CreateElement() ui.Element {
 // ButtonElement is the Element corresponding to ButtonWidget.
 type ButtonElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderButton
 }
 
 func (e *ButtonElement) CreateRenderObject() render.RenderObject {
@@ -154,37 +155,36 @@ func (e *ButtonElement) applyButtonVariant(r *render.RenderButton, variant Butto
 
 func (e *ButtonElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(ButtonWidget)
-	r := e.GetRenderObject().(*render.RenderButton)
 	t := ui.GetTheme()
 
 	old := oldWidget.(ButtonWidget)
 
 	// Reconfigure colors when variant changes
 	if old.variant != w.variant {
-		r.IsOutline = false
-		r.IsGhost = false
-		r.IsLink = false
-		r.NormalColor = nil
-		r.HoverColor = nil
-		r.PressedColor = nil
-		r.BorderColor = nil
-		r.BorderWidth = 0
-		r.HoverTextColor = nil
+		e.ro.IsOutline = false
+		e.ro.IsGhost = false
+		e.ro.IsLink = false
+		e.ro.NormalColor = nil
+		e.ro.HoverColor = nil
+		e.ro.PressedColor = nil
+		e.ro.BorderColor = nil
+		e.ro.BorderWidth = 0
+		e.ro.HoverTextColor = nil
 
-		e.applyButtonVariant(r, w.variant, t)
-		r.MarkNeedsPaint()
+		e.applyButtonVariant(e.ro, w.variant, t)
+		e.ro.MarkNeedsPaint()
 	}
 
-	r.SetOnClick(w.onClick)
+	e.ro.SetOnClick(w.onClick)
 	if old.loading != w.loading {
-		r.Loading = w.loading
-		r.MarkNeedsPaint()
+		e.ro.Loading = w.loading
+		e.ro.MarkNeedsPaint()
 	}
 	if old.disabled != w.disabled {
 		if w.disabled {
-			r.SetState(render.ButtonStateDisabled)
+			e.ro.SetState(render.ButtonStateDisabled)
 		} else {
-			r.SetState(render.ButtonStateNormal)
+			e.ro.SetState(render.ButtonStateNormal)
 		}
 	}
 }
@@ -197,7 +197,8 @@ func (e *ButtonElement) UpdateChild(oldWidget ui.Widget) {
 }
 
 func (e *ButtonElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderButton)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(ButtonWidget)
 	textColor := buttonTextColor(w.variant, ui.GetTheme())

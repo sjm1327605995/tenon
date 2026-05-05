@@ -104,35 +104,40 @@ func (p ParticleSystemWidget) CreateElement() ui.Element {
 // ParticleSystemElement 管理 ParticleSystemRenderObject。
 type ParticleSystemElement struct {
 	ui.RenderObjectElement
+	ro *render.ParticleSystemRenderObject
 }
 
 func (e *ParticleSystemElement) CreateRenderObject() render.RenderObject {
 	w := e.GetWidget().(ParticleSystemWidget)
 	ro := render.NewParticleSystemRenderObject(w.Emitter, w.Behavior)
 	ro.SetBounds(render.Bounds{Width: w.Width, Height: w.Height})
-	ro.SetZIndex(100) // 默认在上层
+	ro.SetZIndex(100)
 	if w.AutoStart {
 		ro.Start()
 	}
 	return ro
 }
 
+func (e *ParticleSystemElement) Mount(parent ui.Element, slot int) {
+	e.ro = e.CreateRenderObject().(*render.ParticleSystemRenderObject)
+	e.RenderObject = e.ro
+	e.RenderObjectElement.Mount(parent, slot)
+}
+
 func (e *ParticleSystemElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(ParticleSystemWidget)
 	old := oldWidget.(ParticleSystemWidget)
-	ro := e.GetRenderObject().(*render.ParticleSystemRenderObject)
 	if old.Width != w.Width || old.Height != w.Height {
-		ro.SetBounds(render.Bounds{Width: w.Width, Height: w.Height})
+		e.ro.SetBounds(render.Bounds{Width: w.Width, Height: w.Height})
 	}
 	if old.Emitter != w.Emitter {
-		ro.SetEmitter(w.Emitter)
+		e.ro.SetEmitter(w.Emitter)
 	}
-	// Behavior 包含 slice，无法直接比较，简单重新设置
-	ro.SetBehavior(w.Behavior)
-	ro.SetLoop(w.Loop)
-	ro.SetLoopDelay(w.LoopDelay)
-	ro.SetBurstCount(w.BurstCount)
+	e.ro.SetBehavior(w.Behavior)
+	e.ro.SetLoop(w.Loop)
+	e.ro.SetLoopDelay(w.LoopDelay)
+	e.ro.SetBurstCount(w.BurstCount)
 	if w.AutoStart && !old.AutoStart {
-		ro.Start()
+		e.ro.Start()
 	}
 }

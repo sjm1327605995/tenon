@@ -60,10 +60,12 @@ func (t TextWidget) CreateElement() ui.Element {
 // TextElement 是 TextWidget 对应的 Element。
 type TextElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderText
 }
 
 func (e *TextElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderText)
+	e.RenderObject = e.ro
 	e.RenderObjectElement.Mount(parent, slot)
 }
 
@@ -78,21 +80,20 @@ func (e *TextElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *TextElement) UpdateRenderObject(oldWidget ui.Widget) {
-	ro := e.GetRenderObject().(*render.RenderText)
 	w := e.GetWidget().(TextWidget)
 	if old, ok := oldWidget.(TextWidget); !ok || old.content != w.content {
-		ro.SetContent(w.content)
+		e.ro.SetContent(w.content)
 	}
 	if old, ok := oldWidget.(TextWidget); !ok || old.fontSize != w.fontSize {
-		ro.SetFontSize(w.fontSize)
+		e.ro.SetFontSize(w.fontSize)
 	}
 	if old, ok := oldWidget.(TextWidget); !ok || !old.textColor.Equals(w.textColor) {
-		ro.SetColor(w.textColor)
+		e.ro.SetColor(w.textColor)
 	}
 	if old, ok := oldWidget.(TextWidget); !ok || old.maxLines != w.maxLines {
-		ro.SetMaxLines(w.maxLines)
+		e.ro.SetMaxLines(w.maxLines)
 	}
 	if old, ok := oldWidget.(TextWidget); !ok || old.underline != w.underline {
-		ro.SetUnderline(w.underline)
+		e.ro.SetUnderline(w.underline)
 	}
 }

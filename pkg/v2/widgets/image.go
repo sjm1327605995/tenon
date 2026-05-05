@@ -66,10 +66,12 @@ func (i ImageWidget) CreateElement() ui.Element {
 // ImageElement 是 ImageWidget 对应的 Element。
 type ImageElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderImage
 }
 
 func (e *ImageElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderImage)
+	e.RenderObject = e.ro
 	e.RenderObjectElement.Mount(parent, slot)
 }
 
@@ -80,27 +82,26 @@ func (e *ImageElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *ImageElement) UpdateRenderObject(oldWidget ui.Widget) {
-	ro := e.GetRenderObject().(*render.RenderImage)
 	w := e.GetWidget().(ImageWidget)
 	old, _ := oldWidget.(ImageWidget)
 
 	if old.source != w.source {
-		ro.SetSource(w.source)
+		e.ro.SetSource(w.source)
 	}
 	if old.objectFit != w.objectFit {
-		ro.SetObjectFit(w.objectFit)
+		e.ro.SetObjectFit(w.objectFit)
 	}
 	if old.borderRadius != w.borderRadius {
-		ro.SetBorderRadius(w.borderRadius)
+		e.ro.SetBorderRadius(w.borderRadius)
 	}
 	if !render.ColorEquals(old.tintColor, w.tintColor) {
-		ro.SetTintColor(w.tintColor)
+		e.ro.SetTintColor(w.tintColor)
 	}
 	if old.width != w.width {
-		ro.SetWidth(w.width)
+		e.ro.SetWidth(w.width)
 	}
 	if old.height != w.height {
-		ro.SetHeight(w.height)
+		e.ro.SetHeight(w.height)
 	}
 }
 
