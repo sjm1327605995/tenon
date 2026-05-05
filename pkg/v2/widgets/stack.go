@@ -10,11 +10,17 @@ import (
 type StackWidget struct {
 	ui.BaseWidget
 	children []ui.Widget
+	zIndex   int
 }
 
 // Stack 创建层叠布局容器。
 func Stack(children ...ui.Widget) StackWidget {
 	return StackWidget{children: children}
+}
+
+func (s StackWidget) Z(v int) StackWidget {
+	s.zIndex = v
+	return s
 }
 
 func (s StackWidget) CreateElement() ui.Element {
@@ -30,11 +36,18 @@ type StackElement struct {
 }
 
 func (e *StackElement) CreateRenderObject() render.RenderObject {
-	return render.NewRenderStack()
+	r := render.NewRenderStack()
+	w := e.GetWidget().(StackWidget)
+	r.SetZIndex(w.zIndex)
+	return r
 }
 
 func (e *StackElement) UpdateRenderObject(oldWidget ui.Widget) {
-	// Stack 没有特殊属性需要同步到 RenderObject
+	w := e.GetWidget().(StackWidget)
+	old := oldWidget.(StackWidget)
+	if old.zIndex != w.zIndex {
+		e.ro.SetZIndex(w.zIndex)
+	}
 }
 
 func (e *StackElement) UpdateChildren(oldWidget ui.Widget) {
@@ -136,26 +149,26 @@ func (e *PositionedElement) Mount(parent ui.Element, slot int) {
 func (e *PositionedElement) CreateRenderObject() render.RenderObject {
 	w := e.GetWidget().(PositionedWidget)
 	r := render.NewRenderBox()
-e.ro.StyleSetPositionType(yoga.PositionTypeAbsolute)
+	r.StyleSetPositionType(yoga.PositionTypeAbsolute)
 	if w.left >= 0 {
-	e.ro.StyleSetPosition(yoga.EdgeLeft, w.left)
+		r.StyleSetPosition(yoga.EdgeLeft, w.left)
 	}
 	if w.top >= 0 {
-	e.ro.StyleSetPosition(yoga.EdgeTop, w.top)
+		r.StyleSetPosition(yoga.EdgeTop, w.top)
 	}
 	if w.right >= 0 {
-	e.ro.StyleSetPosition(yoga.EdgeRight, w.right)
+		r.StyleSetPosition(yoga.EdgeRight, w.right)
 	}
 	if w.bottom >= 0 {
-	e.ro.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+		r.StyleSetPosition(yoga.EdgeBottom, w.bottom)
 	}
 	if w.width > 0 {
-	e.ro.StyleSetWidth(w.width)
+		r.StyleSetWidth(w.width)
 	}
 	if w.height > 0 {
-	e.ro.StyleSetHeight(w.height)
+		r.StyleSetHeight(w.height)
 	}
-e.ro.SetZIndex(w.zIndex)
+	r.SetZIndex(w.zIndex)
 	return r
 }
 

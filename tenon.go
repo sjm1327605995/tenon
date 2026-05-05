@@ -33,6 +33,7 @@ type (
 	Edge              = ui.Edge
 	Gutter            = ui.Gutter
 	AnimatedContainer = widgets.AnimatedContainer
+	SelectOption      = widgets.SelectOption
 )
 
 // 核心函数。
@@ -88,6 +89,8 @@ var (
 	TextField          = widgets.TextField
 	EditableText       = widgets.EditableText
 	NewAnimatedContainer = widgets.NewAnimatedContainer
+	Select               = widgets.Select
+	MultiSelect          = widgets.MultiSelect
 )
 
 // Shadcn 组件。

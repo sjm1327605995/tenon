@@ -324,8 +324,19 @@ func (e *Engine) handleMouseInput() {
 
 		if e.mouseDownTarget != nil && e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
-			if target != nil && target == e.mouseDownTarget && target.GetOnClick() != nil {
-				target.GetOnClick()()
+			if target != nil && target == e.mouseDownTarget {
+				// 事件冒泡：从 target 向上查找第一个有 OnClick 的祖先
+				clickTarget := target
+				for clickTarget != nil && clickTarget.GetOnClick() == nil {
+					if p := clickTarget.GetParent(); p != nil {
+						clickTarget = p
+					} else {
+						break
+					}
+				}
+				if clickTarget != nil && clickTarget.GetOnClick() != nil {
+					clickTarget.GetOnClick()()
+				}
 			}
 			if e.mouseDownTarget.GetOnMouseUp() != nil {
 				e.mouseDownTarget.GetOnMouseUp()()
@@ -340,6 +351,7 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 	focuser := e.findFocuser(target)
 	if focuser != nil {
 		if e.focusTarget != focuser {
+			oldFocus := e.focusTarget
 			if e.focusTarget != nil {
 				if f, ok := e.focusTarget.(Focusabler); ok {
 					f.Blur()
@@ -349,6 +361,10 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 				f.Focus()
 			}
 			e.focusTarget = focuser
+			// 只在焦点从有到无时关闭 popup，避免点击 trigger 时误关
+			if oldFocus != nil {
+				DismissAllPopups()
+			}
 		}
 	} else {
 		if e.focusTarget != nil {
@@ -356,6 +372,7 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 				f.Blur()
 			}
 			e.focusTarget = nil
+			DismissAllPopups()
 		}
 	}
 }
@@ -664,7 +681,8 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 			int(bounds.Width), int(bounds.Height))
 		if sub != nil {
 			childScreen = sub
-			// childOffset remains as global offset; SubImage uses global coordinates for DrawImage
+			// Ebiten SubImage 使用全局坐标系，子节点仍需用全局坐标绘制
+			childOffset = render.Offset{X: absX - scrollX, Y: absY - scrollY}
 		}
 	}
 
@@ -674,7 +692,9 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 		sort.SliceStable(e.childrenBuf, func(i, j int) bool {
 			return e.childrenBuf[i].GetZIndex() < e.childrenBuf[j].GetZIndex()
 		})
-		children = e.childrenBuf
+			// Copy to a new slice so recursive calls can't overwrite our iteration array.
+		children = make([]render.RenderObject, len(e.childrenBuf))
+		copy(children, e.childrenBuf)
 	}
 	for _, child := range children {
 		e.drawRenderObject(childScreen, child, childOffset)

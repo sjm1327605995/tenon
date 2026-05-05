@@ -36,6 +36,22 @@ func (r *RenderBox) PerformLayout() {
 	// RenderBox 默认不处理特殊布局，子类（如 RenderFlex）覆盖
 }
 
+// Focus/Blur/IsFocused 让 RenderBox 实现 Focusabler 接口，
+// 使 Container 等组件也能参与焦点管理。
+func (r *RenderBox) Focus() {
+	r.focused = true
+	r.MarkNeedsPaint()
+}
+
+func (r *RenderBox) Blur() {
+	r.focused = false
+	r.MarkNeedsPaint()
+}
+
+func (r *RenderBox) IsFocused() bool {
+	return r.focused
+}
+
 func (r *RenderBox) Paint(screen *ebiten.Image, offset Offset) {
 	bounds := r.bounds
 	if bounds.Width <= 0 || bounds.Height <= 0 {

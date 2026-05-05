@@ -209,9 +209,7 @@ func applyContainerProps(r *render.RenderBox, old, w ContainerWidget) {
 		old.shadowOffsetX != w.shadowOffsetX || old.shadowOffsetY != w.shadowOffsetY {
 		r.SetShadow(w.shadowColor, w.shadowBlur, w.shadowOffsetX, w.shadowOffsetY)
 	}
-	if (old.onClick == nil) != (w.onClick == nil) {
-		r.SetOnClick(w.onClick)
-	}
+	r.SetOnClick(w.onClick)
 
 	if old.width != w.width {
 		if w.width > 0 {

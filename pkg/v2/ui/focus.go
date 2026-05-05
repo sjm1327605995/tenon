@@ -1,6 +1,37 @@
 package ui
 
-import "github.com/sjm1327605995/tenon/pkg/v2/render"
+import (
+	"github.com/sjm1327605995/tenon/pkg/v2/render"
+)
+
+// popupDismissers 存储所有需要点击外部时关闭的 popup 回调。
+var popupDismissers = make(map[int]func())
+var nextDismisserID int
+
+// RegisterPopupDismisser 注册一个 popup 关闭回调，返回唯一 ID。
+func RegisterPopupDismisser(fn func()) int {
+	nextDismisserID++
+	popupDismissers[nextDismisserID] = fn
+	return nextDismisserID
+}
+
+// UnregisterPopupDismisser 注销指定 ID 的 popup 关闭回调。
+func UnregisterPopupDismisser(id int) {
+	delete(popupDismissers, id)
+}
+
+// DismissAllPopups 关闭所有已注册的 popup。
+// 调用前先清空列表，防止回调中注册的新 popup 被误关。
+func DismissAllPopups() {
+	listeners := make(map[int]func())
+	for k, v := range popupDismissers {
+		listeners[k] = v
+	}
+	popupDismissers = make(map[int]func())
+	for _, fn := range listeners {
+		fn()
+	}
+}
 
 // FocusNode 表示一个可聚焦的节点。
 type FocusNode struct {

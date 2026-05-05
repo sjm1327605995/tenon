@@ -75,27 +75,26 @@ func (p *PerformanceOverlay) RecordFrame(buildTime, layoutTime, paintTime time.D
 }
 
 // Paint 绘制覆盖层到屏幕上。
+// 极简横向单行：FPS + 帧时间，占据左上角极小空间，不遮挡界面。
 func (p *PerformanceOverlay) Paint(screen *ebiten.Image, offset render.Offset) {
 	if !p.visible {
 		return
 	}
 
-	// 背景
-	bgW, bgH := float32(220), float32(120)
+	// 只显示核心信息，横向单行
+	line := fmt.Sprintf("%.0f FPS %s", p.currentFPS, p.frameTime.Round(time.Microsecond))
+	// 5x7 像素字体，每个字符占 6px 宽，高度 7px
+	textW := float32(len(line) * 6)
+	textH := float32(9)
+	pad := float32(4)
+	bgW := textW + pad*2
+	bgH := textH + pad*2
+
+	// 极小的半透明背景条（左上角）
 	drawRect(screen, p.x+offset.X, p.y+offset.Y, bgW, bgH, p.bgColor)
 
-	// 文本
-	lines := []string{
-		fmt.Sprintf("FPS: %.1f", p.currentFPS),
-		fmt.Sprintf("Frame: %s", p.frameTime.Round(time.Microsecond)),
-		fmt.Sprintf("Build: %d", p.buildCount),
-		fmt.Sprintf("Layout: %d", p.layoutCount),
-		fmt.Sprintf("Paint: %d", p.paintCount),
-	}
-
-	for i, line := range lines {
-		drawDebugText(screen, line, p.x+offset.X+8, p.y+offset.Y+float32(i*20)+8, p.textColor)
-	}
+	// 单行横向文本
+	drawDebugText(screen, line, p.x+offset.X+pad, p.y+offset.Y+pad, p.textColor)
 }
 
 // drawRect 绘制矩形。

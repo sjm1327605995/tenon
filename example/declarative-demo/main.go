@@ -2,8 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	. "github.com/sjm1327605995/tenon/pkg/v2/declarative"
+	"github.com/sjm1327605995/tenon/pkg/fonts"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 	"github.com/sjm1327605995/tenon/yoga"
 )
@@ -13,6 +15,7 @@ type appState struct {
 }
 
 func main() {
+	initFonts()
 	SetTheme(ui.DefaultLightTheme())
 	state := &appState{}
 
@@ -54,4 +57,28 @@ func main() {
 			Text("Built with Tenon v2").FontSize(12).Color(Gray),
 		).Gap(16).Padding(24).Align(yoga.AlignStretch)
 	}, 800, 600)
+}
+
+// initFonts 初始化字体。优先从项目根目录加载 CJK 字体，失败则使用内置默认字体。
+func initFonts() {
+	cjkPaths := []string{
+		"font/OPPOSans-Medium.ttf",           // 从项目根目录运行
+		"../../font/OPPOSans-Medium.ttf",     // 从 example/declarative-demo 运行
+	}
+
+	var cjkLoaded bool
+	for _, path := range cjkPaths {
+		if _, err := os.Stat(path); err == nil {
+			if err := fonts.ReloadFontFromFile(fonts.FontFamilyDefault, path); err == nil {
+				cjkLoaded = true
+				break
+			}
+		}
+	}
+
+	if !cjkLoaded {
+		if err := fonts.InitDefaultFont(); err != nil {
+			panic("failed to init default font: " + err.Error())
+		}
+	}
 }

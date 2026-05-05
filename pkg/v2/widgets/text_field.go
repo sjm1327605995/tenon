@@ -101,6 +101,9 @@ func (e *EditableTextElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(EditableTextWidget)
 	old := oldWidget.(EditableTextWidget)
 
+	if old.content != w.content {
+		e.ro.SetContent(w.content)
+	}
 	if old.fontSize != w.fontSize {
 		e.ro.SetFontSize(w.fontSize)
 	}

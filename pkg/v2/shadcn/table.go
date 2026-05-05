@@ -1,6 +1,8 @@
 package shadcn
 
 import (
+	"fmt"
+
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
@@ -35,7 +37,14 @@ func ShadcnTable(headers []string, rows [][]string) ui.Widget {
 
 	children := make([]ui.Widget, 0, len(dataRows)+1)
 	children = append(children, headerRow)
-	children = append(children, dataRows...)
+	for i, row := range dataRows {
+		if cw, ok := row.(interface{ SetKey(k ui.Key) }); ok {
+			cw.SetKey(ui.NewValueKey(fmt.Sprintf("table-row-%d", i)))
+		}
+		children = append(children, row)
+	}
 
-	return widgets.Column(children...)
+	column := widgets.Column(children...)
+	column.SetKey(ui.NewValueKey("shadcn-table"))
+	return column
 }
