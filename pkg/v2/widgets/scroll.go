@@ -49,6 +49,7 @@ func (s ScrollWidget) CreateElement() ui.Element {
 // ScrollElement 是 ScrollWidget 对应的 Element。
 type ScrollElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderScroll
 }
 
 func (e *ScrollElement) CreateRenderObject() render.RenderObject {
@@ -59,10 +60,9 @@ func (e *ScrollElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *ScrollElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderScroll)
 	old := oldWidget.(ScrollWidget)
 	w := e.GetWidget().(ScrollWidget)
-	applyScrollProps(r, old, w)
+	applyScrollProps(e.ro, old, w)
 }
 
 func (e *ScrollElement) UpdateChild(oldWidget ui.Widget) {
@@ -71,7 +71,8 @@ func (e *ScrollElement) UpdateChild(oldWidget ui.Widget) {
 }
 
 func (e *ScrollElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderScroll)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(ScrollWidget)
 	if w.child != nil {

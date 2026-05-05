@@ -110,6 +110,7 @@ func (t TextareaWidget) CreateElement() ui.Element {
 // TextareaElement 是 TextareaWidget 对应的 Element。
 type TextareaElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderScroll
 }
 
 func (e *TextareaElement) CreateRenderObject() render.RenderObject {
@@ -120,10 +121,9 @@ func (e *TextareaElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *TextareaElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderScroll)
 	old := oldWidget.(TextareaWidget)
 	w := e.GetWidget().(TextareaWidget)
-	applyTextareaProps(r, old, w)
+	applyTextareaProps(e.ro, old, w)
 }
 
 func (e *TextareaElement) UpdateChild(oldWidget ui.Widget) {
@@ -132,7 +132,8 @@ func (e *TextareaElement) UpdateChild(oldWidget ui.Widget) {
 }
 
 func (e *TextareaElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderScroll)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(TextareaWidget)
 	e.Child = ui.UpdateChild(e, nil, w.buildEditable())

@@ -199,9 +199,7 @@ func (e *Engine) Update() error {
 	// 优先使用 textinput API 处理 IME 输入（中文/日文/韩文输入法）
 	textInputHandled := false
 	if e.focusTarget != nil {
-		if h, ok := e.focusTarget.(interface {
-			UpdateTextInput(absX, absY int) bool
-		}); ok {
+		if h, ok := tryGetTextInputHandler(e.focusTarget); ok {
 			absX, absY := e.getAbsolutePosition(e.focusTarget)
 			textInputHandled = h.UpdateTextInput(int(absX), int(absY))
 		}
@@ -232,12 +230,8 @@ func (e *Engine) handleMouseInput() {
 		if e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
 			if target != nil {
-				if scroll := e.findScrollParent(target); scroll != nil {
-					if s, ok := scroll.(interface {
-						ScrollBy(dx, dy float32)
-					}); ok {
-						s.ScrollBy(-float32(wheelX)*30, -float32(wheelY)*30)
-					}
+				if s, ok := scrollParent(target); ok {
+					s.ScrollBy(-float32(wheelX)*30, -float32(wheelY)*30)
 				}
 			}
 		}
@@ -335,19 +329,19 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 	if focuser != nil {
 		if e.focusTarget != focuser {
 			if e.focusTarget != nil {
-				if b, ok := e.focusTarget.(interface{ Blur() }); ok {
-					b.Blur()
+				if f, ok := e.focusTarget.(Focusabler); ok {
+					f.Blur()
 				}
 			}
-			if f, ok := focuser.(interface{ Focus() }); ok {
+			if f, ok := focuser.(Focusabler); ok {
 				f.Focus()
 			}
 			e.focusTarget = focuser
 		}
 	} else {
 		if e.focusTarget != nil {
-			if b, ok := e.focusTarget.(interface{ Blur() }); ok {
-				b.Blur()
+			if f, ok := e.focusTarget.(Focusabler); ok {
+				f.Blur()
 			}
 			e.focusTarget = nil
 		}
@@ -356,21 +350,12 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 
 func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 	for ro != nil {
-		if _, ok := ro.(interface {
-			Focus()
-			Blur()
-			IsFocused() bool
-		}); ok {
-			return ro
+		if f, ok := ro.(Focusabler); ok {
+			return f.(render.RenderObject)
 		}
-		// 如果当前节点本身不是 focuser，检查直接子节点（例如 TextField 的 RenderBox -> RenderEditableText）
 		for _, child := range ro.GetChildren() {
-			if _, ok := child.(interface {
-				Focus()
-				Blur()
-				IsFocused() bool
-			}); ok {
-				return child
+			if f, ok := child.(Focusabler); ok {
+				return f.(render.RenderObject)
 			}
 		}
 		ro = ro.GetParent()
@@ -393,8 +378,8 @@ func (e *Engine) getAbsolutePosition(ro render.RenderObject) (float32, float32) 
 		b := node.GetBounds()
 		x += b.X
 		y += b.Y
-		if scroller, ok := node.(interface{ GetScrollOffset() render.Offset }); ok {
-			so := scroller.GetScrollOffset()
+		if s, ok := tryGetScroll(node); ok {
+			so := s.GetScrollOffset()
 			x -= so.X
 			y -= so.Y
 		}
@@ -427,9 +412,7 @@ func (e *Engine) handleKeyboardInput() {
 	if e.focusTarget == nil {
 		return
 	}
-	f, ok := e.focusTarget.(interface {
-		HandleInput(chars []rune, backspace, enter, left, right, home, end, selectAll bool)
-	})
+	f, ok := tryGetInputHandler(e.focusTarget)
 	if !ok {
 		return
 	}
@@ -464,17 +447,15 @@ func (e *Engine) tickBlink() {
 	if e.focusTarget == nil {
 		return
 	}
-	if b, ok := e.focusTarget.(interface{ TickBlink() }); ok {
+	if b, ok := tryGetBlinker(e.focusTarget); ok {
 		b.TickBlink()
 	}
 }
 
+// findScrollParent 在祖先中查找可滚动的 RenderObject（保留用于兼容）。
 func (e *Engine) findScrollParent(ro render.RenderObject) render.RenderObject {
-	for ro != nil {
-		if _, ok := ro.(interface{ ScrollBy(dx, dy float32) }); ok {
-			return ro
-		}
-		ro = ro.GetParent()
+	if s, ok := scrollParent(ro); ok {
+		return s.(render.RenderObject)
 	}
 	return nil
 }
@@ -488,8 +469,8 @@ func (e *Engine) hitTest(ro render.RenderObject, x, y float32) render.RenderObje
 	}
 
 	scrollX, scrollY := float32(0), float32(0)
-	if scroller, ok := ro.(interface{ GetScrollOffset() render.Offset }); ok {
-		so := scroller.GetScrollOffset()
+	if s, ok := tryGetScroll(ro); ok {
+		so := s.GetScrollOffset()
 		scrollX, scrollY = so.X, so.Y
 	}
 
@@ -641,14 +622,14 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 	absY := parentOffset.Y + bounds.Y
 
 	scrollX, scrollY := float32(0), float32(0)
-	if scroller, ok := ro.(interface{ GetScrollOffset() render.Offset }); ok {
-		so := scroller.GetScrollOffset()
+	if s, ok := tryGetScroll(ro); ok {
+		so := s.GetScrollOffset()
 		scrollX, scrollY = so.X, so.Y
 	}
 
 	childScreen := screen
 	childOffset := render.Offset{X: absX - scrollX, Y: absY - scrollY}
-	if clipper, ok := ro.(interface{ ClipChildren() bool }); ok && clipper.ClipChildren() {
+	if c, ok := tryGetClipper(ro); ok && c.ClipChildren() {
 		sub := render.SubImage(screen,
 			int(absX), int(absY),
 			int(bounds.Width), int(bounds.Height))

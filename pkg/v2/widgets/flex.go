@@ -106,6 +106,7 @@ func (c ColumnWidget) CreateElement() ui.Element {
 
 type RowElement struct {
 	ui.MultiChildRenderObjectElement
+	ro *render.RenderFlex
 }
 
 func (e *RowElement) CreateRenderObject() render.RenderObject {
@@ -117,10 +118,9 @@ func (e *RowElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *RowElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderFlex)
 	old := oldWidget.(RowWidget)
 	w := e.GetWidget().(RowWidget)
-	applyFlexProps(r, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
+	applyFlexProps(e.ro, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
 }
 
 func (e *RowElement) UpdateChildren(oldWidget ui.Widget) {
@@ -133,7 +133,8 @@ func (e *RowElement) UpdateChildren(oldWidget ui.Widget) {
 }
 
 func (e *RowElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderFlex)
+	e.RenderObject = e.ro
 	e.MultiChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(RowWidget)
 	newWidgets := make([]ui.Widget, len(w.children))
@@ -147,6 +148,7 @@ func (e *RowElement) Mount(parent ui.Element, slot int) {
 
 type ColumnElement struct {
 	ui.MultiChildRenderObjectElement
+	ro *render.RenderFlex
 }
 
 func (e *ColumnElement) CreateRenderObject() render.RenderObject {
@@ -158,10 +160,9 @@ func (e *ColumnElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *ColumnElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderFlex)
 	old := oldWidget.(ColumnWidget)
 	w := e.GetWidget().(ColumnWidget)
-	applyFlexProps(r, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
+	applyFlexProps(e.ro, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
 }
 
 func (e *ColumnElement) UpdateChildren(oldWidget ui.Widget) {
@@ -174,7 +175,8 @@ func (e *ColumnElement) UpdateChildren(oldWidget ui.Widget) {
 }
 
 func (e *ColumnElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderFlex)
+	e.RenderObject = e.ro
 	e.MultiChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(ColumnWidget)
 	newWidgets := make([]ui.Widget, len(w.children))

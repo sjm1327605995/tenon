@@ -26,6 +26,7 @@ func (s StackWidget) CreateElement() ui.Element {
 // StackElement 是 StackWidget 对应的 Element。
 type StackElement struct {
 	ui.MultiChildRenderObjectElement
+	ro *render.RenderStack
 }
 
 func (e *StackElement) CreateRenderObject() render.RenderObject {
@@ -46,7 +47,8 @@ func (e *StackElement) UpdateChildren(oldWidget ui.Widget) {
 }
 
 func (e *StackElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderStack)
+	e.RenderObject = e.ro
 	e.MultiChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(StackWidget)
 	newWidgets := make([]ui.Widget, len(w.children))
@@ -118,10 +120,12 @@ func (p PositionedWidget) CreateElement() ui.Element {
 // PositionedElement 是 PositionedWidget 对应的 Element。
 type PositionedElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *PositionedElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	p := e.GetWidget().(PositionedWidget)
 	if p.child != nil {
@@ -132,78 +136,77 @@ func (e *PositionedElement) Mount(parent ui.Element, slot int) {
 func (e *PositionedElement) CreateRenderObject() render.RenderObject {
 	w := e.GetWidget().(PositionedWidget)
 	r := render.NewRenderBox()
-	r.StyleSetPositionType(yoga.PositionTypeAbsolute)
+e.ro.StyleSetPositionType(yoga.PositionTypeAbsolute)
 	if w.left >= 0 {
-		r.StyleSetPosition(yoga.EdgeLeft, w.left)
+	e.ro.StyleSetPosition(yoga.EdgeLeft, w.left)
 	}
 	if w.top >= 0 {
-		r.StyleSetPosition(yoga.EdgeTop, w.top)
+	e.ro.StyleSetPosition(yoga.EdgeTop, w.top)
 	}
 	if w.right >= 0 {
-		r.StyleSetPosition(yoga.EdgeRight, w.right)
+	e.ro.StyleSetPosition(yoga.EdgeRight, w.right)
 	}
 	if w.bottom >= 0 {
-		r.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+	e.ro.StyleSetPosition(yoga.EdgeBottom, w.bottom)
 	}
 	if w.width > 0 {
-		r.StyleSetWidth(w.width)
+	e.ro.StyleSetWidth(w.width)
 	}
 	if w.height > 0 {
-		r.StyleSetHeight(w.height)
+	e.ro.StyleSetHeight(w.height)
 	}
-	r.SetZIndex(w.zIndex)
+e.ro.SetZIndex(w.zIndex)
 	return r
 }
 
 func (e *PositionedElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderBox)
 	w := e.GetWidget().(PositionedWidget)
 	old := oldWidget.(PositionedWidget)
 
 	if old.left != w.left {
 		if w.left >= 0 {
-			r.StyleSetPosition(yoga.EdgeLeft, w.left)
+		e.ro.StyleSetPosition(yoga.EdgeLeft, w.left)
 		} else {
-			r.StyleSetPosition(yoga.EdgeLeft, 0)
+		e.ro.StyleSetPosition(yoga.EdgeLeft, 0)
 		}
 	}
 	if old.top != w.top {
 		if w.top >= 0 {
-			r.StyleSetPosition(yoga.EdgeTop, w.top)
+		e.ro.StyleSetPosition(yoga.EdgeTop, w.top)
 		} else {
-			r.StyleSetPosition(yoga.EdgeTop, 0)
+		e.ro.StyleSetPosition(yoga.EdgeTop, 0)
 		}
 	}
 	if old.right != w.right {
 		if w.right >= 0 {
-			r.StyleSetPosition(yoga.EdgeRight, w.right)
+		e.ro.StyleSetPosition(yoga.EdgeRight, w.right)
 		} else {
-			r.StyleSetPosition(yoga.EdgeRight, 0)
+		e.ro.StyleSetPosition(yoga.EdgeRight, 0)
 		}
 	}
 	if old.bottom != w.bottom {
 		if w.bottom >= 0 {
-			r.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+		e.ro.StyleSetPosition(yoga.EdgeBottom, w.bottom)
 		} else {
-			r.StyleSetPosition(yoga.EdgeBottom, 0)
+		e.ro.StyleSetPosition(yoga.EdgeBottom, 0)
 		}
 	}
 	if old.width != w.width {
 		if w.width > 0 {
-			r.StyleSetWidth(w.width)
+		e.ro.StyleSetWidth(w.width)
 		} else {
-			r.StyleSetWidthAuto()
+		e.ro.StyleSetWidthAuto()
 		}
 	}
 	if old.height != w.height {
 		if w.height > 0 {
-			r.StyleSetHeight(w.height)
+		e.ro.StyleSetHeight(w.height)
 		} else {
-			r.StyleSetHeightAuto()
+		e.ro.StyleSetHeightAuto()
 		}
 	}
 	if old.zIndex != w.zIndex {
-		r.SetZIndex(w.zIndex)
+	e.ro.SetZIndex(w.zIndex)
 	}
 }
 

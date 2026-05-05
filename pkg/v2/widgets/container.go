@@ -162,6 +162,7 @@ func (c ContainerWidget) CreateElement() ui.Element {
 // ContainerElement 是 ContainerWidget 对应的 Element。
 type ContainerElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *ContainerElement) CreateRenderObject() render.RenderObject {
@@ -171,10 +172,9 @@ func (e *ContainerElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *ContainerElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderBox)
 	old := oldWidget.(ContainerWidget)
 	w := e.GetWidget().(ContainerWidget)
-	applyContainerProps(r, old, w)
+	applyContainerProps(e.ro, old, w)
 }
 
 func (e *ContainerElement) UpdateChild(oldWidget ui.Widget) {
@@ -183,7 +183,8 @@ func (e *ContainerElement) UpdateChild(oldWidget ui.Widget) {
 }
 
 func (e *ContainerElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(ContainerWidget)
 	if w.child != nil {
