@@ -27,6 +27,7 @@ func (r radioWidget) CreateElement() ui.Element {
 
 type radioElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderRadio
 }
 
 func (e *radioElement) CreateRenderObject() render.RenderObject {
@@ -48,13 +49,14 @@ func (e *radioElement) CreateRenderObject() render.RenderObject {
 
 func (e *radioElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(radioWidget)
-	r := e.GetRenderObject().(*render.RenderRadio)
+	r := e.ro
 	r.SetSelected(w.Selected)
 	r.OnChange = w.OnChange
 }
 
 func (e *radioElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderRadio)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(radioWidget)
 	if w.Label != "" {

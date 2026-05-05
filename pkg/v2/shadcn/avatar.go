@@ -29,6 +29,7 @@ func (a avatarWidget) CreateElement() ui.Element {
 
 type avatarElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderBox
 }
 
 func (e *avatarElement) CreateRenderObject() render.RenderObject {
@@ -46,7 +47,7 @@ func (e *avatarElement) CreateRenderObject() render.RenderObject {
 }
 
 func (e *avatarElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.GetRenderObject().(*render.RenderBox)
+	r := e.ro
 	w := e.GetWidget().(avatarWidget)
 	old := oldWidget.(avatarWidget)
 
@@ -60,7 +61,8 @@ func (e *avatarElement) UpdateRenderObject(oldWidget ui.Widget) {
 }
 
 func (e *avatarElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderBox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(avatarWidget)
 	child := widgets.Text(w.fallback).FontSize(14).Color(newColor(ui.GetTheme().SecondaryForegroundColor))

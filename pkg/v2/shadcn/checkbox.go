@@ -27,6 +27,7 @@ func (c checkboxWidget) CreateElement() ui.Element {
 
 type checkboxElement struct {
 	ui.SingleChildRenderObjectElement
+	ro *render.RenderCheckbox
 }
 
 func (e *checkboxElement) CreateRenderObject() render.RenderObject {
@@ -49,13 +50,14 @@ func (e *checkboxElement) CreateRenderObject() render.RenderObject {
 
 func (e *checkboxElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(checkboxWidget)
-	r := e.GetRenderObject().(*render.RenderCheckbox)
+	r := e.ro
 	r.SetChecked(w.Checked)
 	r.OnChange = w.OnChange
 }
 
 func (e *checkboxElement) Mount(parent ui.Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
+	e.ro = e.CreateRenderObject().(*render.RenderCheckbox)
+	e.RenderObject = e.ro
 	e.SingleChildRenderObjectElement.Mount(parent, slot)
 	w := e.GetWidget().(checkboxWidget)
 	if w.Label != "" {

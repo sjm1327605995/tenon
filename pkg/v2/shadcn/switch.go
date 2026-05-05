@@ -25,6 +25,7 @@ func (s switchWidget) CreateElement() ui.Element {
 
 type switchElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderSwitch
 }
 
 func (e *switchElement) CreateRenderObject() render.RenderObject {
@@ -45,9 +46,15 @@ func (e *switchElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
+func (e *switchElement) Mount(parent ui.Element, slot int) {
+	e.ro = e.CreateRenderObject().(*render.RenderSwitch)
+	e.RenderObject = e.ro
+	e.RenderObjectElement.Mount(parent, slot)
+}
+
 func (e *switchElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(switchWidget)
-	r := e.GetRenderObject().(*render.RenderSwitch)
+	r := e.ro
 	r.SetChecked(w.Checked)
 	r.OnChange = w.OnChange
 }

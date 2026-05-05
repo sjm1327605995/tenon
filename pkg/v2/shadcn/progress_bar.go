@@ -24,6 +24,7 @@ func (p progressBarWidget) CreateElement() ui.Element {
 
 type progressBarElement struct {
 	ui.RenderObjectElement
+	ro *render.RenderProgressBar
 }
 
 func (e *progressBarElement) CreateRenderObject() render.RenderObject {
@@ -38,8 +39,14 @@ func (e *progressBarElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
+func (e *progressBarElement) Mount(parent ui.Element, slot int) {
+	e.ro = e.CreateRenderObject().(*render.RenderProgressBar)
+	e.RenderObject = e.ro
+	e.RenderObjectElement.Mount(parent, slot)
+}
+
 func (e *progressBarElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(progressBarWidget)
-	r := e.GetRenderObject().(*render.RenderProgressBar)
+	r := e.ro
 	r.SetProgress(w.Progress)
 }
