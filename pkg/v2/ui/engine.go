@@ -59,6 +59,10 @@ type Engine struct {
 	// 调试工具
 	perfOverlay *PerformanceOverlay
 	inspector    *Inspector
+
+	// 可复用缓冲区（避免热路径分配）
+	pathBuf       []render.RenderObject // getAbsolutePosition 用
+	childrenBuf   []render.RenderObject // drawRenderObject 排序用
 }
 
 // NewEngine creates a new Engine.
@@ -366,15 +370,15 @@ func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 // getAbsolutePosition 计算 RenderObject 在屏幕上的绝对视觉位置（考虑 scroll offset）。
 func (e *Engine) getAbsolutePosition(ro render.RenderObject) (float32, float32) {
 	var x, y float32
-	// 收集从根节点到当前节点的路径
-	path := []render.RenderObject{}
+	// 收集从根节点到当前节点的路径（复用缓冲区）
+	e.pathBuf = e.pathBuf[:0]
 	for ro != nil {
-		path = append(path, ro)
+		e.pathBuf = append(e.pathBuf, ro)
 		ro = ro.GetParent()
 	}
 	// 从根到当前节点累加
-	for i := len(path) - 1; i >= 0; i-- {
-		node := path[i]
+	for i := len(e.pathBuf) - 1; i >= 0; i-- {
+		node := e.pathBuf[i]
 		b := node.GetBounds()
 		x += b.X
 		y += b.Y
@@ -450,14 +454,6 @@ func (e *Engine) tickBlink() {
 	if b, ok := tryGetBlinker(e.focusTarget); ok {
 		b.TickBlink()
 	}
-}
-
-// findScrollParent 在祖先中查找可滚动的 RenderObject（保留用于兼容）。
-func (e *Engine) findScrollParent(ro render.RenderObject) render.RenderObject {
-	if s, ok := scrollParent(ro); ok {
-		return s.(render.RenderObject)
-	}
-	return nil
 }
 
 func (e *Engine) hitTest(ro render.RenderObject, x, y float32) render.RenderObject {
@@ -641,10 +637,11 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 
 	children := ro.GetChildren()
 	if len(children) > 1 {
-		children = append([]render.RenderObject(nil), children...)
-		sort.SliceStable(children, func(i, j int) bool {
-			return children[i].GetZIndex() < children[j].GetZIndex()
+		e.childrenBuf = append(e.childrenBuf[:0], children...)
+		sort.SliceStable(e.childrenBuf, func(i, j int) bool {
+			return e.childrenBuf[i].GetZIndex() < e.childrenBuf[j].GetZIndex()
 		})
+		children = e.childrenBuf
 	}
 	for _, child := range children {
 		e.drawRenderObject(childScreen, child, childOffset)

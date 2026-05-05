@@ -349,15 +349,24 @@ func UpdateChild(parent Element, child Element, newWidget Widget) Element {
 }
 
 // UpdateChildren 对新旧两组 Widget 做同级对比，尽可能复用旧 Element。
-// 这是 ComponentElement / MultiChildRenderObjectElement 的核心 diff 方法。
 func UpdateChildren(parent Element, oldChildren []Element, newWidgets []Widget) []Element {
 	newChildren := make([]Element, 0, len(newWidgets))
 
-	// 用于旧 Element 复用的查找表（按 Key）
-	oldKeyed := make(map[string]Element)
+	// 仅在有 Key 时才创建 map（避免无 Key 场景的分配）
+	var oldKeyed map[string]Element
+	hasKeyed := false
 	for _, old := range oldChildren {
 		if old.GetWidget() != nil && !IsNilKey(old.GetWidget().GetKey()) {
-			oldKeyed[old.GetWidget().GetKey().String()] = old
+			hasKeyed = true
+			break
+		}
+	}
+	if hasKeyed {
+		oldKeyed = make(map[string]Element, len(oldChildren))
+		for _, old := range oldChildren {
+			if old.GetWidget() != nil && !IsNilKey(old.GetWidget().GetKey()) {
+				oldKeyed[old.GetWidget().GetKey().String()] = old
+			}
 		}
 	}
 
@@ -366,10 +375,11 @@ func UpdateChildren(parent Element, oldChildren []Element, newWidgets []Widget) 
 		var oldChild Element
 
 		// 1. 尝试按 Key 查找可复用的旧 Element
-		if !IsNilKey(newWidget.GetKey()) {
-			if keyed, ok := oldKeyed[newWidget.GetKey().String()]; ok {
+		if oldKeyed != nil && !IsNilKey(newWidget.GetKey()) {
+			key := newWidget.GetKey().String()
+			if keyed, ok := oldKeyed[key]; ok {
 				oldChild = keyed
-				delete(oldKeyed, newWidget.GetKey().String())
+				delete(oldKeyed, key)
 			}
 		}
 
@@ -377,7 +387,7 @@ func UpdateChildren(parent Element, oldChildren []Element, newWidgets []Widget) 
 		if oldChild == nil && oldIndex < len(oldChildren) {
 			for oldIndex < len(oldChildren) {
 				candidate := oldChildren[oldIndex]
-				if candidate.GetWidget() != nil && !IsNilKey(candidate.GetWidget().GetKey()) {
+				if oldKeyed != nil && candidate.GetWidget() != nil && !IsNilKey(candidate.GetWidget().GetKey()) {
 					if _, stillInOld := oldKeyed[candidate.GetWidget().GetKey().String()]; stillInOld {
 						oldIndex++
 						continue
