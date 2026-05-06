@@ -48,36 +48,15 @@ func (r *RenderCheckbox) Paint(screen *ebiten.Image, offset Offset) {
 	boxX := offset.X + bounds.X
 
 	if r.Checked {
-		r.drawRoundedBox(screen, boxX, boxY, r.BoxSize, r.BoxSize, r.FillColor)
+		DrawRoundedRectFill(screen, boxX, boxY, r.BoxSize, r.BoxSize, UniformBorderRadius(3), r.FillColor)
 		r.drawCheckmark(screen, boxX, boxY, r.BoxSize)
 	} else {
-		r.drawRoundedBox(screen, boxX, boxY, r.BoxSize, r.BoxSize, color.White)
-		r.drawBoxBorder(screen, boxX, boxY, r.BoxSize, r.BoxSize, r.BorderColor)
+		DrawRoundedRectFill(screen, boxX, boxY, r.BoxSize, r.BoxSize, UniformBorderRadius(3), color.White)
+		DrawRoundedRectStroke(screen, boxX, boxY, r.BoxSize, r.BoxSize, UniformBorderRadius(3), 1.5, r.BorderColor)
 	}
 
 	// 调用父类 Paint 绘制子节点（label）
 	r.RenderBox.Paint(screen, offset)
-}
-
-func (r *RenderCheckbox) drawRoundedBox(screen *ebiten.Image, x, y, w, h float32, clr color.Color) {
-	br := UniformBorderRadius(3)
-	path := &vector.Path{}
-	BuildRoundedRectPath(path, x, y, w, h, br)
-	op := &vector.DrawPathOptions{}
-	op.ColorScale.ScaleWithColor(clr)
-	op.AntiAlias = true
-	vector.FillPath(screen, path, &vector.FillOptions{}, op)
-}
-
-func (r *RenderCheckbox) drawBoxBorder(screen *ebiten.Image, x, y, w, h float32, clr color.Color) {
-	br := UniformBorderRadius(3)
-	path := &vector.Path{}
-	BuildRoundedRectPath(path, x, y, w, h, br)
-	strokeOp := &vector.StrokeOptions{Width: 1.5, MiterLimit: 10}
-	op := &vector.DrawPathOptions{}
-	op.ColorScale.ScaleWithColor(clr)
-	op.AntiAlias = true
-	vector.StrokePath(screen, path, strokeOp, op)
 }
 
 func (r *RenderCheckbox) drawCheckmark(screen *ebiten.Image, x, y, size float32) {

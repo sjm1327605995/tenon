@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -54,13 +53,7 @@ func (r *RenderSwitch) Paint(screen *ebiten.Image, offset Offset) {
 	// Track (rounded rect)
 	radius := h / 2
 	if trackColor != nil {
-		br := UniformBorderRadius(radius)
-		path := &vector.Path{}
-		BuildRoundedRectPath(path, x, y, w, h, br)
-		op := &vector.DrawPathOptions{}
-		op.ColorScale.ScaleWithColor(trackColor)
-		op.AntiAlias = true
-		vector.FillPath(screen, path, &vector.FillOptions{}, op)
+		DrawRoundedRectFill(screen, x, y, w, h, UniformBorderRadius(radius), trackColor)
 	}
 
 	// Thumb (circle)
@@ -76,12 +69,6 @@ func (r *RenderSwitch) Paint(screen *ebiten.Image, offset Offset) {
 	}
 
 	if r.ThumbColor != nil {
-		path := &vector.Path{}
-		path.MoveTo(thumbX+thumbRadius, thumbY)
-		path.Arc(thumbX, thumbY, thumbRadius, 0, float32(3.1415926535*2), vector.Clockwise)
-		op := &vector.DrawPathOptions{}
-		op.ColorScale.ScaleWithColor(r.ThumbColor)
-		op.AntiAlias = true
-		vector.FillPath(screen, path, &vector.FillOptions{}, op)
+		DrawFilledCirclePath(screen, thumbX, thumbY, thumbRadius, r.ThumbColor)
 	}
 }

@@ -258,6 +258,38 @@ func SubImage(screen *ebiten.Image, x, y, w, h int) *ebiten.Image {
 	return nil
 }
 
+// PaintBackground 绘制背景（自动判断圆角/矩形）。
+func PaintBackground(screen *ebiten.Image, x, y, w, h float32, br BorderRadius, bg color.Color) {
+	if bg == nil {
+		return
+	}
+	if !br.IsZero() {
+		DrawRoundedRectFill(screen, x, y, w, h, br, bg)
+	} else {
+		DrawRect(screen, x, y, w, h, bg)
+	}
+}
+
+// PaintBorder 绘制边框（自动判断圆角/矩形）。
+func PaintBorder(screen *ebiten.Image, x, y, w, h float32, br BorderRadius, borderWidth float32, borderColor color.Color) {
+	if borderColor == nil || borderWidth <= 0 {
+		return
+	}
+	if !br.IsZero() {
+		DrawRoundedRectStroke(screen, x, y, w, h, br, borderWidth, borderColor)
+	} else {
+		DrawBorder(screen, x, y, w, h, borderWidth, borderColor)
+	}
+}
+
+// PaintBoxShadow 绘制矩形阴影。
+func PaintBoxShadow(screen *ebiten.Image, x, y, w, h float32, br BorderRadius, shadow color.Color, blur, offsetX, offsetY float32) {
+	if shadow == nil {
+		return
+	}
+	DrawShadow(screen, x, y, w, h, br, shadow, blur, offsetX, offsetY)
+}
+
 // Darken 对颜色做暗化处理（各分量减 delta，最低到 0）。
 func Darken(c color.Color, delta uint8) color.Color {
 	r, g, b, a := c.RGBA()

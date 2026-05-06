@@ -4,7 +4,6 @@ import (
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -54,14 +53,7 @@ func (r *RenderProgressBar) Paint(screen *ebiten.Image, offset Offset) {
 	br = clampRadius(br, w, h)
 
 	// Track
-	if r.TrackColor != nil {
-		path := &vector.Path{}
-		BuildRoundedRectPath(path, x, y, w, h, br)
-		op := &vector.DrawPathOptions{}
-		op.ColorScale.ScaleWithColor(r.TrackColor)
-		op.AntiAlias = true
-		vector.FillPath(screen, path, &vector.FillOptions{}, op)
-	}
+	DrawRoundedRectFill(screen, x, y, w, h, br, r.TrackColor)
 
 	// Fill
 	if r.FillColor != nil && r.Progress > 0 {
@@ -69,11 +61,6 @@ func (r *RenderProgressBar) Paint(screen *ebiten.Image, offset Offset) {
 		if fillW > w {
 			fillW = w
 		}
-		path := &vector.Path{}
-		BuildRoundedRectPath(path, x, y, fillW, h, br)
-		op := &vector.DrawPathOptions{}
-		op.ColorScale.ScaleWithColor(r.FillColor)
-		op.AntiAlias = true
-		vector.FillPath(screen, path, &vector.FillOptions{}, op)
+		DrawRoundedRectFill(screen, x, y, fillW, h, br, r.FillColor)
 	}
 }

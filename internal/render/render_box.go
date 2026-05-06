@@ -22,6 +22,7 @@ type RenderBox struct {
 	ShadowOffsetX      float32
 	ShadowOffsetY      float32
 	clipChildren       bool
+	focusable          bool
 }
 
 func NewRenderBox() *RenderBox {
@@ -52,6 +53,14 @@ func (r *RenderBox) IsFocused() bool {
 	return r.focused
 }
 
+func (r *RenderBox) SetFocusable(v bool) {
+	r.focusable = v
+}
+
+func (r *RenderBox) IsFocusable() bool {
+	return r.focusable
+}
+
 func (r *RenderBox) Paint(screen *ebiten.Image, offset Offset) {
 	bounds := r.bounds
 	if bounds.Width <= 0 || bounds.Height <= 0 {
@@ -70,32 +79,15 @@ func (r *RenderBox) Paint(screen *ebiten.Image, offset Offset) {
 func (r *RenderBox) paintContent(screen *ebiten.Image, b Bounds) {
 	x, y, w, h := b.X, b.Y, b.Width, b.Height
 
-	// 绘制阴影
-	if r.ShadowColor != nil {
-		DrawShadow(screen, x, y, w, h, r.BorderRadius, r.ShadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
-	}
-
-	// 绘制背景
-	if r.BackgroundColor != nil {
-		if !r.BorderRadius.IsZero() {
-			DrawRoundedRectFill(screen, x, y, w, h, r.BorderRadius, r.BackgroundColor)
-		} else {
-			DrawRect(screen, x, y, w, h, r.BackgroundColor)
-		}
-	}
+	PaintBoxShadow(screen, x, y, w, h, r.BorderRadius, r.ShadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
+	PaintBackground(screen, x, y, w, h, r.BorderRadius, r.BackgroundColor)
 
 	// 绘制边框（子元素 focus 时使用 FocusedBorderColor）
 	borderColor := r.BorderColor
 	if r.hasFocusedChild() && r.FocusedBorderColor != nil {
 		borderColor = r.FocusedBorderColor
 	}
-	if borderColor != nil && r.BorderWidth > 0 {
-		if !r.BorderRadius.IsZero() {
-			DrawRoundedRectStroke(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, borderColor)
-		} else {
-			DrawBorder(screen, x, y, w, h, r.BorderWidth, borderColor)
-		}
-	}
+	PaintBorder(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, borderColor)
 }
 
 // hasFocusedChild 检查直接子元素是否有处于 focus 状态的。
@@ -205,7 +197,8 @@ func (r *RenderBox) StyleSetFlexBasis(v float32)               { r.yoga.StyleSet
 func (r *RenderBox) StyleSetFlexBasisAuto()                    { r.yoga.StyleSetFlexBasisAuto(); r.MarkNeedsLayout() }
 func (r *RenderBox) StyleSetFlexWrap(v yoga.Wrap)              { r.yoga.StyleSetFlexWrap(v); r.MarkNeedsLayout() }
 func (r *RenderBox) StyleSetPadding(edge yoga.Edge, v float32) { r.yoga.StyleSetPadding(edge, v); r.MarkNeedsLayout() }
-func (r *RenderBox) StyleSetMargin(edge yoga.Edge, v float32)  { r.yoga.StyleSetMargin(edge, v); r.MarkNeedsLayout() }
+func (r *RenderBox) StyleSetMargin(edge yoga.Edge, v float32)      { r.yoga.StyleSetMargin(edge, v); r.MarkNeedsLayout() }
+func (r *RenderBox) StyleSetMarginAuto(edge yoga.Edge)              { r.yoga.StyleSetMarginAuto(edge); r.MarkNeedsLayout() }
 func (r *RenderBox) StyleSetBorder(edge yoga.Edge, v float32)  { r.yoga.StyleSetBorder(edge, v); r.MarkNeedsLayout() }
 func (r *RenderBox) StyleSetPosition(edge yoga.Edge, v float32){ r.yoga.StyleSetPosition(edge, v); r.MarkNeedsLayout() }
 func (r *RenderBox) StyleSetPositionType(v yoga.PositionType)  { r.yoga.StyleSetPositionType(v); r.MarkNeedsLayout() }

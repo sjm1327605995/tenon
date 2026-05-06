@@ -102,8 +102,8 @@ func (r *RenderSlider) Paint(screen *ebiten.Image, offset Offset) {
 		thumbX = offset.X + bounds.X + bounds.Width*ratio
 	}
 	if r.ThumbColor != nil {
-		r.drawFilledCircle(screen, thumbX, trackY, r.ThumbRadius, r.ThumbColor)
-		r.drawStrokedCircle(screen, thumbX, trackY, r.ThumbRadius, 1.5, color.RGBA{R: 229, G: 229, B: 229, A: 255})
+		DrawFilledCirclePath(screen, thumbX, trackY, r.ThumbRadius, r.ThumbColor)
+		DrawStrokedCirclePath(screen, thumbX, trackY, r.ThumbRadius, 1.5, color.RGBA{R: 229, G: 229, B: 229, A: 255})
 	}
 }
 
@@ -140,10 +140,3 @@ func (r *RenderSlider) HandleDrag(mx, my float32) {
 	}
 }
 
-func (r *RenderSlider) drawFilledCircle(screen *ebiten.Image, cx, cy, radius float32, clr color.Color) {
-	DrawFilledCirclePath(screen, cx, cy, radius, clr)
-}
-
-func (r *RenderSlider) drawStrokedCircle(screen *ebiten.Image, cx, cy, radius, strokeWidth float32, clr color.Color) {
-	DrawStrokedCirclePath(screen, cx, cy, radius, strokeWidth, clr)
-}
