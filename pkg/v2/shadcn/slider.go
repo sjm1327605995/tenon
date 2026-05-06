@@ -53,8 +53,8 @@ func (e *sliderElement) Mount(parent ui.Element, slot int) {
 func (e *sliderElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(sliderWidget)
 	r := e.ro
-	r.MinValue = w.MinValue
-	r.MaxValue = w.MaxValue
+	r.SetMinValue(w.MinValue)
+	r.SetMaxValue(w.MaxValue)
 	r.SetValue(w.Value)
 	r.OnChange = w.OnChange
 }

@@ -90,14 +90,14 @@ func (s *selectState) buildTrigger(w SelectWidget, theme *ui.Theme) ui.Widget {
 		text = findOptLabel(w.Value, w.Options)
 		clr = theme.TextColor
 	}
-	arrow := "▼"
+	arrow := IconArrowDown
 	if s.open {
-		arrow = "▲"
+		arrow = IconArrowUp
 	}
 	return Container(
 		Row(
 			Text(text).FontSize(theme.FontSizeBase).Color(clr),
-			Text(arrow).FontSize(10).Color(theme.TextMutedColor),
+			Icon(arrow).FontSize(10).Color(theme.TextMutedColor),
 		).Gapf(8).JustifyContent(ui.JustifySpaceBetween).AlignItems(ui.AlignCenter),
 	).
 		Background(colorToRender(theme.BackgroundColor)).
@@ -229,7 +229,7 @@ func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {
 	trigger := Container(
 		Row(
 			Text(display).FontSize(theme.FontSizeBase).Color(theme.TextColor),
-			Text("▼").FontSize(10).Color(theme.TextMutedColor),
+			Icon(IconArrowDown).FontSize(10).Color(theme.TextMutedColor),
 		).Gapf(8).JustifyContent(ui.JustifySpaceBetween).AlignItems(ui.AlignCenter),
 	).
 		Background(colorToRender(theme.BackgroundColor)).
@@ -256,9 +256,9 @@ func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {
 		if label == "" {
 			label = opt.Value
 		}
-		prefix := "☐"
+		prefix := IconCheckboxEmpty
 		if checked {
-			prefix = "☑"
+			prefix = IconCheckboxChecked
 		}
 		opts = append(opts, Container(
 			Text(prefix+" "+label).FontSize(theme.FontSizeBase).Color(theme.TextColor),

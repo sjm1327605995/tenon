@@ -8,7 +8,6 @@ package declarative
 
 import (
 	"image/color"
-	"reflect"
 	"time"
 
 	"github.com/sjm1327605995/tenon"
@@ -390,6 +389,3 @@ func Push(ctx BuildContext, name string, params ...RouteParams) { ui.NavPush(ctx
 func Pop(ctx BuildContext)                           { ui.NavPop(ctx) }
 func SetTheme(t *ui.Theme)                           { ui.SetTheme(t) }
 func Run(buildFunc ui.BuildFunc, width, height int)  { tenon.Run(buildFunc, width, height) }
-
-// 确保 reflect 被使用（避免 import 报错）
-var _ = reflect.TypeOf

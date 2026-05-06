@@ -27,7 +27,7 @@ func ShadcnPagination(current, total int, onChange func(int)) ui.Widget {
 
 	children := make([]ui.Widget, 0, maxVisible+2)
 
-	prev := widgets.Button("←").Variantf(widgets.ButtonOutline).OnTap(func() {
+	prev := widgets.Button(widgets.IconText(widgets.IconArrowLeft)).Variantf(widgets.ButtonOutline).OnTap(func() {
 		if current > 1 && onChange != nil {
 			onChange(current - 1)
 		}
@@ -57,7 +57,7 @@ func ShadcnPagination(current, total int, onChange func(int)) ui.Widget {
 		children = append(children, btn)
 	}
 
-	next := widgets.Button("→").Variantf(widgets.ButtonOutline).OnTap(func() {
+	next := widgets.Button(widgets.IconText(widgets.IconArrowRight)).Variantf(widgets.ButtonOutline).OnTap(func() {
 		if current < total && onChange != nil {
 			onChange(current + 1)
 		}
