@@ -290,56 +290,64 @@ func AnimatedContainer(
 // UpdateRenderObject 检测到属性变化时自动启动动画。
 ```
 
-#### 2.3 部分重绘优化
+#### 2.3 脏标记与按需绘制
 
-**目标**：避免每帧全树遍历绘制。
+**目标**：避免每帧全树遍历构建、布局和绘制。
 
 **现状问题**：
-- `FlushPaint()` 只清除脏标记，实际绘制在 `Engine.Draw()` 中遍历整棵树
-- 即使只有一个像素变化，也要绘制所有 RenderObject
+- `Engine.Update()` 每帧都调用 `flushBuild()`、`CalculateLayout()`、`syncBounds()` 和全树 `Draw()`，即使没有任何变化。
+- `FlushPaint()` 只清除脏标记，实际绘制仍遍历整棵 RenderObject 树。
 
-**方案**：
+**Yoga 已覆盖的布局脏标记**：
 
-由于 Ebiten 的 `screen *ebiten.Image` 是单张全屏纹理，"部分重绘"在 GPU 架构下收益有限（GPU 绘制全屏也很快）。真正的瓶颈是：
+Yoga 内部已实现完整的脏标记机制：
+- 节点样式变化时自动调用 `markDirtyAndPropagate()`，向上标记自己和所有祖先
+- `CalculateLayout()` 内部只遍历 dirty 节点，clean 子树直接复用上次结果
 
-1. **每帧 Yoga 全局布局**：当前 `Engine.Update()` 每帧都调用 `CalculateLayout`，即使 layout 没有脏标记。
-2. **每帧全树 syncBounds**：即使 bounds 没变，也要遍历赋值。
+因此 **Tenon 不需要自建一套 Yoga 级别的脏区域系统**。当前每帧调用 `CalculateLayout()` 的开销已因 Yoga 内部优化而大幅降低。
+
+**Tenon 层需要补充的优化**：
+
+1. **Build 层**：已有的 `dirtyElements` + `needsBuild` 机制已支持局部 rebuild，但 build 完成后仍触发全量 layout/paint。build 完成后应只标记受影响的 RenderObject 为 `needsPaint`，而非全部。
+2. **syncBounds 层**：`syncBounds()` 每帧全树遍历赋值。可配合 Yoga 的 `IsDirty()` 或 Tenon 自有的 `needsLayout` 标记，跳过未变化的分支。
+3. **Paint 层**：Ebiten 的 `screen` 是单张全屏纹理，GPU 绘制全屏代价很低，"像素级部分重绘"收益有限。真正的优化是跳过 **未标记 `needsPaint` 的子树**（减少 draw call 和状态切换），而非裁剪绘制区域。
 
 **优化策略**：
 
 ```go
 func (e *Engine) Update() error {
     // ...
-    
-    if e.needsBuild {
-        e.flushBuild()
+
+    if e.needsBuild || len(e.dirtyElements) > 0 {
+        e.flushBuild() // 局部 rebuild，只影响 dirty 分支
     }
-    
-    // 只在有 layout dirty 时才计算 Yoga 布局
-    if e.hasLayoutDirty() {
+
+    // Yoga 内部已做 dirty 优化，CalculateLayout 开销可控。
+    // 若根节点 clean，可进一步跳过 syncBounds。
+    if e.rootYoga.IsDirty() || e.hasLayoutDirty() {
         e.rootYoga.CalculateLayout(...)
-        e.syncBounds()
+        e.syncBounds() // 可增量：只同步 Yoga dirty 节点
         e.flushLayout()
     }
-    
-    // 绘制：仍然全树遍历，但跳过未变化且未标记 paint dirty 的子树
+
+    // 绘制：全树遍历，但跳过未标记 needsPaint 且子树也无 dirty 的分支
     e.Draw(screen)
-    
+
     // ...
 }
 ```
 
-**更激进的方案（分层绘制）**：
-- 对于频繁动画的 RenderObject（如 loading spinner），单独绘制到离屏 `ebiten.Image`
-- 主绘制循环只把这个缓存图贴到对应位置
-- 减少每帧的 draw call 和重复绘制
+**分层绘制（动画优化）**：
+- 对于高频动画的 RenderObject（如 loading spinner、粒子效果），单独绘制到离屏 `ebiten.Image` 缓存
+- 主绘制循环只贴图，避免每帧重复构建复杂路径
+- 动画结束或属性变化时失效缓存
 
 #### 2.4 验收标准
 - [ ] `AnimationController` + `Tween` + `Curve` 完整实现
 - [ ] 至少 3 种内置缓动曲线（Linear、EaseInOut、Spring）
 - [ ] `AnimatedContainer` 实现（背景色/尺寸/圆角过渡）
 - [ ] ProgressBar loading spinner 改为旋转动画
-- [ ] Yoga `CalculateLayout` 和 `syncBounds` 改为按需执行
+- [ ] `syncBounds` 改为增量同步（跳过 Yoga clean 节点）；`Draw()` 跳过未标记 `needsPaint` 的子树
 - [ ] Gallery 添加动画 Demo 页面（FadeIn/Slide/Scale）
 - [ ] 帧率稳定在 60fps（通过 Ebiten 的 `ebiten.ActualFPS()` 验证）
 
