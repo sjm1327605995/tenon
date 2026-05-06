@@ -96,34 +96,39 @@ func (r *RenderText) SplitLines(face text.Face, maxWidth float64, widthMode yoga
 }
 
 func (r *RenderText) splitLines(face text.Face, maxWidth float64, widthMode yoga.MeasureMode) []string {
-	if r.Content == "" {
+	return splitLinesForText(r.Content, face, maxWidth, widthMode, r.MaxLines)
+}
+
+// splitLinesForText 对指定文本按宽度进行软换行分割。
+func splitLinesForText(content string, face text.Face, maxWidth float64, widthMode yoga.MeasureMode, maxLines int) []string {
+	if content == "" {
 		return nil
 	}
 	// 如果宽度未定义或足够大，单行返回
 	if widthMode == yoga.MeasureModeUndefined {
-		return []string{r.Content}
+		return []string{content}
 	}
 	// 简单按字符换行（实际应用应使用更复杂的文本排版）
 	var lines []string
 	var currentLine string
-	for _, ch := range r.Content {
+	for _, ch := range content {
 		testLine := currentLine + string(ch)
 		w, _ := text.Measure(testLine, face, 0)
 		if w > maxWidth && currentLine != "" {
 			lines = append(lines, currentLine)
 			currentLine = string(ch)
-			if r.MaxLines > 0 && len(lines) >= r.MaxLines {
+			if maxLines > 0 && len(lines) >= maxLines {
 				break
 			}
 		} else {
 			currentLine = testLine
 		}
 	}
-	if currentLine != "" && (r.MaxLines == 0 || len(lines) < r.MaxLines) {
+	if currentLine != "" && (maxLines == 0 || len(lines) < maxLines) {
 		lines = append(lines, currentLine)
 	}
 	if len(lines) == 0 {
-		lines = []string{r.Content}
+		lines = []string{content}
 	}
 	return lines
 }

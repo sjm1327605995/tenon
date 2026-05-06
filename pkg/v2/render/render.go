@@ -23,6 +23,7 @@ type (
 	RenderSlider  = internal.RenderSlider
 	RenderProgressBar = internal.RenderProgressBar
 	RenderEditableText = internal.RenderEditableText
+	RenderSvgIcon      = internal.RenderSvgIcon
 	ParticleSystemRenderObject = internal.ParticleSystemRenderObject
 	PipelineOwner = internal.PipelineOwner
 	Bounds        = internal.Bounds
@@ -55,6 +56,7 @@ var (
 	NewRenderSlider  = internal.NewRenderSlider
 	NewRenderProgressBar = internal.NewRenderProgressBar
 	NewRenderEditableText = internal.NewRenderEditableText
+	NewRenderSvgIcon      = internal.NewRenderSvgIcon
 	NewParticleSystemRenderObject = internal.NewParticleSystemRenderObject
 	NewPipelineOwner = internal.NewPipelineOwner
 	NewColor         = internal.NewColor

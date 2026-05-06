@@ -111,18 +111,9 @@ const (
 	IconMinus           = widgets.IconMinus
 )
 
-// 图标模式。
-const (
-	IconModeUnicode = widgets.IconModeUnicode
-	IconModeASCII   = widgets.IconModeASCII
-	IconModeAuto    = widgets.IconModeAuto
-)
-
 // 图标配置。
 var (
-	SetIconMode           = widgets.SetIconMode
-	GetIconMode           = widgets.GetIconMode
-	RegisterIconFallback  = widgets.RegisterIconFallback
+	RegisterIconFallback = widgets.RegisterIconFallback
 )
 
 // Shadcn 组件。

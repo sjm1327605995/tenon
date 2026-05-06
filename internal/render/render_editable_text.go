@@ -135,6 +135,10 @@ func (r *RenderEditableText) IsFocused() bool {
 	return r.focused
 }
 
+func (r *RenderEditableText) IsFocusable() bool {
+	return true
+}
+
 func (r *RenderEditableText) TickBlink() {
 	if !r.focused {
 		return
@@ -262,7 +266,12 @@ func (r *RenderEditableText) UpdateTextInput(absX, absY int) bool {
 	}
 
 	// 同步光标位置（字节 -> rune 索引）
-	r.cursorPos = byteIndexToRuneIndex(newText, startBytes)
+	// IME 合成期间若已提交文本未变，保持原有 cursorPos，避免 field.Selection()
+	// 在合成过程中被输入法临时改变而导致光标跳动。
+	uncommittedLen := r.field.UncommittedTextLengthInBytes()
+	if uncommittedLen == 0 || newText != r.Content {
+		r.cursorPos = byteIndexToRuneIndex(newText, startBytes)
+	}
 	r.ensureCursorVisible()
 	r.MarkNeedsPaint()
 	return true
@@ -605,6 +614,68 @@ func (r *RenderEditableText) cursorDisplayLine(face text.Face) int {
 	return displayLine
 }
 
+// cursorXY 计算多行模式下光标的屏幕坐标，同时考虑软换行和硬换行。
+// cursorText 是光标之前的完整文本前缀。
+func (r *RenderEditableText) cursorXY(face text.Face, textOffset Offset, cursorText string) (float64, float64) {
+	bounds := r.bounds
+	lineHeight := float64(r.FontSize) * 1.2
+	textX := float64(textOffset.X + bounds.X)
+	textY := float64(textOffset.Y + bounds.Y)
+
+	if !r.multiline {
+		w, _ := text.Measure(cursorText, face, 0)
+		return textX + w, textY
+	}
+
+	cursorRunes := []rune(cursorText)
+	if bounds.Width <= 0 {
+		line := strings.Count(cursorText, "\n")
+		prefix := cursorText
+		if idx := strings.LastIndex(cursorText, "\n"); idx >= 0 {
+			prefix = cursorText[idx+1:]
+		}
+		w, _ := text.Measure(prefix, face, 0)
+		return textX + w, textY + float64(line)*lineHeight
+	}
+
+	lines := splitLinesForText(cursorText, face, float64(bounds.Width), yoga.MeasureModeAtMost, r.MaxLines)
+
+	displayLine := 0
+	processedRunes := 0
+
+	for _, ln := range lines {
+		lineRunes := []rune(ln)
+		if processedRunes+len(lineRunes) >= len(cursorRunes) {
+			remainingRunes := len(cursorRunes) - processedRunes
+			prefixRunes := lineRunes[:remainingRunes]
+			prefix := string(prefixRunes)
+			if hardLines := strings.Count(prefix, "\n"); hardLines > 0 {
+				if idx := strings.LastIndex(prefix, "\n"); idx >= 0 {
+					prefix = prefix[idx+1:]
+				}
+				displayLine += hardLines
+			}
+			w, _ := text.Measure(prefix, face, 0)
+			return textX + w, textY + float64(displayLine)*lineHeight
+		}
+		displayLine += strings.Count(ln, "\n") + 1
+		processedRunes += len(lineRunes)
+	}
+
+	// 光标在所有行之后
+	prefix := ""
+	if len(lines) > 0 {
+		lastLine := lines[len(lines)-1]
+		if idx := strings.LastIndex(lastLine, "\n"); idx >= 0 {
+			prefix = lastLine[idx+1:]
+		} else {
+			prefix = lastLine
+		}
+	}
+	w, _ := text.Measure(prefix, face, 0)
+	return textX + w, textY + float64(displayLine)*lineHeight
+}
+
 func (r *RenderEditableText) GetScrollOffset() Offset {
 	if r.multiline {
 		// 多行模式下滚动由外层 RenderScroll 管理，不暴露内部偏移
@@ -668,33 +739,21 @@ func (r *RenderEditableText) Paint(screen *ebiten.Image, offset Offset) {
 		}
 
 		// 光标位置基于当前显示文本的长度
-		// 优先使用 r.cursorPos（避免 field.Selection 同步延迟）
+		// IME 合成阶段，field.Selection() 可能被输入法临时改变
+		// （如用户在合成文本内按方向键）。此时始终使用 r.cursorPos，
+		// 保持应用程序光标在原始输入位置不动，避免跟随 field 的临时状态跳动。
 		cursorText := displayText
-		if r.field != nil && r.field.IsFocused() {
-			startBytes, _ := r.field.Selection()
-			// IME 合成阶段，未提交的文本长度
-			uncommittedLen := r.field.UncommittedTextLengthInBytes()
-			if uncommittedLen > 0 {
-				// 有合成文本时，光标放在合成文本末尾
-				cursorBytes := startBytes + uncommittedLen
-				runeIdx := byteIndexToRuneIndex(cursorText, cursorBytes)
-				cursorText = string([]rune(cursorText)[:runeIdx])
-			} else {
-				// 无合成文本时，直接使用 r.cursorPos
-				cursorText = string([]rune(cursorText)[:r.cursorPos])
-			}
-		} else {
-			cursorText = string([]rune(cursorText)[:r.cursorPos])
+		runes := []rune(cursorText)
+		pos := r.cursorPos
+		if pos < 0 {
+			pos = 0
 		}
+		if pos > len(runes) {
+			pos = len(runes)
+		}
+		cursorText = string(runes[:pos])
 
-		w, _ := text.Measure(cursorText, face.Face, 0)
-
-		// 光标坐标使用与文本相同的偏移体系
-		textX := float64(textOffset.X + bounds.X)
-		textY := float64(textOffset.Y + bounds.Y)
-
-		x := textX + w
-		y := textY
+		x, y := r.cursorXY(face.Face, textOffset, cursorText)
 
 		cursorH := lineHeight
 		if cursorH > float64(bounds.Height) {

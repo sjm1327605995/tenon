@@ -35,6 +35,7 @@ type ContainerWidget struct {
 	scaleX           float32
 	scaleY           float32
 	alpha            float32
+	focusable        bool
 }
 
 // Container 创建容器 Widget，包裹一个子 Widget。
@@ -143,6 +144,11 @@ func (c ContainerWidget) Opacity(a float32) ContainerWidget {
 	return c
 }
 
+func (c ContainerWidget) Focusable(v bool) ContainerWidget {
+	c.focusable = v
+	return c
+}
+
 func (c ContainerWidget) JustifyContent(v yoga.Justify) ContainerWidget {
 	c.justify = v
 	return c
@@ -210,6 +216,9 @@ func applyContainerProps(r *render.RenderBox, old, w ContainerWidget) {
 		r.SetShadow(w.shadowColor, w.shadowBlur, w.shadowOffsetX, w.shadowOffsetY)
 	}
 	r.SetOnClick(w.onClick)
+	if old.focusable != w.focusable {
+		r.SetFocusable(w.focusable)
+	}
 
 	if old.width != w.width {
 		if w.width > 0 {

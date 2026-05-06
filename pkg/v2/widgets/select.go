@@ -114,8 +114,12 @@ func (s *selectState) buildTrigger(w SelectWidget, theme *ui.Theme) ui.Widget {
 		Pad(ui.EdgeInsets{Top: 8, Right: 12, Bottom: 8, Left: 12}).
 		W(w.Width).
 		H(40).
+		Focusable(true).
 		OnTap(func() {
 			if !w.Disabled {
+				if !s.open {
+					ui.DismissAllPopups()
+				}
 				s.open = !s.open
 				s.SetState(nil)
 			}
@@ -256,8 +260,12 @@ func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {
 		Radius(theme.BorderRadius).
 		Pad(ui.EdgeInsets{Top: 8, Right: 12, Bottom: 8, Left: 12}).
 		W(w.Width).
+		Focusable(true).
 		OnTap(func() {
 			if !w.Disabled {
+				if !s.open {
+					ui.DismissAllPopups()
+				}
 				s.open = !s.open
 				s.SetState(nil)
 			}
@@ -275,10 +283,17 @@ func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {
 		if checked {
 			prefix = IconCheckboxChecked
 		}
+		bg := theme.BackgroundColor
+		if checked {
+			bg = theme.AccentColor
+		}
 		opts = append(opts, Container(
-			Text(prefix+" "+label).FontSize(theme.FontSizeBase).Color(theme.TextColor),
+			Row(
+				Icon(prefix).Size(theme.FontSizeBase).Color(theme.TextColor),
+				Text(label).FontSize(theme.FontSizeBase).Color(theme.TextColor),
+			).Gapf(6).AlignItems(ui.AlignCenter),
 		).
-			Background(colorToRender(theme.BackgroundColor)).
+			Background(colorToRender(bg)).
 			Pad(ui.EdgeInsets{Top: 6, Right: 12, Bottom: 6, Left: 12}).
 			W(w.Width).
 			OnTap(func() {
