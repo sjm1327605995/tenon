@@ -323,6 +323,7 @@ func (e *Engine) handleMouseInput() {
 
 		if e.mouseDownTarget != nil && e.rootRenderObject != nil {
 			target := e.hitTest(e.rootRenderObject, e.lastMouseX, e.lastMouseY)
+			e.updateFocus(target)
 			if target != nil && target == e.mouseDownTarget {
 				// 事件冒泡：从 target 向上查找第一个有 OnClick 的祖先
 				clickTarget := target
@@ -340,7 +341,6 @@ func (e *Engine) handleMouseInput() {
 			if e.mouseDownTarget.GetOnMouseUp() != nil {
 				e.mouseDownTarget.GetOnMouseUp()()
 			}
-			e.updateFocus(target)
 		}
 		e.mouseDownTarget = nil
 	}
@@ -505,9 +505,6 @@ func (e *Engine) hitTest(ro render.RenderObject, x, y float32) render.RenderObje
 	if ro == nil || !ro.IsVisible() {
 		return nil
 	}
-	if !ro.HitTest(x, y) {
-		return nil
-	}
 
 	scrollX, scrollY := float32(0), float32(0)
 	if s, ok := tryGetScroll(ro); ok {
@@ -516,12 +513,20 @@ func (e *Engine) hitTest(ro render.RenderObject, x, y float32) render.RenderObje
 	}
 
 	bounds := ro.GetBounds()
+
+	// 先递归检查所有子节点（后绘制的子节点优先接收事件）
 	for _, child := range ro.GetChildren() {
 		if result := e.hitTest(child, x-bounds.X+scrollX, y-bounds.Y+scrollY); result != nil {
 			return result
 		}
 	}
-	return ro
+
+	// 然后检查当前节点本身
+	if ro.HitTest(x, y) {
+		return ro
+	}
+
+	return nil
 }
 
 func (e *Engine) Draw(screen *ebiten.Image) {
@@ -685,7 +690,7 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 	if len(children) > 1 {
 		e.childrenBuf = append(e.childrenBuf[:0], children...)
 		sort.SliceStable(e.childrenBuf, func(i, j int) bool {
-			return e.childrenBuf[i].GetZIndex() < e.childrenBuf[j].GetZIndex()
+			return e.getSubtreeMaxZIndex(e.childrenBuf[i]) < e.getSubtreeMaxZIndex(e.childrenBuf[j])
 		})
 			// Copy to a new slice so recursive calls can't overwrite our iteration array.
 		children = make([]render.RenderObject, len(e.childrenBuf))
@@ -694,6 +699,17 @@ func (e *Engine) _drawRenderObject(screen *ebiten.Image, ro render.RenderObject,
 	for _, child := range children {
 		e.drawRenderObject(childScreen, child, childOffset)
 	}
+}
+
+// getSubtreeMaxZIndex 递归计算 RenderObject 子树中的最大 zIndex。
+func (e *Engine) getSubtreeMaxZIndex(ro render.RenderObject) int {
+	maxZ := ro.GetZIndex()
+	for _, child := range ro.GetChildren() {
+		if z := e.getSubtreeMaxZIndex(child); z > maxZ {
+			maxZ = z
+		}
+	}
+	return maxZ
 }
 
 func (e *Engine) drawRenderObjectWithTransform(screen *ebiten.Image, ro render.RenderObject, parentOffset render.Offset, t render.Transform) {

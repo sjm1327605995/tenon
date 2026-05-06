@@ -21,14 +21,8 @@ func UnregisterPopupDismisser(id int) {
 }
 
 // DismissAllPopups 关闭所有已注册的 popup。
-// 调用前先清空列表，防止回调中注册的新 popup 被误关。
 func DismissAllPopups() {
-	listeners := make(map[int]func())
-	for k, v := range popupDismissers {
-		listeners[k] = v
-	}
-	popupDismissers = make(map[int]func())
-	for _, fn := range listeners {
+	for _, fn := range popupDismissers {
 		fn()
 	}
 }
