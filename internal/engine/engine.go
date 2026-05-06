@@ -350,7 +350,6 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 	focuser := e.findFocuser(target)
 	if focuser != nil {
 		if e.focusTarget != focuser {
-			oldFocus := e.focusTarget
 			if e.focusTarget != nil {
 				if f, ok := e.focusTarget.(Focusabler); ok {
 					f.Blur()
@@ -360,10 +359,7 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 				f.Focus()
 			}
 			e.focusTarget = focuser
-			// 只在焦点从有到无时关闭 popup，避免点击 trigger 时误关
-			if oldFocus != nil {
-				DismissAllPopups()
-			}
+			DismissAllPopups()
 		}
 	} else {
 		if e.focusTarget != nil {
@@ -371,8 +367,8 @@ func (e *Engine) updateFocus(target render.RenderObject) {
 				f.Blur()
 			}
 			e.focusTarget = nil
-			DismissAllPopups()
 		}
+		DismissAllPopups()
 	}
 }
 
@@ -380,6 +376,11 @@ func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 	// 从当前节点向上搜索最近的可聚焦祖先
 	for ro != nil {
 		if f, ok := ro.(Focusabler); ok {
+			// 跳过显式标记为不可聚焦的 RenderBox
+			if fb, ok := ro.(interface{ IsFocusable() bool }); ok && !fb.IsFocusable() {
+				ro = ro.GetParent()
+				continue
+			}
 			return f.(render.RenderObject)
 		}
 		ro = ro.GetParent()
@@ -514,8 +515,31 @@ func (e *Engine) hitTest(ro render.RenderObject, x, y float32) render.RenderObje
 
 	bounds := ro.GetBounds()
 
-	// 先递归检查所有子节点（后绘制的子节点优先接收事件）
-	for _, child := range ro.GetChildren() {
+	// 子节点按 z-index 降序排列（z-index 相同时后绘制的优先），
+	// 确保视觉上层的元素优先接收事件。
+	children := ro.GetChildren()
+	if len(children) > 1 {
+		type childInfo struct {
+			ro  render.RenderObject
+			idx int
+			z   int
+		}
+		infos := make([]childInfo, len(children))
+		for i, c := range children {
+			infos[i] = childInfo{ro: c, idx: i, z: e.getSubtreeMaxZIndex(c)}
+		}
+		sort.Slice(infos, func(i, j int) bool {
+			if infos[i].z != infos[j].z {
+				return infos[i].z > infos[j].z
+			}
+			return infos[i].idx > infos[j].idx
+		})
+		children = make([]render.RenderObject, len(infos))
+		for i, info := range infos {
+			children[i] = info.ro
+		}
+	}
+	for _, child := range children {
 		if result := e.hitTest(child, x-bounds.X+scrollX, y-bounds.Y+scrollY); result != nil {
 			return result
 		}
@@ -638,6 +662,61 @@ func (e *Engine) syncBounds(ro render.RenderObject) {
 	ro.SetBounds(bounds)
 	for _, child := range ro.GetChildren() {
 		e.syncBounds(child)
+	}
+
+	// 对于 Stack，Yoga 在计算父节点尺寸时会忽略 absolute 子节点，
+	// 导致 Stack 的 bounds 可能为 0，进而导致整个 Stack 及其子树被跳过绘制。
+	// 这里基于子元素的实际 bounds 扩展 Stack 的 bounds，并调整无约束的 center 子元素位置。
+	if stack, ok := ro.(*render.RenderStack); ok {
+		e.expandStackBounds(stack)
+	}
+}
+
+// expandStackBounds 基于子元素 bounds 扩展 Stack 的 bounds，并手动居中无约束的 absolute 子元素。
+func (e *Engine) expandStackBounds(stack *render.RenderStack) {
+	var maxW, maxH float32
+	for _, child := range stack.GetChildren() {
+		b := child.GetBounds()
+		childW := b.X + b.Width
+		childH := b.Y + b.Height
+		if childW > maxW {
+			maxW = childW
+		}
+		if childH > maxH {
+			maxH = childH
+		}
+	}
+	bounds := stack.GetBounds()
+	changed := false
+	if maxW > bounds.Width {
+		bounds.Width = maxW
+		changed = true
+	}
+	if maxH > bounds.Height {
+		bounds.Height = maxH
+		changed = true
+	}
+	if changed {
+		stack.SetBounds(bounds)
+	}
+
+	// 对于没有方向约束的 absolute 子元素（Center 模式），手动居中
+	for _, child := range stack.GetChildren() {
+		childYoga := child.GetYoga()
+		if childYoga == nil || childYoga.StyleGetPositionType() != yoga.PositionTypeAbsolute {
+			continue
+		}
+		left := childYoga.StyleGetPosition(yoga.EdgeLeft)
+		right := childYoga.StyleGetPosition(yoga.EdgeRight)
+		top := childYoga.StyleGetPosition(yoga.EdgeTop)
+		bottom := childYoga.StyleGetPosition(yoga.EdgeBottom)
+		if !left.IsUndefined() || !right.IsUndefined() || !top.IsUndefined() || !bottom.IsUndefined() {
+			continue
+		}
+		cb := child.GetBounds()
+		cb.X = (bounds.Width - cb.Width) / 2
+		cb.Y = (bounds.Height - cb.Height) / 2
+		child.SetBounds(cb)
 	}
 }
 

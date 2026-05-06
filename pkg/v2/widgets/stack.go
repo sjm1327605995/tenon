@@ -9,8 +9,12 @@ import (
 // StackWidget 是层叠布局容器，支持绝对定位子元素。
 type StackWidget struct {
 	ui.BaseWidget
-	children []ui.Widget
-	zIndex   int
+	children   []ui.Widget
+	zIndex     int
+	width      float32
+	height     float32
+	background *render.Color
+	borderRadius float32
 }
 
 // Stack 创建层叠布局容器。
@@ -20,6 +24,26 @@ func Stack(children ...ui.Widget) StackWidget {
 
 func (s StackWidget) Z(v int) StackWidget {
 	s.zIndex = v
+	return s
+}
+
+func (s StackWidget) W(v float32) StackWidget {
+	s.width = v
+	return s
+}
+
+func (s StackWidget) H(v float32) StackWidget {
+	s.height = v
+	return s
+}
+
+func (s StackWidget) Background(c render.Color) StackWidget {
+	s.background = &c
+	return s
+}
+
+func (s StackWidget) Radius(v float32) StackWidget {
+	s.borderRadius = v
 	return s
 }
 
@@ -39,6 +63,18 @@ func (e *StackElement) CreateRenderObject() render.RenderObject {
 	r := render.NewRenderStack()
 	w := e.GetWidget().(StackWidget)
 	r.SetZIndex(w.zIndex)
+	if w.background != nil {
+		r.SetBackgroundColor(w.background)
+	}
+	if w.borderRadius > 0 {
+		r.SetBorderRadius(w.borderRadius)
+	}
+	if w.width > 0 {
+		r.StyleSetWidth(w.width)
+	}
+	if w.height > 0 {
+		r.StyleSetHeight(w.height)
+	}
 	return r
 }
 
@@ -47,6 +83,26 @@ func (e *StackElement) UpdateRenderObject(oldWidget ui.Widget) {
 	old := oldWidget.(StackWidget)
 	if old.zIndex != w.zIndex {
 		e.ro.SetZIndex(w.zIndex)
+	}
+	if !render.ColorPtrEquals(old.background, w.background) {
+		e.ro.SetBackgroundColor(w.background)
+	}
+	if old.borderRadius != w.borderRadius {
+		e.ro.SetBorderRadius(w.borderRadius)
+	}
+	if old.width != w.width {
+		if w.width > 0 {
+			e.ro.StyleSetWidth(w.width)
+		} else {
+			e.ro.StyleSetWidthAuto()
+		}
+	}
+	if old.height != w.height {
+		if w.height > 0 {
+			e.ro.StyleSetHeight(w.height)
+		} else {
+			e.ro.StyleSetHeightAuto()
+		}
 	}
 }
 
@@ -82,6 +138,7 @@ type PositionedWidget struct {
 	width  float32
 	height float32
 	zIndex int
+	center bool
 }
 
 // Positioned 创建绝对定位包装器。
@@ -124,6 +181,13 @@ func (p PositionedWidget) Z(v int) PositionedWidget {
 	return p
 }
 
+// Center 将子元素在 Stack 中水平和垂直居中。
+// 子元素需要具有固定尺寸（或通过内容确定尺寸），否则会被拉伸填满。
+func (p PositionedWidget) Center() PositionedWidget {
+	p.center = true
+	return p
+}
+
 func (p PositionedWidget) CreateElement() ui.Element {
 	e := &PositionedElement{}
 	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, p)
@@ -150,17 +214,25 @@ func (e *PositionedElement) CreateRenderObject() render.RenderObject {
 	w := e.GetWidget().(PositionedWidget)
 	r := render.NewRenderBox()
 	r.StyleSetPositionType(yoga.PositionTypeAbsolute)
-	if w.left >= 0 {
-		r.StyleSetPosition(yoga.EdgeLeft, w.left)
-	}
-	if w.top >= 0 {
-		r.StyleSetPosition(yoga.EdgeTop, w.top)
-	}
-	if w.right >= 0 {
-		r.StyleSetPosition(yoga.EdgeRight, w.right)
-	}
-	if w.bottom >= 0 {
-		r.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+	if w.center {
+		// 清除所有方向约束，居中将由 syncBounds 手动计算
+		r.StyleSetPosition(yoga.EdgeLeft, yoga.Undefined)
+		r.StyleSetPosition(yoga.EdgeRight, yoga.Undefined)
+		r.StyleSetPosition(yoga.EdgeTop, yoga.Undefined)
+		r.StyleSetPosition(yoga.EdgeBottom, yoga.Undefined)
+	} else {
+		if w.left >= 0 {
+			r.StyleSetPosition(yoga.EdgeLeft, w.left)
+		}
+		if w.top >= 0 {
+			r.StyleSetPosition(yoga.EdgeTop, w.top)
+		}
+		if w.right >= 0 {
+			r.StyleSetPosition(yoga.EdgeRight, w.right)
+		}
+		if w.bottom >= 0 {
+			r.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+		}
 	}
 	if w.width > 0 {
 		r.StyleSetWidth(w.width)
@@ -176,50 +248,68 @@ func (e *PositionedElement) UpdateRenderObject(oldWidget ui.Widget) {
 	w := e.GetWidget().(PositionedWidget)
 	old := oldWidget.(PositionedWidget)
 
-	if old.left != w.left {
-		if w.left >= 0 {
-		e.ro.StyleSetPosition(yoga.EdgeLeft, w.left)
+	if old.center != w.center {
+		if w.center {
+			// 清除所有方向约束，居中将由 syncBounds 手动计算
+			e.ro.StyleSetPosition(yoga.EdgeLeft, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeRight, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeTop, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeBottom, yoga.Undefined)
 		} else {
-		e.ro.StyleSetPosition(yoga.EdgeLeft, 0)
+			// 取消 center 时重置为未设置
+			e.ro.StyleSetPosition(yoga.EdgeLeft, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeRight, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeTop, yoga.Undefined)
+			e.ro.StyleSetPosition(yoga.EdgeBottom, yoga.Undefined)
 		}
 	}
-	if old.top != w.top {
-		if w.top >= 0 {
-		e.ro.StyleSetPosition(yoga.EdgeTop, w.top)
-		} else {
-		e.ro.StyleSetPosition(yoga.EdgeTop, 0)
+
+	if !w.center {
+		if old.left != w.left {
+			if w.left >= 0 {
+				e.ro.StyleSetPosition(yoga.EdgeLeft, w.left)
+			} else {
+				e.ro.StyleSetPosition(yoga.EdgeLeft, yoga.Undefined)
+			}
 		}
-	}
-	if old.right != w.right {
-		if w.right >= 0 {
-		e.ro.StyleSetPosition(yoga.EdgeRight, w.right)
-		} else {
-		e.ro.StyleSetPosition(yoga.EdgeRight, 0)
+		if old.top != w.top {
+			if w.top >= 0 {
+				e.ro.StyleSetPosition(yoga.EdgeTop, w.top)
+			} else {
+				e.ro.StyleSetPosition(yoga.EdgeTop, yoga.Undefined)
+			}
 		}
-	}
-	if old.bottom != w.bottom {
-		if w.bottom >= 0 {
-		e.ro.StyleSetPosition(yoga.EdgeBottom, w.bottom)
-		} else {
-		e.ro.StyleSetPosition(yoga.EdgeBottom, 0)
+		if old.right != w.right {
+			if w.right >= 0 {
+				e.ro.StyleSetPosition(yoga.EdgeRight, w.right)
+			} else {
+				e.ro.StyleSetPosition(yoga.EdgeRight, yoga.Undefined)
+			}
+		}
+		if old.bottom != w.bottom {
+			if w.bottom >= 0 {
+				e.ro.StyleSetPosition(yoga.EdgeBottom, w.bottom)
+			} else {
+				e.ro.StyleSetPosition(yoga.EdgeBottom, yoga.Undefined)
+			}
 		}
 	}
 	if old.width != w.width {
 		if w.width > 0 {
-		e.ro.StyleSetWidth(w.width)
+			e.ro.StyleSetWidth(w.width)
 		} else {
-		e.ro.StyleSetWidthAuto()
+			e.ro.StyleSetWidthAuto()
 		}
 	}
 	if old.height != w.height {
 		if w.height > 0 {
-		e.ro.StyleSetHeight(w.height)
+			e.ro.StyleSetHeight(w.height)
 		} else {
-		e.ro.StyleSetHeightAuto()
+			e.ro.StyleSetHeightAuto()
 		}
 	}
 	if old.zIndex != w.zIndex {
-	e.ro.SetZIndex(w.zIndex)
+		e.ro.SetZIndex(w.zIndex)
 	}
 }
 

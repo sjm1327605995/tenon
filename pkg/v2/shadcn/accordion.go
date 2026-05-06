@@ -1,7 +1,6 @@
 package shadcn
 
 import (
-	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
 )
@@ -33,32 +32,24 @@ func ShadcnAccordion(items []AccordionPane, expanded map[int]bool, onChange func
 		// Header row
 		header := widgets.Row(
 			widgets.Text(item.Title).
-				Color(render.NewColorFrom(t.TextColor)).
-				FontSize(14),
+				Color(t.TextColor).
+				FontSize(t.FontSizeBase),
 			widgets.Container(widgets.Text("")).Grow(1),
 			widgets.Icon(chevron).
-				Color(render.NewColorFrom(t.MutedForegroundColor)).
-				FontSize(12),
+				Color(t.MutedForegroundColor).
+				FontSize(t.FontSizeSM),
 		).AlignItems(ui.AlignCenter).JustifyContent(ui.JustifySpaceBetween)
 
-		// Full-width clickable ghost button as trigger
-		trigger := widgets.Button("").
-			Variantf(widgets.ButtonGhost).
+		// Clickable header container (no ghost button overlay needed)
+		trigger := widgets.Container(header).
+			Pad(ui.EdgeInsetsSymmetric(12, 0)).
 			OnTap(func() {
 				if onChange != nil {
 					onChange(idx)
 				}
 			})
 
-		// Stack: ghost button fills area, header text overlays on top
-		// Use Positioned for the trigger to avoid flex layout circular dependency
-		// (HPct on a non-positioned child inside a Stack with auto-height).
-		triggerStack := widgets.Stack(
-			widgets.Container(header).Pad(ui.EdgeInsetsSymmetric(12, 0)).WPct(100),
-			widgets.Positioned(widgets.Container(trigger).WPct(100).HPct(100)).L(0).T(0),
-		)
-
-		children = append(children, triggerStack)
+		children = append(children, trigger)
 
 		if isOpen && item.Content != nil {
 			children = append(children, widgets.Container(item.Content).Pad(ui.EdgeInsetsOnly(0, 0, 12, 12)))

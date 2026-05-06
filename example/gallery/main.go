@@ -65,7 +65,7 @@ func gallerySlider() tenon.Widget {
 	val := float32(50)
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Column(
-			tenon.Text(fmt.Sprintf("Value: %.0f", val)).FontSize(14),
+			tenon.Text(fmt.Sprintf("Value: %.0f", val)).FontSize(tenon.GetTheme().FontSizeBase),
 			tenon.Slider(0, 100, val, func(v float32) {
 				setState(func() { val = v })
 			}),
@@ -78,9 +78,9 @@ func galleryTabs() tenon.Widget {
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Tabs(
 			[]tenon.TabItem{
-				{Label: "Account", Content: tenon.Text("Manage your account settings.").FontSize(14)},
-				{Label: "Password", Content: tenon.Text("Change your password.").FontSize(14)},
-				{Label: "Notifications", Content: tenon.Text("Set notification preferences.").FontSize(14)},
+				{Label: "Account", Content: tenon.Text("Manage your account settings.").FontSize(tenon.GetTheme().FontSizeBase)},
+				{Label: "Password", Content: tenon.Text("Change your password.").FontSize(tenon.GetTheme().FontSizeBase)},
+				{Label: "Notifications", Content: tenon.Text("Set notification preferences.").FontSize(tenon.GetTheme().FontSizeBase)},
 			},
 			active,
 			func(idx int) { setState(func() { active = idx }) },
@@ -106,7 +106,7 @@ func galleryPagination() tenon.Widget {
 	page := 1
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Column(
-			tenon.Text(fmt.Sprintf("Current page: %d", page)).FontSize(14),
+			tenon.Text(fmt.Sprintf("Current page: %d", page)).FontSize(tenon.GetTheme().FontSizeBase),
 			tenon.Pagination(page, 10, func(p int) {
 				setState(func() { page = p })
 			}),
@@ -119,9 +119,9 @@ func galleryAccordion() tenon.Widget {
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Accordion(
 			[]tenon.AccordionPane{
-				{Title: "Is it accessible?", Content: tenon.Text("Yes. It adheres to the WAI-ARIA design pattern.").FontSize(14)},
-				{Title: "Is it styled?", Content: tenon.Text("Yes. It comes with default styles that match the other components.").FontSize(14)},
-				{Title: "Is it animated?", Content: tenon.Text("Yes. It's animated by default, but you can disable it.").FontSize(14)},
+				{Title: "Is it accessible?", Content: tenon.Text("Yes. It adheres to the WAI-ARIA design pattern.").FontSize(tenon.GetTheme().FontSizeBase)},
+				{Title: "Is it styled?", Content: tenon.Text("Yes. It comes with default styles that match the other components.").FontSize(tenon.GetTheme().FontSizeBase)},
+				{Title: "Is it animated?", Content: tenon.Text("Yes. It's animated by default, but you can disable it.").FontSize(tenon.GetTheme().FontSizeBase)},
 			},
 			expanded,
 			func(idx int) {
@@ -154,7 +154,7 @@ func galleryTextarea() tenon.Widget {
 			tenon.Textarea(text, func(v string) {
 				setState(func() { text = v })
 			}),
-			tenon.Text(fmt.Sprintf("Length: %d", len(text))).FontSize(12),
+			tenon.Text(fmt.Sprintf("Length: %d", len(text))).FontSize(tenon.GetTheme().FontSizeSM),
 		).Gapf(4)
 	})
 }
@@ -163,7 +163,7 @@ func galleryCalendar() tenon.Widget {
 	selected := time.Now()
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Column(
-			tenon.Text(fmt.Sprintf("Selected: %s", selected.Format("2006-01-02"))).FontSize(14),
+			tenon.Text(fmt.Sprintf("Selected: %s", selected.Format("2006-01-02"))).FontSize(tenon.GetTheme().FontSizeBase),
 			tenon.Calendar(selected.Year(), selected.Month(), selected, func(d time.Time) {
 				setState(func() { selected = d })
 			}),
@@ -185,7 +185,7 @@ func galleryAnimatedContainer() tenon.Widget {
 		return tenon.Column(
 			tenon.Row(
 				tenon.NewAnimatedContainer().
-					WithChild(tenon.Text("Tap Toggle").FontSize(14).Color(tenon.NewColor(255, 255, 255, 255))).
+					WithChild(tenon.Text("Tap Toggle").FontSize(tenon.GetTheme().FontSizeBase).Color(tenon.NewColor(255, 255, 255, 255))).
 					WithSize(w, h).
 					WithBackground(bg).
 					WithRadius(r).
@@ -222,25 +222,24 @@ func galleryTextField() tenon.Widget {
 	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
 		return tenon.Column(
 			tenon.Row(
-				tenon.Container(tenon.Text("Name:").FontSize(14)).W(60),
+				tenon.Container(tenon.Text("Name:").FontSize(tenon.GetTheme().FontSizeBase)).W(60),
 				tenon.TextField(name).
 					W(200).
 					OnChange(func(v string) { setState(func() { name = v }) }),
 			).Gapf(8).AlignItems(tenon.AlignCenter),
 			tenon.Row(
-				tenon.Container(tenon.Text("Email:").FontSize(14)).W(60),
+				tenon.Container(tenon.Text("Email:").FontSize(tenon.GetTheme().FontSizeBase)).W(60),
 				tenon.TextField(email).
 					W(200).
 					OnChange(func(v string) { setState(func() { email = v }) }),
 			).Gapf(8).AlignItems(tenon.AlignCenter),
-			tenon.Text(fmt.Sprintf("Name: %s | Email: %s", name, email)).FontSize(12).Color(tenon.GetTheme().TextMutedColor),
+			tenon.Text(fmt.Sprintf("Name: %s | Email: %s", name, email)).FontSize(tenon.GetTheme().FontSizeSM).Color(tenon.GetTheme().TextMutedColor),
 		).Gapf(8)
 	})
 }
 
 func galleryStack() tenon.Widget {
 	return tenon.Stack(
-		tenon.Container(tenon.Text("")).W(300).H(120).Background(*tenon.NewColor(243, 244, 246, 255)).Radius(8),
 		tenon.Positioned(
 			tenon.Badge("Top-Left", tenon.BadgeDefault),
 		).L(8).T(8),
@@ -254,9 +253,9 @@ func galleryStack() tenon.Widget {
 			tenon.Badge("Bottom-Right", tenon.BadgeDestructive),
 		).R(8).B(8),
 		tenon.Positioned(
-			tenon.Text("Center").FontSize(14),
-		).L(120).T(48),
-	)
+			tenon.Text("Center").FontSize(tenon.GetTheme().FontSizeBase),
+		).Center(),
+	).W(300).H(120).Background(*tenon.NewColor(243, 244, 246, 255)).Radius(8)
 }
 
 func galleryEditableText() tenon.Widget {
@@ -269,7 +268,7 @@ func galleryEditableText() tenon.Widget {
 				OnChange(func(v string) {
 					setState(func() { text = v })
 				}),
-			tenon.Text(fmt.Sprintf("Content: %s", text)).FontSize(12).Color(tenon.GetTheme().TextMutedColor),
+			tenon.Text(fmt.Sprintf("Content: %s", text)).FontSize(tenon.GetTheme().FontSizeSM).Color(tenon.GetTheme().TextMutedColor),
 		).Gapf(4)
 	})
 }
@@ -334,12 +333,12 @@ func (g *galleryApp) Build() tenon.Widget {
 		tenon.Column(
 			// Header
 			tenon.Text("Tenon UI Gallery").FontSize(28).Color(t.TextColor),
-			tenon.Text("Shadcn-style components for Go").FontSize(14).Color(muted),
+			tenon.Text("Shadcn-style components for Go").FontSize(tenon.GetTheme().FontSizeBase).Color(muted),
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Header
 			tenon.Text("Tenon UI Gallery").FontSize(28).Color(t.TextColor),
-			tenon.Text("Shadcn-style components for Go").FontSize(14).Color(muted),
+			tenon.Text("Shadcn-style components for Go").FontSize(tenon.GetTheme().FontSizeBase).Color(muted),
 			tenon.Separator(tenon.SeparatorHorizontal),
 
 			// Badge
@@ -390,7 +389,7 @@ func (g *galleryApp) Build() tenon.Widget {
 				"Beautiful Card",
 				"A card component with title, description and actions.",
 				[]tenon.Widget{
-					tenon.Text("This is the card body content. You can put any widgets here.").FontSize(14).Color(t.TextColor),
+					tenon.Text("This is the card body content. You can put any widgets here.").FontSize(tenon.GetTheme().FontSizeBase).Color(t.TextColor),
 				},
 				[]tenon.Widget{
 					tenon.Button("Cancel").Variantf(tenon.ButtonOutline).OnTap(func() {}),
@@ -551,9 +550,9 @@ func (g *galleryApp) Build() tenon.Widget {
 			// Separator demo
 			sectionTitle("Separator"),
 			tenon.Row(
-				tenon.Text("Left").FontSize(14),
+				tenon.Text("Left").FontSize(tenon.GetTheme().FontSizeBase),
 				tenon.Separator(tenon.SeparatorVertical),
-				tenon.Text("Right").FontSize(14),
+				tenon.Text("Right").FontSize(tenon.GetTheme().FontSizeBase),
 			).Gapf(8),
 		).Gapf(20).Paddingf(tenon.EdgeInsetsAll(24)),
 	)
