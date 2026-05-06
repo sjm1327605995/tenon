@@ -25,9 +25,9 @@ func ShadcnAccordion(items []AccordionPane, expanded map[int]bool, onChange func
 	for i, item := range items {
 		idx := i
 		isOpen := expanded[idx]
-		chevron := "▶"
+		chevron := widgets.IconChevronRight
 		if isOpen {
-			chevron = "▼"
+			chevron = widgets.IconChevronDown
 		}
 
 		// Header row
@@ -36,7 +36,7 @@ func ShadcnAccordion(items []AccordionPane, expanded map[int]bool, onChange func
 				Color(render.NewColorFrom(t.TextColor)).
 				FontSize(14),
 			widgets.Container(widgets.Text("")).Grow(1),
-			widgets.Text(chevron).
+			widgets.Icon(chevron).
 				Color(render.NewColorFrom(t.MutedForegroundColor)).
 				FontSize(12),
 		).AlignItems(ui.AlignCenter).JustifyContent(ui.JustifySpaceBetween)

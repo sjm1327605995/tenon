@@ -2,8 +2,6 @@ package svg
 
 import (
 	"image/color"
-	"image/png"
-	"os"
 	"testing"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -29,6 +27,7 @@ func TestRenderSearchIcon(t *testing.T) {
 	imgW := int(viewW * scale)
 	imgH := int(viewH * scale)
 	img := ebiten.NewImage(imgW, imgH)
+	defer img.Dispose()
 	img.Fill(color.RGBA{R: 255, G: 255, B: 255, A: 255})
 
 	op := &vector.DrawPathOptions{}
@@ -36,15 +35,5 @@ func TestRenderSearchIcon(t *testing.T) {
 	op.AntiAlias = true
 
 	vector.FillPath(img, path, &vector.FillOptions{}, op)
-
-	f, err := os.Create("search_icon_test.png")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	if err := png.Encode(f, img); err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Written search_icon_test.png (%dx%d)", imgW, imgH)
+	t.Logf("Rendered search icon %dx%d (GPU draw only, no readback)", imgW, imgH)
 }

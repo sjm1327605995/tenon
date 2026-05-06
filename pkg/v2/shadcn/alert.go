@@ -34,7 +34,7 @@ func ShadcnAlert(title, desc string, variant AlertVariant) ui.Widget {
 
 	return widgets.Container(
 		widgets.Row(
-			widgets.Text("ⓘ").FontSize(16).Color(render.NewColorFrom(iconColor)),
+			widgets.Icon(widgets.IconInfo).FontSize(16).Color(render.NewColorFrom(iconColor)),
 			body,
 		).AlignItems(ui.AlignCenter).Gapf(12),
 	).Background(colorToRender(t.CardColor)).Border(colorToRender(t.BorderColor), 1).Radius(t.BorderRadius).Pad(ui.EdgeInsetsAll(16)).WPct(100)

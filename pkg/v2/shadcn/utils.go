@@ -7,11 +7,11 @@ import (
 )
 
 // newColor converts color.Color to *render.Color.
-func newColor(c interface{}) *render.Color {
+func newColor(c color.Color) *render.Color {
 	if c == nil {
 		return nil
 	}
-	r, g, b, a := c.(interface{ RGBA() (uint32, uint32, uint32, uint32) }).RGBA()
+	r, g, b, a := c.RGBA()
 	return render.NewColor(uint8(r>>8), uint8(g>>8), uint8(b>>8), uint8(a>>8))
 }
 

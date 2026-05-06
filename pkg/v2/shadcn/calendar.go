@@ -16,14 +16,14 @@ func ShadcnCalendar(year int, month time.Month, selected time.Time, onSelect fun
 
 	// Header
 	header := widgets.Row(
-		widgets.Button("←").Variantf(widgets.ButtonGhost).OnTap(func() {
+		widgets.Button(widgets.IconText(widgets.IconArrowLeft)).Variantf(widgets.ButtonGhost).OnTap(func() {
 			if onSelect != nil {
 				prev := time.Date(year, month, 1, 0, 0, 0, 0, time.Local).AddDate(0, -1, 0)
 				onSelect(prev)
 			}
 		}),
 		widgets.Container(widgets.Text(title).Color(render.NewColorFrom(t.TextColor)).FontSize(16)).Grow(1),
-		widgets.Button("→").Variantf(widgets.ButtonGhost).OnTap(func() {
+		widgets.Button(widgets.IconText(widgets.IconArrowRight)).Variantf(widgets.ButtonGhost).OnTap(func() {
 			if onSelect != nil {
 				next := time.Date(year, month, 1, 0, 0, 0, 0, time.Local).AddDate(0, 1, 0)
 				onSelect(next)

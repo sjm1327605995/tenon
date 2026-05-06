@@ -60,12 +60,13 @@ var (
 type (
 	AnimationController = ui.AnimationController
 	AnimationStatus     = ui.AnimationStatus
-	Tween[T any]        = ui.Tween[T]
-	Animation[T any]    = ui.Animation[T]
 	Curve               = ui.Curve
 	LinearCurve         = ui.LinearCurve
 	EaseInOutCurve      = ui.EaseInOutCurve
 )
+
+// 注意：Tween[T] 和 Animation[T] 是泛型类型，无法通过别名导出。
+// 用户需要直接使用 ui.Tween[T] 和 ui.Animation[T]。
 
 // 动画常量。
 const (
@@ -83,6 +84,7 @@ var (
 	Container          = widgets.Container
 	Button             = widgets.Button
 	Image              = widgets.Image
+	Icon               = widgets.Icon
 	Stack              = widgets.Stack
 	Positioned         = widgets.Positioned
 	Scroll             = widgets.Scroll
@@ -91,6 +93,36 @@ var (
 	NewAnimatedContainer = widgets.NewAnimatedContainer
 	Select               = widgets.Select
 	MultiSelect          = widgets.MultiSelect
+)
+
+// 图标常量。
+const (
+	IconArrowUp         = widgets.IconArrowUp
+	IconArrowDown       = widgets.IconArrowDown
+	IconArrowLeft       = widgets.IconArrowLeft
+	IconArrowRight      = widgets.IconArrowRight
+	IconChevronRight    = widgets.IconChevronRight
+	IconChevronDown     = widgets.IconChevronDown
+	IconCheckboxEmpty   = widgets.IconCheckboxEmpty
+	IconCheckboxChecked = widgets.IconCheckboxChecked
+	IconInfo            = widgets.IconInfo
+	IconClose           = widgets.IconClose
+	IconCheck           = widgets.IconCheck
+	IconMinus           = widgets.IconMinus
+)
+
+// 图标模式。
+const (
+	IconModeUnicode = widgets.IconModeUnicode
+	IconModeASCII   = widgets.IconModeASCII
+	IconModeAuto    = widgets.IconModeAuto
+)
+
+// 图标配置。
+var (
+	SetIconMode           = widgets.SetIconMode
+	GetIconMode           = widgets.GetIconMode
+	RegisterIconFallback  = widgets.RegisterIconFallback
 )
 
 // Shadcn 组件。

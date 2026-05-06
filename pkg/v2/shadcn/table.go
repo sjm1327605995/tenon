@@ -39,12 +39,12 @@ func ShadcnTable(headers []string, rows [][]string) ui.Widget {
 	children = append(children, headerRow)
 	for i, row := range dataRows {
 		if cw, ok := row.(interface{ SetKey(k ui.Key) }); ok {
-			cw.SetKey(ui.NewValueKey(fmt.Sprintf("table-row-%d", i)))
+			cw.SetKey(ui.NewStringKey(fmt.Sprintf("table-row-%d", i)))
 		}
 		children = append(children, row)
 	}
 
 	column := widgets.Column(children...)
-	column.SetKey(ui.NewValueKey("shadcn-table"))
+	column.SetKey(ui.NewStringKey("shadcn-table"))
 	return column
 }
