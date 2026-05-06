@@ -63,27 +63,15 @@ func (r *RenderButton) Paint(screen *ebiten.Image, offset Offset) {
 	// 根据状态确定背景色
 	bgColor := r.resolveBgColor()
 
-	// 绘制阴影
-	if r.ShadowColor != nil && r.State != ButtonStateDisabled {
-		DrawShadow(screen, x, y, w, h, r.BorderRadius, r.ShadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
+	// Disabled 状态不绘制阴影
+	if r.State != ButtonStateDisabled {
+		PaintBoxShadow(screen, x, y, w, h, r.BorderRadius, r.ShadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
 	}
+	PaintBackground(screen, x, y, w, h, r.BorderRadius, bgColor)
 
-	// 绘制背景
-	if bgColor != nil {
-		if !r.BorderRadius.IsZero() {
-			DrawRoundedRectFill(screen, x, y, w, h, r.BorderRadius, bgColor)
-		} else {
-			DrawRect(screen, x, y, w, h, bgColor)
-		}
-	}
-
-	// 绘制边框
-	if r.BorderColor != nil && r.BorderWidth > 0 && !r.IsLink {
-		if !r.BorderRadius.IsZero() {
-			DrawRoundedRectStroke(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, r.BorderColor)
-		} else {
-			DrawBorder(screen, x, y, w, h, r.BorderWidth, r.BorderColor)
-		}
+	// Link 变体不绘制边框
+	if !r.IsLink {
+		PaintBorder(screen, x, y, w, h, r.BorderRadius, r.BorderWidth, r.BorderColor)
 	}
 
 	// 绘制 loading spinner

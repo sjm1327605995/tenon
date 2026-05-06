@@ -47,21 +47,13 @@ func (r *RenderRadio) Paint(screen *ebiten.Image, offset Offset) {
 	centerX := offset.X + bounds.X + r.BoxSize/2
 
 	if r.Selected {
-		r.drawFilledCircle(screen, centerX, centerY, r.BoxSize/2, r.FillColor)
-		r.drawFilledCircle(screen, centerX, centerY, r.BoxSize/4, r.InnerColor)
+		DrawFilledCirclePath(screen, centerX, centerY, r.BoxSize/2, r.FillColor)
+		DrawFilledCirclePath(screen, centerX, centerY, r.BoxSize/4, r.InnerColor)
 	} else {
-		r.drawFilledCircle(screen, centerX, centerY, r.BoxSize/2, color.White)
-		r.drawStrokedCircle(screen, centerX, centerY, r.BoxSize/2, 1.5, r.BorderColor)
+		DrawFilledCirclePath(screen, centerX, centerY, r.BoxSize/2, color.White)
+		DrawStrokedCirclePath(screen, centerX, centerY, r.BoxSize/2, 1.5, r.BorderColor)
 	}
 
 	// 调用父类 Paint 绘制子节点（label）
 	r.RenderBox.Paint(screen, offset)
-}
-
-func (r *RenderRadio) drawFilledCircle(screen *ebiten.Image, cx, cy, radius float32, clr color.Color) {
-	DrawFilledCirclePath(screen, cx, cy, radius, clr)
-}
-
-func (r *RenderRadio) drawStrokedCircle(screen *ebiten.Image, cx, cy, radius, strokeWidth float32, clr color.Color) {
-	DrawStrokedCirclePath(screen, cx, cy, radius, strokeWidth, clr)
 }
