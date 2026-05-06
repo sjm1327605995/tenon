@@ -130,8 +130,9 @@ var (
 	NavPushReplacement    = internal.NavPushReplacement
 	NavPopToRoot          = internal.NavPopToRoot
 	NewFocusManager       = internal.NewFocusManager
-	RegisterPopupDismisser = internal.RegisterPopupDismisser
+	RegisterPopupDismisser   = internal.RegisterPopupDismisser
 	UnregisterPopupDismisser = internal.UnregisterPopupDismisser
+	DismissAllPopups         = internal.DismissAllPopups
 	NewShortcutManager    = internal.NewShortcutManager
 	NewClipboard          = internal.NewClipboard
 	GetClipboard          = internal.GetClipboard
