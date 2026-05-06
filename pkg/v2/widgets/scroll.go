@@ -11,6 +11,7 @@ type ScrollWidget struct {
 	child      ui.Widget
 	width      float32
 	height     float32
+	maxHeight  float32
 	flexGrow   float32
 	flexShrink float32
 }
@@ -27,6 +28,11 @@ func (s ScrollWidget) W(v float32) ScrollWidget {
 
 func (s ScrollWidget) H(v float32) ScrollWidget {
 	s.height = v
+	return s
+}
+
+func (s ScrollWidget) MaxH(v float32) ScrollWidget {
+	s.maxHeight = v
 	return s
 }
 
@@ -94,6 +100,9 @@ func applyScrollProps(r *render.RenderScroll, old, w ScrollWidget) {
 		} else {
 			r.StyleSetHeightAuto()
 		}
+	}
+	if old.maxHeight != w.maxHeight && w.maxHeight > 0 {
+		r.StyleSetMaxHeight(w.maxHeight)
 	}
 	if old.flexGrow != w.flexGrow {
 		r.StyleSetFlexGrow(w.flexGrow)

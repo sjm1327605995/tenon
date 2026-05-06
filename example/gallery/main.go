@@ -275,29 +275,39 @@ func galleryEditableText() tenon.Widget {
 }
 
 func gallerySelect() tenon.Widget {
-	return tenon.Column(
-		tenon.Select([]tenon.SelectOption{
-			{Value: "go", Label: "Go"},
-			{Value: "rust", Label: "Rust"},
-			{Value: "typescript", Label: "TypeScript"},
-			{Value: "python", Label: "Python"},
-		}).
-			WithValue("go").
-			WithOnChange(func(v string) { fmt.Printf("[APP] select=%q\n", v) }),
-	).Gapf(8)
+	value := "go"
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.Select([]tenon.SelectOption{
+				{Value: "go", Label: "Go"},
+				{Value: "rust", Label: "Rust"},
+				{Value: "typescript", Label: "TypeScript"},
+				{Value: "python", Label: "Python"},
+			}).
+				WithValue(value).
+				WithOnChange(func(v string) {
+					setState(func() { value = v })
+				}),
+		).Gapf(8)
+	})
 }
 
 func galleryMultiSelect() tenon.Widget {
-	return tenon.Column(
-		tenon.MultiSelect([]tenon.SelectOption{
-			{Value: "go", Label: "Go"},
-			{Value: "rust", Label: "Rust"},
-			{Value: "typescript", Label: "TypeScript"},
-			{Value: "python", Label: "Python"},
-		}).
-			WithValues([]string{"go", "python"}).
-			WithOnChange(func(v []string) { fmt.Printf("[APP] multi-select=%v\n", v) }),
-	).Gapf(8)
+	values := []string{"go", "python"}
+	return tenon.NewStatefulBuilder(func(ctx tenon.BuildContext, setState func(fn func())) tenon.Widget {
+		return tenon.Column(
+			tenon.MultiSelect([]tenon.SelectOption{
+				{Value: "go", Label: "Go"},
+				{Value: "rust", Label: "Rust"},
+				{Value: "typescript", Label: "TypeScript"},
+				{Value: "python", Label: "Python"},
+			}).
+				WithValues(values).
+				WithOnChange(func(v []string) {
+					setState(func() { values = v })
+				}),
+		).Gapf(8)
+	})
 }
 
 func galleryCounter() tenon.Widget {
