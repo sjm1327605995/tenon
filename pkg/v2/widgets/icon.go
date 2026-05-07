@@ -110,49 +110,36 @@ func (i IconWidget) Color(c color.Color) IconWidget { i.color = c; return i }
 func (i IconWidget) Fallback(text string) IconWidget { i.fallback = text; return i }
 
 func (i IconWidget) CreateElement() ui.Element {
-	e := &IconElement{}
-	e.RenderObjectElement.BaseElement.Init(e, i)
-	return e
+	return ui.NewRenderObjectElement(i)
 }
 
 func (i IconWidget) GetKey() ui.Key { return ui.NilKey{} }
 
-// IconElement 是 IconWidget 对应的 Element。
-type IconElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderSvgIcon
-}
-
-func (e *IconElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(IconWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (i IconWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderSvgIcon()
-	r.SetPathData(w.path)
-	r.SetIconSize(w.size)
-	if w.color != nil {
-		r.SetIconColor(w.color)
+	r.SetPathData(i.path)
+	r.SetIconSize(i.size)
+	if i.color != nil {
+		r.SetIconColor(i.color)
 	}
 	return r
 }
 
-func (e *IconElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(IconWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (i IconWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderSvgIcon)
 	old := oldWidget.(IconWidget)
 
-	if old.path != w.path {
-		e.ro.SetPathData(w.path)
+	if old.path != i.path {
+		r.SetPathData(i.path)
 	}
-	if old.size != w.size {
-		e.ro.SetIconSize(w.size)
+	if old.size != i.size {
+		r.SetIconSize(i.size)
 	}
-	if old.color != w.color && w.color != nil {
-		e.ro.SetIconColor(w.color)
+	if old.color != i.color && i.color != nil {
+		r.SetIconColor(i.color)
 	}
-}
-
-func (e *IconElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderSvgIcon)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
 }
 
 // ==================== 便捷函数 ====================

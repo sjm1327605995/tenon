@@ -93,6 +93,12 @@ type (
 
 // 核心函数。
 var (
+	NewRenderObjectElement         = internal.NewRenderObjectElement
+	NewSingleChildRenderObjectElement = internal.NewSingleChildRenderObjectElement
+	NewMultiChildRenderObjectElement  = internal.NewMultiChildRenderObjectElement
+	NewComponentElement            = internal.NewComponentElement
+	NewSingleChildComponentElement = internal.NewSingleChildComponentElement
+
 	NewEngine             = internal.NewEngine
 	NewStatefulElement    = internal.NewStatefulElement
 	RebuildDefault        = internal.RebuildDefault

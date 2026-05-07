@@ -55,56 +55,49 @@ func (b ButtonWidget) SetLoading(v bool) ButtonWidget {
 }
 
 func (b ButtonWidget) CreateElement() ui.Element {
-	e := &ButtonElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, b)
-	return e
+	return ui.NewSingleChildRenderObjectElement(b)
 }
 
-// ButtonElement is the Element corresponding to ButtonWidget.
-type ButtonElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderButton
-}
-
-func (e *ButtonElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (b ButtonWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	t := ui.GetTheme()
 	r := render.NewRenderButton()
 	r.SetBorderRadiusDetailed(render.UniformBorderRadius(t.ButtonBorderRadius))
 
-	e.applyButtonVariant(r, e.GetWidget().(ButtonWidget).variant, t)
+	applyButtonVariant(r, b.variant, t)
 
 	r.DisabledColor = t.ButtonDisabledColor
-	r.Loading = e.GetWidget().(ButtonWidget).loading
-	if e.GetWidget().(ButtonWidget).disabled {
+	r.Loading = b.loading
+	if b.disabled {
 		r.SetState(render.ButtonStateDisabled)
 	}
-	r.SetOnClick(e.GetWidget().(ButtonWidget).onClick)
+	r.SetOnClick(b.onClick)
 
-	if e.GetWidget().(ButtonWidget).label == "" {
+	if b.label == "" {
 		r.StyleSetWidthPercent(100)
 	}
 
 	r.SetOnMouseEnter(func() {
-		w := e.GetWidget().(ButtonWidget)
-		if !w.disabled && !w.loading {
+		w, ok := element.GetWidget().(ButtonWidget)
+		if ok && !w.disabled && !w.loading {
 			r.SetState(render.ButtonStateHover)
 		}
 	})
 	r.SetOnMouseLeave(func() {
-		w := e.GetWidget().(ButtonWidget)
-		if !w.disabled && !w.loading {
+		w, ok := element.GetWidget().(ButtonWidget)
+		if ok && !w.disabled && !w.loading {
 			r.SetState(render.ButtonStateNormal)
 		}
 	})
 	r.SetOnMouseDown(func() {
-		w := e.GetWidget().(ButtonWidget)
-		if !w.disabled && !w.loading {
+		w, ok := element.GetWidget().(ButtonWidget)
+		if ok && !w.disabled && !w.loading {
 			r.SetState(render.ButtonStatePressed)
 		}
 	})
 	r.SetOnMouseUp(func() {
-		w := e.GetWidget().(ButtonWidget)
-		if !w.disabled && !w.loading {
+		w, ok := element.GetWidget().(ButtonWidget)
+		if ok && !w.disabled && !w.loading {
 			r.SetState(render.ButtonStateHover)
 		}
 	})
@@ -112,7 +105,7 @@ func (e *ButtonElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
-func (e *ButtonElement) applyButtonVariant(r *render.RenderButton, variant ButtonVariant, t *ui.Theme) {
+func applyButtonVariant(r *render.RenderButton, variant ButtonVariant, t *ui.Theme) {
 	switch variant {
 	case ButtonDefault:
 		r.NormalColor = t.ButtonNormalColor
@@ -153,57 +146,46 @@ func (e *ButtonElement) applyButtonVariant(r *render.RenderButton, variant Butto
 	}
 }
 
-func (e *ButtonElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(ButtonWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (b ButtonWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderButton)
+	old := oldWidget.(ButtonWidget)
 	t := ui.GetTheme()
 
-	old := oldWidget.(ButtonWidget)
-
 	// Reconfigure colors when variant changes
-	if old.variant != w.variant {
-		e.ro.IsOutline = false
-		e.ro.IsGhost = false
-		e.ro.IsLink = false
-		e.ro.NormalColor = nil
-		e.ro.HoverColor = nil
-		e.ro.PressedColor = nil
-		e.ro.BorderColor = nil
-		e.ro.BorderWidth = 0
-		e.ro.HoverTextColor = nil
+	if old.variant != b.variant {
+		r.IsOutline = false
+		r.IsGhost = false
+		r.IsLink = false
+		r.NormalColor = nil
+		r.HoverColor = nil
+		r.PressedColor = nil
+		r.BorderColor = nil
+		r.BorderWidth = 0
+		r.HoverTextColor = nil
 
-		e.applyButtonVariant(e.ro, w.variant, t)
-		e.ro.MarkNeedsPaint()
+		applyButtonVariant(r, b.variant, t)
+		r.MarkNeedsPaint()
 	}
 
-	e.ro.SetOnClick(w.onClick)
-	if old.loading != w.loading {
-		e.ro.Loading = w.loading
-		e.ro.MarkNeedsPaint()
+	r.SetOnClick(b.onClick)
+	if old.loading != b.loading {
+		r.Loading = b.loading
+		r.MarkNeedsPaint()
 	}
-	if old.disabled != w.disabled {
-		if w.disabled {
-			e.ro.SetState(render.ButtonStateDisabled)
+	if old.disabled != b.disabled {
+		if b.disabled {
+			r.SetState(render.ButtonStateDisabled)
 		} else {
-			e.ro.SetState(render.ButtonStateNormal)
+			r.SetState(render.ButtonStateNormal)
 		}
 	}
 }
 
-func (e *ButtonElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(ButtonWidget)
-	textColor := buttonTextColor(w.variant, ui.GetTheme())
-	textWidget := Text(w.label).FontSize(ui.GetTheme().FontSizeBase).Color(textColor)
-	e.Child = ui.UpdateChild(e, e.Child, textWidget)
-}
-
-func (e *ButtonElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderButton)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(ButtonWidget)
-	textColor := buttonTextColor(w.variant, ui.GetTheme())
-	textWidget := Text(w.label).FontSize(ui.GetTheme().FontSizeBase).Color(textColor)
-	e.Child = ui.UpdateChild(e, nil, textWidget)
+// GetChildWidget implements SingleChildProvider.
+func (b ButtonWidget) GetChildWidget() ui.Widget {
+	textColor := buttonTextColor(b.variant, ui.GetTheme())
+	return Text(b.label).FontSize(ui.GetTheme().FontSizeBase).Color(textColor)
 }
 
 // buttonTextColor returns the text color for a given button variant.

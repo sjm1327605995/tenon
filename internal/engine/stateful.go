@@ -103,7 +103,10 @@ func (s *StatefulElement) GetState() State {
 func (s *StatefulElement) Mount(parent Element, slot int) {
 	s.ComponentElement.Mount(parent, slot)
 
-	widget := s.GetWidget().(StatefulWidget)
+	widget, ok := s.GetWidget().(StatefulWidget)
+	if !ok {
+		panic("StatefulElement: widget is not StatefulWidget")
+	}
 	s.state = widget.CreateState()
 
 	if bs, ok := s.state.(stateBinder); ok {

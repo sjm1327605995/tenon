@@ -64,7 +64,10 @@ func (s *contextMenuState) Dispose() {}
 func (s *contextMenuState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *contextMenuState) Build(ctx BuildContext) Widget {
-	w := s.GetWidget().(ContextMenuWidget)
+	w, ok := s.GetWidget().(ContextMenuWidget)
+	if !ok {
+		return nil
+	}
 
 	// 包裹子 Widget，监听右键点击
 	return NewBuilder(func(innerCtx BuildContext) Widget {
@@ -137,7 +140,10 @@ func (s *menuBarState) Dispose() {}
 func (s *menuBarState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *menuBarState) Build(ctx BuildContext) Widget {
-	w := s.GetWidget().(MenuBarWidget)
+	w, ok := s.GetWidget().(MenuBarWidget)
+	if !ok {
+		return nil
+	}
 	theme := ThemeOf(ctx)
 
 	// 构建菜单栏

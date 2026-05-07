@@ -182,10 +182,8 @@ func (r *RenderObjectElement) FindRenderObject() render.RenderObject { return r.
 func (r *RenderObjectElement) Mount(parent Element, slot int) {
 	r.BaseElement.Mount(parent, slot)
 	if r.RenderObject == nil {
-		if roe, ok := r.self.(interface {
-			CreateRenderObject() render.RenderObject
-		}); ok {
-			r.RenderObject = roe.CreateRenderObject()
+		if factory, ok := r.widget.(RenderObjectFactory); ok {
+			r.RenderObject = factory.CreateRenderObject(r.self)
 		}
 	}
 	if r.RenderObject != nil {
@@ -205,10 +203,8 @@ func (r *RenderObjectElement) Mount(parent Element, slot int) {
 func (r *RenderObjectElement) Update(newWidget Widget) {
 	oldWidget := r.widget
 	r.BaseElement.Update(newWidget)
-	if roe, ok := r.self.(interface {
-		UpdateRenderObject(oldWidget Widget)
-	}); ok {
-		roe.UpdateRenderObject(oldWidget)
+	if updater, ok := r.widget.(RenderObjectUpdater); ok && r.RenderObject != nil {
+		updater.UpdateRenderObject(r.RenderObject, oldWidget)
 	}
 }
 
@@ -228,16 +224,6 @@ func (r *RenderObjectElement) Unmount() {
 		r.RenderObject = nil
 	}
 	r.BaseElement.Unmount()
-}
-
-// CreateRenderObject 由子类覆盖，创建对应的 RenderObject。
-func (r *RenderObjectElement) CreateRenderObject() render.RenderObject {
-	return nil
-}
-
-// UpdateRenderObject 由子类覆盖，将新 Widget 的属性同步到 RenderObject。
-func (r *RenderObjectElement) UpdateRenderObject(oldWidget Widget) {
-	// 子类实现
 }
 
 // SingleChildRenderObjectElement 管理单个子 Element 的 RenderObjectElement。
@@ -261,22 +247,18 @@ func (s *SingleChildRenderObjectElement) GetChildren() []Element {
 
 func (s *SingleChildRenderObjectElement) Mount(parent Element, slot int) {
 	s.RenderObjectElement.Mount(parent, slot)
-	// 子元素在子类的 Mount 或 Update 中创建
+	// 委托给 Widget 管理子元素（新接口）
+	if provider, ok := s.widget.(SingleChildProvider); ok {
+		s.Child = UpdateChild(s.self, s.Child, provider.GetChildWidget())
+	}
+	// 否则子元素在旧 Element 子类的 Mount 或 Update 中创建
 }
 
 func (s *SingleChildRenderObjectElement) Update(newWidget Widget) {
-	oldWidget := s.widget
 	s.RenderObjectElement.Update(newWidget)
-	if sce, ok := s.self.(interface {
-		UpdateChild(oldWidget Widget)
-	}); ok {
-		sce.UpdateChild(oldWidget)
+	if provider, ok := s.widget.(SingleChildProvider); ok {
+		s.Child = UpdateChild(s.self, s.Child, provider.GetChildWidget())
 	}
-}
-
-// UpdateChild 由子类覆盖。
-func (s *SingleChildRenderObjectElement) UpdateChild(oldWidget Widget) {
-	// 子类实现
 }
 
 func (s *SingleChildRenderObjectElement) Unmount() {
@@ -303,21 +285,17 @@ func (m *MultiChildRenderObjectElement) GetChildren() []Element { return m.Child
 
 func (m *MultiChildRenderObjectElement) Mount(parent Element, slot int) {
 	m.RenderObjectElement.Mount(parent, slot)
-}
-
-func (m *MultiChildRenderObjectElement) Update(newWidget Widget) {
-	oldWidget := m.widget
-	m.RenderObjectElement.Update(newWidget)
-	if mce, ok := m.self.(interface {
-		UpdateChildren(oldWidget Widget)
-	}); ok {
-		mce.UpdateChildren(oldWidget)
+	// 委托给 Widget 管理子元素（新接口）
+	if provider, ok := m.widget.(MultiChildProvider); ok {
+		m.Children = UpdateChildren(m.self, m.Children, provider.GetChildrenWidgets())
 	}
 }
 
-// UpdateChildren 由子类覆盖。
-func (m *MultiChildRenderObjectElement) UpdateChildren(oldWidget Widget) {
-	// 子类实现
+func (m *MultiChildRenderObjectElement) Update(newWidget Widget) {
+	m.RenderObjectElement.Update(newWidget)
+	if provider, ok := m.widget.(MultiChildProvider); ok {
+		m.Children = UpdateChildren(m.self, m.Children, provider.GetChildrenWidgets())
+	}
 }
 
 func (m *MultiChildRenderObjectElement) Unmount() {
@@ -348,58 +326,17 @@ func UpdateChild(parent Element, child Element, newWidget Widget) Element {
 	return newChild
 }
 
-// UpdateChildren 对新旧两组 Widget 做同级对比，尽可能复用旧 Element。
+// UpdateChildren 对新旧两组 Widget 做同级对比，按位置复用旧 Element。
+// 同位置且 CanUpdate 匹配则复用，否则销毁重建。
 func UpdateChildren(parent Element, oldChildren []Element, newWidgets []Widget) []Element {
 	newChildren := make([]Element, 0, len(newWidgets))
 
-	// 仅在有 Key 时才创建 map（避免无 Key 场景的分配）
-	var oldKeyed map[string]Element
-	hasKeyed := false
-	for _, old := range oldChildren {
-		if old.GetWidget() != nil && !IsNilKey(old.GetWidget().GetKey()) {
-			hasKeyed = true
-			break
-		}
-	}
-	if hasKeyed {
-		oldKeyed = make(map[string]Element, len(oldChildren))
-		for _, old := range oldChildren {
-			if old.GetWidget() != nil && !IsNilKey(old.GetWidget().GetKey()) {
-				oldKeyed[old.GetWidget().GetKey().String()] = old
-			}
-		}
-	}
-
-	var oldIndex int
 	for i, newWidget := range newWidgets {
 		var oldChild Element
-
-		// 1. 尝试按 Key 查找可复用的旧 Element
-		if oldKeyed != nil && !IsNilKey(newWidget.GetKey()) {
-			key := newWidget.GetKey().String()
-			if keyed, ok := oldKeyed[key]; ok {
-				oldChild = keyed
-				delete(oldKeyed, key)
-			}
+		if i < len(oldChildren) {
+			oldChild = oldChildren[i]
 		}
 
-		// 2. 无 Key 匹配时，按位置取旧 Element
-		if oldChild == nil && oldIndex < len(oldChildren) {
-			for oldIndex < len(oldChildren) {
-				candidate := oldChildren[oldIndex]
-				if oldKeyed != nil && candidate.GetWidget() != nil && !IsNilKey(candidate.GetWidget().GetKey()) {
-					if _, stillInOld := oldKeyed[candidate.GetWidget().GetKey().String()]; stillInOld {
-						oldIndex++
-						continue
-					}
-				}
-				oldChild = candidate
-				oldIndex++
-				break
-			}
-		}
-
-		// 3. 尝试复用或创建新 Element
 		if oldChild != nil && CanUpdate(oldChild.GetWidget(), newWidget) {
 			oldChild.Update(newWidget)
 			newChildren = append(newChildren, oldChild)
@@ -413,13 +350,11 @@ func UpdateChildren(parent Element, oldChildren []Element, newWidgets []Widget) 
 		}
 	}
 
-	// 4. 卸载剩余未被复用的旧 Element
-	for oldIndex < len(oldChildren) {
-		oldChildren[oldIndex].Unmount()
-		oldIndex++
-	}
-	for _, leftover := range oldKeyed {
-		leftover.Unmount()
+	// 卸载多余的旧子节点
+	for i := len(newWidgets); i < len(oldChildren); i++ {
+		if oldChildren[i] != nil {
+			oldChildren[i].Unmount()
+		}
 	}
 
 	return newChildren

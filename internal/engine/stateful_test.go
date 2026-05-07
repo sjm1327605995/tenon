@@ -22,34 +22,21 @@ type testTextWidget struct {
 }
 
 func (t testTextWidget) CreateElement() Element {
-	e := &testTextElement{}
-	e.RenderObjectElement.BaseElement.Init(e, t)
-	return e
+	return NewRenderObjectElement(t)
 }
 
-type testTextElement struct {
-	RenderObjectElement
-}
-
-func (e *testTextElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(testTextWidget)
-	r := render.NewRenderText(w.content)
+func (t testTextWidget) CreateRenderObject(element Element) render.RenderObject {
+	r := render.NewRenderText(t.content)
 	r.SetFontSize(14)
 	r.SetColor(render.NewColor(0, 0, 0, 255))
 	return r
 }
 
-func (e *testTextElement) UpdateRenderObject(oldWidget Widget) {
-	w := e.GetWidget().(testTextWidget)
-	ro := e.GetRenderObject().(*render.RenderText)
-	if old, ok := oldWidget.(testTextWidget); !ok || old.content != w.content {
-		ro.SetContent(w.content)
+func (t testTextWidget) UpdateRenderObject(ro render.RenderObject, oldWidget Widget) {
+	r := ro.(*render.RenderText)
+	if old, ok := oldWidget.(testTextWidget); !ok || old.content != t.content {
+		r.SetContent(t.content)
 	}
-}
-
-func (e *testTextElement) Mount(parent Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
-	e.RenderObjectElement.Mount(parent, slot)
 }
 
 type testStatefulWidget struct {

@@ -49,9 +49,7 @@ func (r RowWidget) Paddingf(insets ui.EdgeInsets) RowWidget {
 }
 
 func (r RowWidget) CreateElement() ui.Element {
-	e := &RowElement{}
-	e.MultiChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, r)
-	return e
+	return ui.NewMultiChildRenderObjectElement(r)
 }
 
 // ColumnWidget 垂直 Flex 容器。
@@ -97,93 +95,45 @@ func (c ColumnWidget) Paddingf(insets ui.EdgeInsets) ColumnWidget {
 }
 
 func (c ColumnWidget) CreateElement() ui.Element {
-	e := &ColumnElement{}
-	e.MultiChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, c)
-	return e
+	return ui.NewMultiChildRenderObjectElement(c)
 }
 
-// ==================== RowElement ====================
-
-type RowElement struct {
-	ui.MultiChildRenderObjectElement
-	ro *render.RenderFlex
+// CreateRenderObject implements RenderObjectFactory.
+func (r RowWidget) CreateRenderObject(element ui.Element) render.RenderObject {
+	ro := render.NewRenderFlex()
+	ro.StyleSetFlexDirection(ui.FlexDirectionRow)
+	applyFlexProps(ro, 0, ui.JustifyFlexStart, ui.AlignFlexStart, ui.WrapNoWrap, ui.EdgeInsets{}, r.gap, r.justify, r.alignItems, r.wrapMode, r.padding)
+	return ro
 }
 
-func (e *RowElement) CreateRenderObject() render.RenderObject {
-	r := render.NewRenderFlex()
-	r.StyleSetFlexDirection(ui.FlexDirectionRow)
-	w := e.GetWidget().(RowWidget)
-	applyFlexProps(r, 0, ui.JustifyFlexStart, ui.AlignFlexStart, ui.WrapNoWrap, ui.EdgeInsets{}, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
-	return r
-}
-
-func (e *RowElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (r RowWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(RowWidget)
-	w := e.GetWidget().(RowWidget)
-	applyFlexProps(e.ro, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
+	applyFlexProps(ro.(*render.RenderFlex), old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, r.gap, r.justify, r.alignItems, r.wrapMode, r.padding)
 }
 
-func (e *RowElement) UpdateChildren(oldWidget ui.Widget) {
-	w := e.GetWidget().(RowWidget)
-	newWidgets := make([]ui.Widget, len(w.children))
-	for i, child := range w.children {
-		newWidgets[i] = child
-	}
-	e.Children = ui.UpdateChildren(e, e.Children, newWidgets)
+// GetChildrenWidgets implements MultiChildProvider.
+func (r RowWidget) GetChildrenWidgets() []ui.Widget {
+	return r.children
 }
 
-func (e *RowElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderFlex)
-	e.RenderObject = e.ro
-	e.MultiChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(RowWidget)
-	newWidgets := make([]ui.Widget, len(w.children))
-	for i, child := range w.children {
-		newWidgets[i] = child
-	}
-	e.Children = ui.UpdateChildren(e, nil, newWidgets)
+// CreateRenderObject implements RenderObjectFactory.
+func (c ColumnWidget) CreateRenderObject(element ui.Element) render.RenderObject {
+	ro := render.NewRenderFlex()
+	ro.StyleSetFlexDirection(ui.FlexDirectionColumn)
+	applyFlexProps(ro, 0, ui.JustifyFlexStart, ui.AlignFlexStart, ui.WrapNoWrap, ui.EdgeInsets{}, c.gap, c.justify, c.alignItems, c.wrapMode, c.padding)
+	return ro
 }
 
-// ==================== ColumnElement ====================
-
-type ColumnElement struct {
-	ui.MultiChildRenderObjectElement
-	ro *render.RenderFlex
-}
-
-func (e *ColumnElement) CreateRenderObject() render.RenderObject {
-	r := render.NewRenderFlex()
-	r.StyleSetFlexDirection(ui.FlexDirectionColumn)
-	w := e.GetWidget().(ColumnWidget)
-	applyFlexProps(r, 0, ui.JustifyFlexStart, ui.AlignFlexStart, ui.WrapNoWrap, ui.EdgeInsets{}, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
-	return r
-}
-
-func (e *ColumnElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (c ColumnWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(ColumnWidget)
-	w := e.GetWidget().(ColumnWidget)
-	applyFlexProps(e.ro, old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, w.gap, w.justify, w.alignItems, w.wrapMode, w.padding)
+	applyFlexProps(ro.(*render.RenderFlex), old.gap, old.justify, old.alignItems, old.wrapMode, old.padding, c.gap, c.justify, c.alignItems, c.wrapMode, c.padding)
 }
 
-func (e *ColumnElement) UpdateChildren(oldWidget ui.Widget) {
-	w := e.GetWidget().(ColumnWidget)
-	newWidgets := make([]ui.Widget, len(w.children))
-	for i, child := range w.children {
-		newWidgets[i] = child
-	}
-	e.Children = ui.UpdateChildren(e, e.Children, newWidgets)
-}
-
-func (e *ColumnElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderFlex)
-	e.RenderObject = e.ro
-	e.MultiChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(ColumnWidget)
-	newWidgets := make([]ui.Widget, len(w.children))
-	for i, child := range w.children {
-		newWidgets[i] = child
-	}
-	e.Children = ui.UpdateChildren(e, nil, newWidgets)
+// GetChildrenWidgets implements MultiChildProvider.
+func (c ColumnWidget) GetChildrenWidgets() []ui.Widget {
+	return c.children
 }
 
 // ==================== 辅助函数 ====================

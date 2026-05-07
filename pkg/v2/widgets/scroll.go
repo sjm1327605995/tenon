@@ -47,43 +47,25 @@ func (s ScrollWidget) Shrink(v float32) ScrollWidget {
 }
 
 func (s ScrollWidget) CreateElement() ui.Element {
-	e := &ScrollElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, s)
-	return e
+	return ui.NewSingleChildRenderObjectElement(s)
 }
 
-// ScrollElement 是 ScrollWidget 对应的 Element。
-type ScrollElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderScroll
-}
-
-func (e *ScrollElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (s ScrollWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderScroll()
-	w := e.GetWidget().(ScrollWidget)
-	applyScrollProps(r, ScrollWidget{}, w)
+	applyScrollProps(r, ScrollWidget{}, s)
 	return r
 }
 
-func (e *ScrollElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (s ScrollWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(ScrollWidget)
-	w := e.GetWidget().(ScrollWidget)
-	applyScrollProps(e.ro, old, w)
+	applyScrollProps(ro.(*render.RenderScroll), old, s)
 }
 
-func (e *ScrollElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(ScrollWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.child)
-}
-
-func (e *ScrollElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderScroll)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(ScrollWidget)
-	if w.child != nil {
-		e.Child = ui.UpdateChild(e, nil, w.child)
-	}
+// GetChildWidget implements SingleChildProvider.
+func (s ScrollWidget) GetChildWidget() ui.Widget {
+	return s.child
 }
 
 func applyScrollProps(r *render.RenderScroll, old, w ScrollWidget) {

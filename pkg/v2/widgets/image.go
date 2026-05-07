@@ -58,50 +58,38 @@ func (i ImageWidget) Tint(c color.Color) ImageWidget {
 }
 
 func (i ImageWidget) CreateElement() ui.Element {
-	e := &ImageElement{}
-	e.RenderObjectElement.BaseElement.Init(e, i)
-	return e
+	return ui.NewRenderObjectElement(i)
 }
 
-// ImageElement 是 ImageWidget 对应的 Element。
-type ImageElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderImage
-}
-
-func (e *ImageElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderImage)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *ImageElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (i ImageWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderImage()
-	applyImageProps(r, e.GetWidget().(ImageWidget))
+	applyImageProps(r, i)
 	return r
 }
 
-func (e *ImageElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(ImageWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (i ImageWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderImage)
 	old, _ := oldWidget.(ImageWidget)
 
-	if old.source != w.source {
-		e.ro.SetSource(w.source)
+	if old.source != i.source {
+		r.SetSource(i.source)
 	}
-	if old.objectFit != w.objectFit {
-		e.ro.SetObjectFit(w.objectFit)
+	if old.objectFit != i.objectFit {
+		r.SetObjectFit(i.objectFit)
 	}
-	if old.borderRadius != w.borderRadius {
-		e.ro.SetBorderRadius(w.borderRadius)
+	if old.borderRadius != i.borderRadius {
+		r.SetBorderRadius(i.borderRadius)
 	}
-	if !render.ColorEquals(old.tintColor, w.tintColor) {
-		e.ro.SetTintColor(w.tintColor)
+	if !render.ColorEquals(old.tintColor, i.tintColor) {
+		r.SetTintColor(i.tintColor)
 	}
-	if old.width != w.width {
-		e.ro.SetWidth(w.width)
+	if old.width != i.width {
+		r.SetWidth(i.width)
 	}
-	if old.height != w.height {
-		e.ro.SetHeight(w.height)
+	if old.height != i.height {
+		r.SetHeight(i.height)
 	}
 }
 

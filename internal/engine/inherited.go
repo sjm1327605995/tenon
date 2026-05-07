@@ -110,7 +110,8 @@ func getInheritedWidgetOfExactType(from Element, t reflect.Type) (InheritedWidge
 		if ie, ok := p.(*InheritedElement); ok {
 			if reflect.TypeOf(ie.GetWidget()) == t {
 				ie.addDependent(from)
-				return ie.GetWidget().(InheritedWidget), true
+				iw, ok := ie.GetWidget().(InheritedWidget)
+				return iw, ok
 			}
 		}
 	}

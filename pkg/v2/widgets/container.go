@@ -160,42 +160,25 @@ func (c ContainerWidget) AlignItems(v yoga.Align) ContainerWidget {
 }
 
 func (c ContainerWidget) CreateElement() ui.Element {
-	e := &ContainerElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, c)
-	return e
+	return ui.NewSingleChildRenderObjectElement(c)
 }
 
-// ContainerElement 是 ContainerWidget 对应的 Element。
-type ContainerElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderBox
-}
-
-func (e *ContainerElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (c ContainerWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderBox()
-	applyContainerProps(r, ContainerWidget{}, e.GetWidget().(ContainerWidget))
+	applyContainerProps(r, ContainerWidget{}, c)
 	return r
 }
 
-func (e *ContainerElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (c ContainerWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(ContainerWidget)
-	w := e.GetWidget().(ContainerWidget)
-	applyContainerProps(e.ro, old, w)
+	applyContainerProps(ro.(*render.RenderBox), old, c)
 }
 
-func (e *ContainerElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(ContainerWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.child)
-}
-
-func (e *ContainerElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderBox)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(ContainerWidget)
-	if w.child != nil {
-		e.Child = ui.UpdateChild(e, nil, w.child)
-	}
+// GetChildWidget implements SingleChildProvider.
+func (c ContainerWidget) GetChildWidget() ui.Widget {
+	return c.child
 }
 
 func applyContainerProps(r *render.RenderBox, old, w ContainerWidget) {
