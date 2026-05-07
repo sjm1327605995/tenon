@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon"
 	"github.com/sjm1327605995/tenon/pkg/fonts"
+	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 )
 
 func galleryCheckbox() tenon.Widget {
@@ -577,7 +578,7 @@ func (c CounterButton) CreateElement() tenon.Element {
 	return tenon.NewStatefulElement(c)
 }
 
-func (c CounterButton) CreateState() tenon.State {
+func (c CounterButton) CreateState() ui.State {
 	s := &counterState{}
 	s.Init(s)
 	return s

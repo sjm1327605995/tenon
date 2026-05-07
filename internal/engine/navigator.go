@@ -105,7 +105,10 @@ func (n NavigatorContext) CreateElement() Element {
 }
 
 func (n NavigatorContext) UpdateShouldNotify(oldWidget InheritedWidget) bool {
-	old := oldWidget.(NavigatorContext)
+	old, ok := oldWidget.(NavigatorContext)
+	if !ok {
+		return true
+	}
 	return n.Navigator != old.Navigator
 }
 
@@ -187,7 +190,10 @@ type navigatorState struct {
 }
 
 func (s *navigatorState) InitState() {
-	w := s.GetWidget().(NavigatorWidget)
+	w, ok := s.GetWidget().(NavigatorWidget)
+	if !ok {
+		return
+	}
 	s.transType = w.transition
 	if w.initial != "" {
 		s.pageStack = []Page{
@@ -205,7 +211,10 @@ func (s *navigatorState) DidUpdateWidget(oldWidget Widget) {}
 // ---- NavigatorState 接口 ----
 
 func (s *navigatorState) Push(name string, params ...RouteParams) {
-	w := s.GetWidget().(NavigatorWidget)
+	w, ok := s.GetWidget().(NavigatorWidget)
+	if !ok {
+		return
+	}
 	builder, ok := w.routes[name]
 	if !ok {
 		return
@@ -235,7 +244,10 @@ func (s *navigatorState) PopToRoot() {
 }
 
 func (s *navigatorState) PushReplacement(name string, params ...RouteParams) {
-	w := s.GetWidget().(NavigatorWidget)
+	w, ok := s.GetWidget().(NavigatorWidget)
+	if !ok {
+		return
+	}
 	builder, ok := w.routes[name]
 	if !ok {
 		return
@@ -315,7 +327,10 @@ func (s *navigatorState) Build(ctx BuildContext) Widget {
 		return buildEmptyPage()
 	}
 
-	w := s.GetWidget().(NavigatorWidget)
+	w, ok := s.GetWidget().(NavigatorWidget)
+	if !ok {
+		return buildEmptyPage()
+	}
 	current := s.pageStack[len(s.pageStack)-1]
 
 	// 用 Builder 延迟页面构建，确保子页面的 BuildContext 在 NavigatorContext 之下，

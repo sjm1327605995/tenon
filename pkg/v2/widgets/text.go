@@ -52,48 +52,36 @@ func (t TextWidget) Underline() TextWidget {
 }
 
 func (t TextWidget) CreateElement() ui.Element {
-	e := &TextElement{}
-	e.RenderObjectElement.BaseElement.Init(e, t)
-	return e
+	return ui.NewRenderObjectElement(t)
 }
 
-// TextElement 是 TextWidget 对应的 Element。
-type TextElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderText
-}
-
-func (e *TextElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderText)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *TextElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(TextWidget)
-	r := render.NewRenderText(w.content)
-	r.SetFontSize(w.fontSize)
-	r.SetColor(w.textColor)
-	r.SetMaxLines(w.maxLines)
-	r.SetUnderline(w.underline)
+// CreateRenderObject implements RenderObjectFactory.
+func (t TextWidget) CreateRenderObject(element ui.Element) render.RenderObject {
+	r := render.NewRenderText(t.content)
+	r.SetFontSize(t.fontSize)
+	r.SetColor(t.textColor)
+	r.SetMaxLines(t.maxLines)
+	r.SetUnderline(t.underline)
 	return r
 }
 
-func (e *TextElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(TextWidget)
-	if old, ok := oldWidget.(TextWidget); !ok || old.content != w.content {
-		e.ro.SetContent(w.content)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (t TextWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderText)
+	old := oldWidget.(TextWidget)
+	if old.content != t.content {
+		r.SetContent(t.content)
 	}
-	if old, ok := oldWidget.(TextWidget); !ok || old.fontSize != w.fontSize {
-		e.ro.SetFontSize(w.fontSize)
+	if old.fontSize != t.fontSize {
+		r.SetFontSize(t.fontSize)
 	}
-	if old, ok := oldWidget.(TextWidget); !ok || !old.textColor.Equals(w.textColor) {
-		e.ro.SetColor(w.textColor)
+	if !old.textColor.Equals(t.textColor) {
+		r.SetColor(t.textColor)
 	}
-	if old, ok := oldWidget.(TextWidget); !ok || old.maxLines != w.maxLines {
-		e.ro.SetMaxLines(w.maxLines)
+	if old.maxLines != t.maxLines {
+		r.SetMaxLines(t.maxLines)
 	}
-	if old, ok := oldWidget.(TextWidget); !ok || old.underline != w.underline {
-		e.ro.SetUnderline(w.underline)
+	if old.underline != t.underline {
+		r.SetUnderline(t.underline)
 	}
 }

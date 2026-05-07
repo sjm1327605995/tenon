@@ -96,48 +96,35 @@ func (p ParticleSystemWidget) WithAutoStart(v bool) ParticleSystemWidget {
 }
 
 func (p ParticleSystemWidget) CreateElement() ui.Element {
-	e := &ParticleSystemElement{}
-	e.RenderObjectElement.BaseElement.Init(e, p)
-	return e
+	return ui.NewRenderObjectElement(p)
 }
 
-// ParticleSystemElement 管理 ParticleSystemRenderObject。
-type ParticleSystemElement struct {
-	ui.RenderObjectElement
-	ro *render.ParticleSystemRenderObject
-}
-
-func (e *ParticleSystemElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(ParticleSystemWidget)
-	ro := render.NewParticleSystemRenderObject(w.Emitter, w.Behavior)
-	ro.SetBounds(render.Bounds{Width: w.Width, Height: w.Height})
+// CreateRenderObject implements RenderObjectFactory.
+func (p ParticleSystemWidget) CreateRenderObject(element ui.Element) render.RenderObject {
+	ro := render.NewParticleSystemRenderObject(p.Emitter, p.Behavior)
+	ro.SetBounds(render.Bounds{Width: p.Width, Height: p.Height})
 	ro.SetZIndex(100)
-	if w.AutoStart {
+	if p.AutoStart {
 		ro.Start()
 	}
 	return ro
 }
 
-func (e *ParticleSystemElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.ParticleSystemRenderObject)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *ParticleSystemElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(ParticleSystemWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (p ParticleSystemWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.ParticleSystemRenderObject)
 	old := oldWidget.(ParticleSystemWidget)
-	if old.Width != w.Width || old.Height != w.Height {
-		e.ro.SetBounds(render.Bounds{Width: w.Width, Height: w.Height})
+	if old.Width != p.Width || old.Height != p.Height {
+		r.SetBounds(render.Bounds{Width: p.Width, Height: p.Height})
 	}
-	if old.Emitter != w.Emitter {
-		e.ro.SetEmitter(w.Emitter)
+	if old.Emitter != p.Emitter {
+		r.SetEmitter(p.Emitter)
 	}
-	e.ro.SetBehavior(w.Behavior)
-	e.ro.SetLoop(w.Loop)
-	e.ro.SetLoopDelay(w.LoopDelay)
-	e.ro.SetBurstCount(w.BurstCount)
-	if w.AutoStart && !old.AutoStart {
-		e.ro.Start()
+	r.SetBehavior(p.Behavior)
+	r.SetLoop(p.Loop)
+	r.SetLoopDelay(p.LoopDelay)
+	r.SetBurstCount(p.BurstCount)
+	if p.AutoStart && !old.AutoStart {
+		r.Start()
 	}
 }

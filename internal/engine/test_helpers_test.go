@@ -13,29 +13,16 @@ type mockTextWidget struct {
 }
 
 func (m mockTextWidget) CreateElement() Element {
-	e := &mockTextElement{}
-	e.RenderObjectElement.BaseElement.Init(e, m)
-	return e
+	return NewRenderObjectElement(m)
 }
 
-type mockTextElement struct {
-	RenderObjectElement
+func (m mockTextWidget) CreateRenderObject(element Element) render.RenderObject {
+	return render.NewRenderText(m.content)
 }
 
-func (e *mockTextElement) Mount(parent Element, slot int) {
-	e.RenderObject = e.CreateRenderObject()
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *mockTextElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(mockTextWidget)
-	return render.NewRenderText(w.content)
-}
-
-func (e *mockTextElement) UpdateRenderObject(oldWidget Widget) {
-	w := e.GetWidget().(mockTextWidget)
-	r := e.GetRenderObject().(*render.RenderText)
-	r.Content = w.content
+func (m mockTextWidget) UpdateRenderObject(ro render.RenderObject, oldWidget Widget) {
+	r := ro.(*render.RenderText)
+	r.Content = m.content
 }
 
 func TestTestEnvironmentFindText(t *testing.T) {

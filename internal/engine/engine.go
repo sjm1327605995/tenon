@@ -381,7 +381,9 @@ func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 				ro = ro.GetParent()
 				continue
 			}
-			return f.(render.RenderObject)
+			if fro, ok := f.(render.RenderObject); ok {
+				return fro
+			}
 		}
 		ro = ro.GetParent()
 	}

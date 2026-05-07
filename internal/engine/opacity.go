@@ -34,7 +34,10 @@ type opacityElement struct {
 
 func (e *opacityElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(OpacityWidget)
+	w, ok := e.GetWidget().(OpacityWidget)
+	if !ok {
+		return
+	}
 	if w.Child != nil {
 		e.Child = UpdateChild(e, nil, w.Child)
 	}
@@ -42,7 +45,10 @@ func (e *opacityElement) Mount(parent Element, slot int) {
 }
 
 func (e *opacityElement) PerformRebuild(oldWidget Widget) {
-	w := e.GetWidget().(OpacityWidget)
+	w, ok := e.GetWidget().(OpacityWidget)
+	if !ok {
+		return
+	}
 	e.Child = UpdateChild(e, e.Child, w.Child)
 	e.applyAlpha(w.Alpha)
 }
@@ -83,7 +89,10 @@ type slideOffsetElement struct {
 
 func (e *slideOffsetElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(SlideOffsetWidget)
+	w, ok := e.GetWidget().(SlideOffsetWidget)
+	if !ok {
+		return
+	}
 	if w.Child != nil {
 		e.Child = UpdateChild(e, nil, w.Child)
 	}
@@ -91,7 +100,10 @@ func (e *slideOffsetElement) Mount(parent Element, slot int) {
 }
 
 func (e *slideOffsetElement) PerformRebuild(oldWidget Widget) {
-	w := e.GetWidget().(SlideOffsetWidget)
+	w, ok := e.GetWidget().(SlideOffsetWidget)
+	if !ok {
+		return
+	}
 	e.Child = UpdateChild(e, e.Child, w.Child)
 	e.applyOffset(w.OffsetX, w.OffsetY)
 }

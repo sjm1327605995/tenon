@@ -31,7 +31,10 @@ func (l Localization) CreateElement() Element {
 }
 
 func (l Localization) UpdateShouldNotify(oldWidget InheritedWidget) bool {
-	old := oldWidget.(Localization)
+	old, ok := oldWidget.(Localization)
+	if !ok {
+		return true
+	}
 	return l.Locale != old.Locale
 }
 

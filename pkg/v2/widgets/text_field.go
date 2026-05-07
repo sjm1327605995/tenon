@@ -66,61 +66,48 @@ func (e EditableTextWidget) OnSubmit(fn func(string)) EditableTextWidget {
 }
 
 func (e EditableTextWidget) CreateElement() ui.Element {
-	el := &EditableTextElement{}
-	el.RenderObjectElement.BaseElement.Init(el, e)
-	return el
+	return ui.NewRenderObjectElement(e)
 }
 
-// EditableTextElement 是 EditableTextWidget 对应的 Element。
-type EditableTextElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderEditableText
-}
-
-func (e *EditableTextElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderEditableText)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *EditableTextElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(EditableTextWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (e EditableTextWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderEditableText()
-	r.SetContent(w.content)
-	r.SetPlaceholder(w.placeholder)
-	r.SetPlaceholderColor(w.placeholderColor)
-	r.SetMultiline(w.multiline)
-	r.SetFontSize(w.fontSize)
-	r.SetColor(w.textColor)
-	r.SetOnChanged(w.onChanged)
-	r.SetOnSubmitted(w.onSubmitted)
+	r.SetContent(e.content)
+	r.SetPlaceholder(e.placeholder)
+	r.SetPlaceholderColor(e.placeholderColor)
+	r.SetMultiline(e.multiline)
+	r.SetFontSize(e.fontSize)
+	r.SetColor(e.textColor)
+	r.SetOnChanged(e.onChanged)
+	r.SetOnSubmitted(e.onSubmitted)
 	return r
 }
 
-func (e *EditableTextElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(EditableTextWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (e EditableTextWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderEditableText)
 	old := oldWidget.(EditableTextWidget)
 
-	if old.content != w.content {
-		e.ro.SetContent(w.content)
+	if old.content != e.content {
+		r.SetContent(e.content)
 	}
-	if old.fontSize != w.fontSize {
-		e.ro.SetFontSize(w.fontSize)
+	if old.fontSize != e.fontSize {
+		r.SetFontSize(e.fontSize)
 	}
-	if !render.ColorEquals(old.textColor, w.textColor) {
-		e.ro.SetColor(w.textColor)
+	if !render.ColorEquals(old.textColor, e.textColor) {
+		r.SetColor(e.textColor)
 	}
-	if old.placeholder != w.placeholder {
-		e.ro.SetPlaceholder(w.placeholder)
+	if old.placeholder != e.placeholder {
+		r.SetPlaceholder(e.placeholder)
 	}
-	if !render.ColorEquals(old.placeholderColor, w.placeholderColor) {
-		e.ro.SetPlaceholderColor(w.placeholderColor)
+	if !render.ColorEquals(old.placeholderColor, e.placeholderColor) {
+		r.SetPlaceholderColor(e.placeholderColor)
 	}
-	if old.multiline != w.multiline {
-		e.ro.SetMultiline(w.multiline)
+	if old.multiline != e.multiline {
+		r.SetMultiline(e.multiline)
 	}
-	e.ro.SetOnChanged(w.onChanged)
-	e.ro.SetOnSubmitted(w.onSubmitted)
+	r.SetOnChanged(e.onChanged)
+	r.SetOnSubmitted(e.onSubmitted)
 }
 
 // ========== TextFieldWidget ==========
@@ -236,41 +223,25 @@ func (t TextFieldWidget) buildEditable() EditableTextWidget {
 }
 
 func (t TextFieldWidget) CreateElement() ui.Element {
-	e := &TextFieldElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, t)
-	return e
+	return ui.NewSingleChildRenderObjectElement(t)
 }
 
-// TextFieldElement 是 TextFieldWidget 对应的 Element。
-type TextFieldElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderBox
-}
-
-func (e *TextFieldElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (t TextFieldWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderBox()
-	w := e.GetWidget().(TextFieldWidget)
-	applyTextFieldProps(r, TextFieldWidget{}, w)
+	applyTextFieldProps(r, TextFieldWidget{}, t)
 	return r
 }
 
-func (e *TextFieldElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (t TextFieldWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(TextFieldWidget)
-	w := e.GetWidget().(TextFieldWidget)
-	applyTextFieldProps(e.ro, old, w)
+	applyTextFieldProps(ro.(*render.RenderBox), old, t)
 }
 
-func (e *TextFieldElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(TextFieldWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.buildEditable())
-}
-
-func (e *TextFieldElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderBox)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(TextFieldWidget)
-	e.Child = ui.UpdateChild(e, nil, w.buildEditable())
+// GetChildWidget implements SingleChildProvider.
+func (t TextFieldWidget) GetChildWidget() ui.Widget {
+	return t.buildEditable()
 }
 
 func applyTextFieldProps(r *render.RenderBox, old, w TextFieldWidget) {

@@ -123,7 +123,9 @@ func ThemeOf(ctx BuildContext) *Theme {
 		return GetTheme()
 	}
 	if iw, ok := ctx.DependOnInheritedWidgetOfExactType(inheritedThemeType); ok {
-		return iw.(InheritedTheme).theme
+		if it, ok := iw.(InheritedTheme); ok {
+			return it.theme
+		}
 	}
 	return GetTheme()
 }
@@ -131,7 +133,10 @@ func ThemeOf(ctx BuildContext) *Theme {
 var inheritedThemeType = reflect.TypeOf(InheritedTheme{})
 
 func (i InheritedTheme) UpdateShouldNotify(oldWidget InheritedWidget) bool {
-	old := oldWidget.(InheritedTheme)
+	old, ok := oldWidget.(InheritedTheme)
+	if !ok {
+		return true
+	}
 	return i.theme != old.theme
 }
 

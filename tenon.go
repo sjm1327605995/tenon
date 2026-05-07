@@ -1,6 +1,7 @@
 package tenon
 
 import (
+	"github.com/sjm1327605995/tenon/internal/engine"
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/shadcn"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
@@ -12,7 +13,6 @@ type (
 	Widget            = ui.Widget
 	Element           = ui.Element
 	StatefulWidget    = ui.StatefulWidget
-	State             = ui.State
 	BaseState         = ui.BaseState
 	BaseWidget        = ui.BaseWidget
 	BuildContext      = ui.BuildContext
@@ -34,6 +34,7 @@ type (
 	Gutter            = ui.Gutter
 	AnimatedContainer = widgets.AnimatedContainer
 	SelectOption      = widgets.SelectOption
+	FragmentWidget    = engine.FragmentWidget
 )
 
 // 核心函数。
@@ -48,6 +49,7 @@ var (
 	NewStatefulBuilder    = ui.NewStatefulBuilder
 	NewGlobalKey          = ui.NewGlobalKey
 	DefaultLightTheme     = ui.DefaultLightTheme
+	Fragment              = engine.Fragment
 	DefaultDarkTheme      = ui.DefaultDarkTheme
 	EdgeInsetsAll         = ui.EdgeInsetsAll
 	EdgeInsetsSymmetric   = ui.EdgeInsetsSymmetric

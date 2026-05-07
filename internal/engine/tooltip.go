@@ -73,7 +73,10 @@ func (s *tooltipState) Dispose() {
 func (s *tooltipState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *tooltipState) Build(ctx BuildContext) Widget {
-	w := s.GetWidget().(TooltipWidget)
+	w, ok := s.GetWidget().(TooltipWidget)
+	if !ok {
+		return nil
+	}
 
 	// 用 Builder 包裹，监听子 Widget 的 mouse enter/leave
 	return NewBuilder(func(innerCtx BuildContext) Widget {
@@ -117,13 +120,19 @@ type tooltipOverlayElement struct {
 
 func (e *tooltipOverlayElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(TooltipOverlay)
+	w, ok := e.GetWidget().(TooltipOverlay)
+	if !ok {
+		return
+	}
 	if w.Child != nil {
 		e.Child = UpdateChild(e, nil, w.Child)
 	}
 }
 
 func (e *tooltipOverlayElement) PerformRebuild(oldWidget Widget) {
-	w := e.GetWidget().(TooltipOverlay)
+	w, ok := e.GetWidget().(TooltipOverlay)
+	if !ok {
+		return
+	}
 	e.Child = UpdateChild(e, e.Child, w.Child)
 }

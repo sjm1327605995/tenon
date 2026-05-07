@@ -102,41 +102,25 @@ func (t TextareaWidget) buildEditable() ui.Widget {
 }
 
 func (t TextareaWidget) CreateElement() ui.Element {
-	el := &TextareaElement{}
-	el.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(el, t)
-	return el
+	return ui.NewSingleChildRenderObjectElement(t)
 }
 
-// TextareaElement 是 TextareaWidget 对应的 Element。
-type TextareaElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderScroll
-}
-
-func (e *TextareaElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (t TextareaWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderScroll()
-	w := e.GetWidget().(TextareaWidget)
-	applyTextareaProps(r, TextareaWidget{}, w)
+	applyTextareaProps(r, TextareaWidget{}, t)
 	return r
 }
 
-func (e *TextareaElement) UpdateRenderObject(oldWidget ui.Widget) {
+// UpdateRenderObject implements RenderObjectUpdater.
+func (t TextareaWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(TextareaWidget)
-	w := e.GetWidget().(TextareaWidget)
-	applyTextareaProps(e.ro, old, w)
+	applyTextareaProps(ro.(*render.RenderScroll), old, t)
 }
 
-func (e *TextareaElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(TextareaWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.buildEditable())
-}
-
-func (e *TextareaElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderScroll)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(TextareaWidget)
-	e.Child = ui.UpdateChild(e, nil, w.buildEditable())
+// GetChildWidget implements SingleChildProvider.
+func (t TextareaWidget) GetChildWidget() ui.Widget {
+	return t.buildEditable()
 }
 
 func applyTextareaProps(r *render.RenderScroll, old, w TextareaWidget) {

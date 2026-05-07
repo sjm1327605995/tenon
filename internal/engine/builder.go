@@ -33,7 +33,10 @@ type statelessElement struct {
 func (e *statelessElement) Mount(parent Element, slot int) {
 	e.ComponentElement.Mount(parent, slot)
 	e.buildContext = &elementBuildContext{element: e}
-	w := e.GetWidget().(Builder)
+	w, ok := e.GetWidget().(Builder)
+	if !ok {
+		panic("statelessElement: widget is not Builder")
+	}
 	e.child = UpdateChild(e, nil, w.Builder(e.buildContext))
 }
 
@@ -44,7 +47,10 @@ func (e *statelessElement) Update(newWidget Widget) {
 }
 
 func (e *statelessElement) performRebuild(oldWidget Widget) {
-	w := e.GetWidget().(Builder)
+	w, ok := e.GetWidget().(Builder)
+	if !ok {
+		panic("statelessElement: widget is not Builder")
+	}
 	e.child = UpdateChild(e, e.child, w.Builder(e.buildContext))
 }
 
@@ -104,6 +110,9 @@ type statefulBuilderState struct {
 }
 
 func (s *statefulBuilderState) Build(ctx BuildContext) Widget {
-	w := s.GetWidget().(StatefulBuilder)
+	w, ok := s.GetWidget().(StatefulBuilder)
+	if !ok {
+		panic("statefulBuilderState: widget is not StatefulBuilder")
+	}
 	return w.Builder(ctx, s.SetState)
 }
