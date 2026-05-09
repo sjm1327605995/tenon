@@ -2,12 +2,12 @@ package tenon
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/sjm1327605995/tenon/pkg/v2/ui"
+	"github.com/sjm1327605995/tenon/pkg/engine"
 )
 
 // App 是 go-tui 风格的应用对象，包装 tenon 引擎。
 type App struct {
-	engine  *ui.Engine
+	engine  *engine.Engine
 	stopped bool
 	width   int
 	height  int
@@ -71,11 +71,11 @@ func (a *App) Run() error {
 		panic("tenon.App: no root component or widget set")
 	}
 
-	wrappedBuild := func() ui.Widget {
-		return ui.ThemeProvider(ui.GetTheme(), a.root)
+	wrappedBuild := func() engine.Widget {
+		return engine.ThemeProvider(engine.GetTheme(), a.root)
 	}
 
-	a.engine = ui.NewEngine(wrappedBuild, a.width, a.height)
+	a.engine = engine.NewEngine(wrappedBuild, a.width, a.height)
 	a.engine.Mount()
 
 	if a.title != "" {
@@ -109,7 +109,7 @@ func (a *App) Rebuild() {
 // appGame 将 Engine 包装为 ebiten.Game，以支持 Stop。
 type appGame struct {
 	app    *App
-	engine *ui.Engine
+	engine *engine.Engine
 }
 
 func (g *appGame) Update() error {

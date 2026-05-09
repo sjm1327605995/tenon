@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	. "github.com/sjm1327605995/tenon/pkg/v2/declarative"
-	"github.com/sjm1327605995/tenon/pkg/fonts"
-	"github.com/sjm1327605995/tenon/pkg/v2/ui"
+	. "github.com/sjm1327605995/tenon/pkg/declarative"
+	"github.com/sjm1327605995/tenon/pkg/font"
+	"github.com/sjm1327605995/tenon/pkg/engine"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -16,16 +16,16 @@ type appState struct {
 
 func main() {
 	initFonts()
-	SetTheme(ui.DefaultLightTheme())
+	SetTheme(engine.DefaultLightTheme())
 	state := &appState{}
 
-	Run(func() ui.Widget {
+	Run(func() engine.Widget {
 		return VStack(
 			Text("Tenon Declarative API").FontSize(28).Color(Black),
 			Text("React + SwiftUI style UI in Go").FontSize(16).Color(Gray),
 
 			// 计数器
-			ui.NewStatefulBuilder(func(ctx ui.BuildContext, setState func(func())) ui.Widget {
+			engine.NewStatefulBuilder(func(ctx engine.BuildContext, setState func(func())) engine.Widget {
 				return Card(
 					VStack(
 						Text(fmt.Sprintf("Count: %d", state.count)).FontSize(24).Color(Black),
@@ -69,7 +69,7 @@ func initFonts() {
 	var cjkLoaded bool
 	for _, path := range cjkPaths {
 		if _, err := os.Stat(path); err == nil {
-			if err := fonts.ReloadFontFromFile(fonts.FontFamilyDefault, path); err == nil {
+			if err := font.ReloadFontFromFile(font.FontFamilyDefault, path); err == nil {
 				cjkLoaded = true
 				break
 			}
@@ -77,7 +77,7 @@ func initFonts() {
 	}
 
 	if !cjkLoaded {
-		if err := fonts.InitDefaultFont(); err != nil {
+		if err := font.InitDefaultFont(); err != nil {
 			panic("failed to init default font: " + err.Error())
 		}
 	}
