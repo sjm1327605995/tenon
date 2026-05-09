@@ -63,7 +63,7 @@ func newComponentWidget(comp Component, app *App) *componentWidget {
 }
 
 func (c *componentWidget) CreateElement() Element {
-	e := &componentElement{}
+	e := &componentElement{widget: c}
 	e.Init(e, c)
 	return e
 }
@@ -74,6 +74,7 @@ type componentElement struct {
 	child    Element
 	cleanup  func()
 	bindings []shortcutReg
+	widget   *componentWidget
 }
 
 type shortcutReg struct {
@@ -83,33 +84,32 @@ type shortcutReg struct {
 
 func (e *componentElement) Mount(parent Element, slot int) {
 	e.BaseElement.Mount(parent, slot)
-	cw := e.GetWidget().(*componentWidget)
 
-	if binder, ok := cw.comp.(AppBinder); ok {
-		binder.BindApp(cw.app)
+	if binder, ok := e.widget.comp.(AppBinder); ok {
+		binder.BindApp(e.widget.app)
 	}
-	if init, ok := cw.comp.(Initializer); ok {
+	if init, ok := e.widget.comp.(Initializer); ok {
 		e.cleanup = init.Init()
 	}
-	if km, ok := cw.comp.(KeyMapper); ok {
-		e.registerKeyMap(cw.app, km.KeyMap())
+	if km, ok := e.widget.comp.(KeyMapper); ok {
+		e.registerKeyMap(e.widget.app, km.KeyMap())
 	}
 
-	w := cw.comp.Render(cw.app)
+	w := e.widget.comp.Render(e.widget.app)
 	e.child = engine.UpdateChild(e, nil, w)
 }
 
 func (e *componentElement) Update(newWidget Widget) {
 	e.BaseElement.Update(newWidget)
-	cw := e.GetWidget().(*componentWidget)
+	e.widget = newWidget.(*componentWidget)
 
 	// 支持动态 KeyMap：注销旧的，注册新的
 	e.unregisterKeyMap()
-	if km, ok := cw.comp.(KeyMapper); ok {
-		e.registerKeyMap(cw.app, km.KeyMap())
+	if km, ok := e.widget.comp.(KeyMapper); ok {
+		e.registerKeyMap(e.widget.app, km.KeyMap())
 	}
 
-	w := cw.comp.Render(cw.app)
+	w := e.widget.comp.Render(e.widget.app)
 	e.child = engine.UpdateChild(e, e.child, w)
 }
 
@@ -166,12 +166,11 @@ func (e *componentElement) unregisterKeyMap() {
 	if len(e.bindings) == 0 {
 		return
 	}
-	cw := e.GetWidget().(*componentWidget)
-	if cw.app == nil || cw.app.engine == nil {
+	if e.widget.app == nil || e.widget.app.engine == nil {
 		e.bindings = nil
 		return
 	}
-	sm := cw.app.engine.GetShortcutManager()
+	sm := e.widget.app.engine.GetShortcutManager()
 	for _, b := range e.bindings {
 		sm.Unregister(b.key, b.modifiers...)
 	}

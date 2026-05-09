@@ -15,7 +15,7 @@ func Fragment(children ...Widget) FragmentWidget {
 }
 
 func (f FragmentWidget) CreateElement() Element {
-	e := &FragmentElement{}
+	e := &FragmentElement{widget: f}
 	e.Init(e, f)
 	return e
 }
@@ -25,24 +25,18 @@ func (f FragmentWidget) CreateElement() Element {
 type FragmentElement struct {
 	BaseElement
 	children []Element
+	widget   FragmentWidget
 }
 
 func (e *FragmentElement) Mount(parent Element, slot int) {
 	e.BaseElement.Mount(parent, slot)
-	w, ok := e.GetWidget().(FragmentWidget)
-	if !ok {
-		panic("FragmentElement: widget is not FragmentWidget")
-	}
-	e.children = UpdateChildren(e, nil, w.Children)
+	e.children = UpdateChildren(e, nil, e.widget.Children)
 }
 
 func (e *FragmentElement) Update(newWidget Widget) {
 	e.BaseElement.Update(newWidget)
-	w, ok := e.GetWidget().(FragmentWidget)
-	if !ok {
-		panic("FragmentElement: widget is not FragmentWidget")
-	}
-	e.children = UpdateChildren(e, e.children, w.Children)
+	e.widget = newWidget.(FragmentWidget)
+	e.children = UpdateChildren(e, e.children, e.widget.Children)
 }
 
 func (e *FragmentElement) Unmount() {

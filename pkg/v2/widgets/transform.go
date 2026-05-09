@@ -78,7 +78,7 @@ func (t TransformWidget) Opacity(a float32) TransformWidget {
 // Widget 接口 -----------------------------------------------------------
 
 func (t TransformWidget) CreateElement() ui.Element {
-	e := &TransformElement{}
+	e := &TransformElement{widget: t}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, t)
 	return e
 }
@@ -86,21 +86,26 @@ func (t TransformWidget) CreateElement() ui.Element {
 // TransformElement 负责将变换属性同步到子树最近的 RenderObject。
 type TransformElement struct {
 	ui.SingleChildComponentElement
+	widget TransformWidget
 }
 
-func (e *TransformElement) PerformRebuild(oldWidget ui.Widget) {
-	w := e.GetWidget().(TransformWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.Child)
+func (e *TransformElement) Update(newWidget ui.Widget) {
+	e.widget = newWidget.(TransformWidget)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *TransformElement) UpdateChild(oldWidget ui.Widget) {
+	e.Child = ui.UpdateChild(e, e.Child, e.widget.Child)
 
 	t := render.Transform{
-		Rotation: w.Rotation,
-		ScaleX:   w.ScaleX,
-		ScaleY:   w.ScaleY,
-		SkewX:    w.SkewX,
-		SkewY:    w.SkewY,
-		OriginX:  w.OriginX,
-		OriginY:  w.OriginY,
-		Alpha:    w.Alpha,
+		Rotation: e.widget.Rotation,
+		ScaleX:   e.widget.ScaleX,
+		ScaleY:   e.widget.ScaleY,
+		SkewX:    e.widget.SkewX,
+		SkewY:    e.widget.SkewY,
+		OriginX:  e.widget.OriginX,
+		OriginY:  e.widget.OriginY,
+		Alpha:    e.widget.Alpha,
 	}
 	if ro := e.Child.FindRenderObject(); ro != nil {
 		ro.SetTransform(t)
@@ -109,21 +114,20 @@ func (e *TransformElement) PerformRebuild(oldWidget ui.Widget) {
 
 func (e *TransformElement) Mount(parent ui.Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(TransformWidget)
-	if w.Child != nil {
-		e.Child = ui.UpdateChild(e, nil, w.Child)
+	if e.widget.Child != nil {
+		e.Child = ui.UpdateChild(e, nil, e.widget.Child)
 	}
 	// 首次挂载也同步 transform
 	if ro := e.Child.FindRenderObject(); ro != nil {
 		ro.SetTransform(render.Transform{
-			Rotation: w.Rotation,
-			ScaleX:   w.ScaleX,
-			ScaleY:   w.ScaleY,
-			SkewX:    w.SkewX,
-			SkewY:    w.SkewY,
-			OriginX:  w.OriginX,
-			OriginY:  w.OriginY,
-			Alpha:    w.Alpha,
+			Rotation: e.widget.Rotation,
+			ScaleX:   e.widget.ScaleX,
+			ScaleY:   e.widget.ScaleY,
+			SkewX:    e.widget.SkewX,
+			SkewY:    e.widget.SkewY,
+			OriginX:  e.widget.OriginX,
+			OriginY:  e.widget.OriginY,
+			Alpha:    e.widget.Alpha,
 		})
 	}
 }

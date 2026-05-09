@@ -78,26 +78,22 @@ func (b ButtonWidget) CreateRenderObject(element ui.Element) render.RenderObject
 	}
 
 	r.SetOnMouseEnter(func() {
-		w, ok := element.GetWidget().(ButtonWidget)
-		if ok && !w.disabled && !w.loading {
+		if !b.disabled && !b.loading {
 			r.SetState(render.ButtonStateHover)
 		}
 	})
 	r.SetOnMouseLeave(func() {
-		w, ok := element.GetWidget().(ButtonWidget)
-		if ok && !w.disabled && !w.loading {
+		if !b.disabled && !b.loading {
 			r.SetState(render.ButtonStateNormal)
 		}
 	})
 	r.SetOnMouseDown(func() {
-		w, ok := element.GetWidget().(ButtonWidget)
-		if ok && !w.disabled && !w.loading {
+		if !b.disabled && !b.loading {
 			r.SetState(render.ButtonStatePressed)
 		}
 	})
 	r.SetOnMouseUp(func() {
-		w, ok := element.GetWidget().(ButtonWidget)
-		if ok && !w.disabled && !w.loading {
+		if !b.disabled && !b.loading {
 			r.SetState(render.ButtonStateHover)
 		}
 	})

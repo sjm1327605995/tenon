@@ -28,10 +28,11 @@ type fcElement struct {
 	child        Element
 	hooks        *Hooks
 	buildContext *elementBuildContext
+	widget       FCWidget
 }
 
 func newFCElement(widget FCWidget) *fcElement {
-	e := &fcElement{}
+	e := &fcElement{widget: widget}
 	e.ComponentElement.BaseElement.Init(e, widget)
 	e.hooks = &Hooks{element: e}
 	return e
@@ -45,8 +46,7 @@ func (e *fcElement) Mount(parent Element, slot int) {
 
 func (e *fcElement) PerformRebuild(oldWidget Widget) {
 	e.hooks.reset()
-	w := e.GetWidget().(FCWidget)
-	e.child = UpdateChild(e, e.child, w.Render(e.hooks))
+	e.child = UpdateChild(e, e.child, e.widget.Render(e.hooks))
 }
 
 func (e *fcElement) GetChildren() []Element {
