@@ -52,7 +52,7 @@ func (c ContextMenuWidget) CreateState() State {
 }
 
 type contextMenuState struct {
-	BaseState
+	BaseStateOf[ContextMenuWidget]
 	visible bool
 	x, y    float32
 }
@@ -64,14 +64,8 @@ func (s *contextMenuState) Dispose() {}
 func (s *contextMenuState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *contextMenuState) Build(ctx BuildContext) Widget {
-	w, ok := s.GetWidget().(ContextMenuWidget)
-	if !ok {
-		return nil
-	}
-
-	// 包裹子 Widget，监听右键点击
 	return NewBuilder(func(innerCtx BuildContext) Widget {
-		return w.Child
+		return s.Widget().Child
 	})
 }
 
@@ -130,7 +124,7 @@ func (m MenuBarWidget) CreateState() State {
 }
 
 type menuBarState struct {
-	BaseState
+	BaseStateOf[MenuBarWidget]
 	activeIndex int
 	dropVisible bool
 }
@@ -140,10 +134,7 @@ func (s *menuBarState) Dispose() {}
 func (s *menuBarState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *menuBarState) Build(ctx BuildContext) Widget {
-	w, ok := s.GetWidget().(MenuBarWidget)
-	if !ok {
-		return nil
-	}
+	w := s.Widget()
 	theme := ThemeOf(ctx)
 
 	// 构建菜单栏

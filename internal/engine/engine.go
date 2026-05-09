@@ -588,12 +588,15 @@ func (e *Engine) flushBuild() {
 			break
 		}
 
-		// 1. 处理局部 dirty elements（StatefulElement 的 setState）
+		// 1. 处理局部 dirty elements（StatefulElement / fcElement 的 setState）
 		dirtyList := e.dirtyElements
 		e.dirtyElements = nil
 		for _, el := range dirtyList {
-			if se, ok := el.(*StatefulElement); ok {
-				se.rebuild()
+			switch r := el.(type) {
+			case *StatefulElement:
+				r.rebuild()
+			case *fcElement:
+				r.PerformRebuild(nil)
 			}
 		}
 

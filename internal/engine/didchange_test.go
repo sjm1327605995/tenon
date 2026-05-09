@@ -26,7 +26,7 @@ func (t testTheme) BuildChild(ctx BuildContext) Widget {
 
 // didChangeState 用于测试 didChangeDependencies 的调用。
 type didChangeState struct {
-	BaseState
+	BaseStateOf[didChangeWidget]
 	callCount  int
 	lastValue  string
 }

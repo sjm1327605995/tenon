@@ -57,7 +57,7 @@ func (t TooltipWidget) CreateState() State {
 }
 
 type tooltipState struct {
-	BaseState
+	BaseStateOf[TooltipWidget]
 	showTimer *time.Timer
 	showing   bool
 }
@@ -73,14 +73,8 @@ func (s *tooltipState) Dispose() {
 func (s *tooltipState) DidUpdateWidget(oldWidget Widget) {}
 
 func (s *tooltipState) Build(ctx BuildContext) Widget {
-	w, ok := s.GetWidget().(TooltipWidget)
-	if !ok {
-		return nil
-	}
-
-	// 用 Builder 包裹，监听子 Widget 的 mouse enter/leave
 	return NewBuilder(func(innerCtx BuildContext) Widget {
-		return w.Child
+		return s.Widget().Child
 	})
 }
 

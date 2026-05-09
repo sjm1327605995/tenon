@@ -87,7 +87,7 @@ func (a AnimatedContainer) CreateState() ui.State {
 
 // animatedContainerState 维护动画的当前值和控制器。
 type animatedContainerState struct {
-	ui.BaseState
+	ui.BaseStateOf[AnimatedContainer]
 
 	ctrl *ui.AnimationController
 
@@ -126,7 +126,7 @@ type animatedContainerState struct {
 }
 
 func (s *animatedContainerState) InitState() {
-	w := s.GetWidget().(AnimatedContainer)
+	w := s.Widget()
 	s.ctrl = &ui.AnimationController{Duration: w.Duration}
 	if ui.DefaultEngine() != nil {
 		ui.DefaultEngine().RegisterAnimation(s.ctrl)
@@ -154,7 +154,7 @@ func (s *animatedContainerState) Dispose() {
 
 func (s *animatedContainerState) DidUpdateWidget(old ui.Widget) {
 	oldW := old.(AnimatedContainer)
-	newW := s.GetWidget().(AnimatedContainer)
+	newW := s.Widget()
 
 	changed := false
 
@@ -208,7 +208,7 @@ func (s *animatedContainerState) DidUpdateWidget(old ui.Widget) {
 }
 
 func (s *animatedContainerState) onAnimationTick() {
-	w := s.GetWidget().(AnimatedContainer)
+	w := s.Widget()
 	c := w.Curve
 	if c == nil {
 		c = ui.LinearCurve{}
@@ -232,7 +232,7 @@ func (s *animatedContainerState) onAnimationTick() {
 }
 
 func (s *animatedContainerState) Build(ctx ui.BuildContext) ui.Widget {
-	w := s.GetWidget().(AnimatedContainer)
+	w := s.Widget()
 	c := Container(w.Child)
 	if s.width > 0 {
 		c = c.W(s.width)

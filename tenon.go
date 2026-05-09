@@ -13,7 +13,6 @@ type (
 	Widget            = ui.Widget
 	Element           = ui.Element
 	StatefulWidget    = ui.StatefulWidget
-	BaseState         = ui.BaseState
 	BaseWidget        = ui.BaseWidget
 	BuildContext      = ui.BuildContext
 	Builder           = ui.Builder
@@ -35,7 +34,14 @@ type (
 	AnimatedContainer = widgets.AnimatedContainer
 	SelectOption      = widgets.SelectOption
 	FragmentWidget    = engine.FragmentWidget
+	Hooks             = engine.Hooks
 )
+
+// BaseState 是 BaseStateOf[Widget] 的别名，保持向后兼容。
+type BaseState = ui.BaseStateOf[ui.Widget]
+
+// BaseStateOf 是泛型 State 基类，避免 GetWidget() 类型断言。
+type BaseStateOf[W ui.Widget] = ui.BaseStateOf[W]
 
 // 核心函数。
 var (
@@ -229,6 +235,22 @@ const (
 	SeparatorHorizontal = shadcn.SeparatorHorizontal
 	SeparatorVertical   = shadcn.SeparatorVertical
 )
+
+// ==================== Hooks 泛型函数包装 ====================
+// internal/engine 是 internal 包，泛型函数无法通过 var 转发，
+// 以下直接在 tenon 包提供同名泛型函数。
+
+func UseState[T any](h *Hooks, initial T) (func() T, func(T)) {
+	return engine.UseState[T](h, initial)
+}
+
+func UseMemo[T any](h *Hooks, factory func() T, deps []any) T {
+	return engine.UseMemo[T](h, factory, deps)
+}
+
+func UseCallback[T any](h *Hooks, fn T, deps []any) T {
+	return engine.UseCallback[T](h, fn, deps)
+}
 
 // ObjectFit 快捷导出
 const (
