@@ -17,21 +17,14 @@ type progressBarWidget struct {
 }
 
 func (p progressBarWidget) CreateElement() ui.Element {
-	e := &progressBarElement{}
-	e.RenderObjectElement.BaseElement.Init(e, p)
-	return e
+	return ui.NewRenderObjectElement(p)
 }
 
-type progressBarElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderProgressBar
-}
-
-func (e *progressBarElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(progressBarWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (p progressBarWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
 	r := render.NewRenderProgressBar()
-	r.Progress = w.Progress
+	r.Progress = p.Progress
 	r.TrackColor = theme.MutedColor
 	r.FillColor = theme.PrimaryColor
 	r.BarRadius = theme.BorderRadius / 2
@@ -39,14 +32,8 @@ func (e *progressBarElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
-func (e *progressBarElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderProgressBar)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *progressBarElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(progressBarWidget)
-	r := e.ro
-	r.SetProgress(w.Progress)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (p progressBarWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderProgressBar)
+	r.SetProgress(p.Progress)
 }

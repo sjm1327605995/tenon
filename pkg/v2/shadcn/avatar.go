@@ -22,21 +22,14 @@ type avatarWidget struct {
 }
 
 func (a avatarWidget) CreateElement() ui.Element {
-	e := &avatarElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, a)
-	return e
+	return ui.NewSingleChildRenderObjectElement(a)
 }
 
-type avatarElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderBox
-}
-
-func (e *avatarElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (a avatarWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderBox()
-	w := e.GetWidget().(avatarWidget)
-	r.StyleSetWidth(w.size)
-	r.StyleSetHeight(w.size)
+	r.StyleSetWidth(a.size)
+	r.StyleSetHeight(a.size)
 	r.SetBorderRadius(999) // circle (clamped to half size)
 	r.StyleSetJustifyContent(ui.JustifyCenter)
 	r.StyleSetAlignItems(ui.AlignCenter)
@@ -46,31 +39,20 @@ func (e *avatarElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
-func (e *avatarElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.ro
-	w := e.GetWidget().(avatarWidget)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (a avatarWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(avatarWidget)
-
-	if old.size != w.size {
-		r.StyleSetWidth(w.size)
-		r.StyleSetHeight(w.size)
+	r := ro.(*render.RenderBox)
+	if old.size != a.size {
+		r.StyleSetWidth(a.size)
+		r.StyleSetHeight(a.size)
 	}
 	// Theme-derived colors: always update in case theme changed
 	r.SetBackgroundColor(newColor(ui.GetTheme().SecondaryColor))
 	r.SetBorderColor(newColor(ui.GetTheme().BorderColor))
 }
 
-func (e *avatarElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderBox)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(avatarWidget)
-	child := widgets.Text(w.fallback).FontSize(14).Color(newColor(ui.GetTheme().SecondaryForegroundColor))
-	e.Child = ui.UpdateChild(e, nil, child)
-}
-
-func (e *avatarElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(avatarWidget)
-	child := widgets.Text(w.fallback).FontSize(14).Color(newColor(ui.GetTheme().SecondaryForegroundColor))
-	e.Child = ui.UpdateChild(e, e.Child, child)
+// GetChildWidget implements SingleChildProvider.
+func (a avatarWidget) GetChildWidget() ui.Widget {
+	return widgets.Text(a.fallback).FontSize(14).Color(newColor(ui.GetTheme().SecondaryForegroundColor))
 }

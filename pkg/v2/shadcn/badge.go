@@ -43,48 +43,29 @@ type badgeWidget struct {
 }
 
 func (b badgeWidget) CreateElement() ui.Element {
-	e := &badgeElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, b)
-	return e
+	return ui.NewSingleChildRenderObjectElement(b)
 }
 
-type badgeElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderBox
-}
-
-func (e *badgeElement) CreateRenderObject() render.RenderObject {
+// CreateRenderObject implements RenderObjectFactory.
+func (b badgeWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	r := render.NewRenderBox()
-	applyBadgeProps(r, badgeWidget{}, e.GetWidget().(badgeWidget), true)
+	applyBadgeProps(r, badgeWidget{}, b, true)
 	return r
 }
 
-func (e *badgeElement) UpdateRenderObject(oldWidget ui.Widget) {
-	r := e.ro
+// UpdateRenderObject implements RenderObjectUpdater.
+func (b badgeWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(badgeWidget)
-	w := e.GetWidget().(badgeWidget)
-	applyBadgeProps(r, old, w, false)
+	r := ro.(*render.RenderBox)
+	applyBadgeProps(r, old, b, false)
 }
 
-func (e *badgeElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderBox)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(badgeWidget)
-	if !w.dotMode && w.content != "" {
-		child := widgets.Text(w.content).FontSize(12).Color(getBadgeTextColor(w.variant))
-		e.Child = ui.UpdateChild(e, nil, child)
+// GetChildWidget implements SingleChildProvider.
+func (b badgeWidget) GetChildWidget() ui.Widget {
+	if b.dotMode || b.content == "" {
+		return nil
 	}
-}
-
-func (e *badgeElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(badgeWidget)
-	if w.dotMode {
-		e.Child = ui.UpdateChild(e, e.Child, nil)
-		return
-	}
-	child := widgets.Text(w.content).FontSize(12).Color(getBadgeTextColor(w.variant))
-	e.Child = ui.UpdateChild(e, e.Child, child)
+	return widgets.Text(b.content).FontSize(12).Color(getBadgeTextColor(b.variant))
 }
 
 func applyBadgeProps(r *render.RenderBox, old, w badgeWidget, force bool) {

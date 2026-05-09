@@ -20,57 +20,42 @@ type radioWidget struct {
 }
 
 func (r radioWidget) CreateElement() ui.Element {
-	e := &radioElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, r)
-	return e
+	return ui.NewSingleChildRenderObjectElement(r)
 }
 
-type radioElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderRadio
-}
-
-func (e *radioElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(radioWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (r radioWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
-	r := render.NewRenderRadio()
-	r.Selected = w.Selected
-	r.BorderColor = theme.RadioBorderColor
-	r.FillColor = theme.RadioFillColor
-	r.InnerColor = theme.RadioInnerColor
-	r.OnChange = w.OnChange
-	r.SetOnClick(func() {
-		if r.OnChange != nil {
-			r.OnChange(!r.Selected)
+	ro := render.NewRenderRadio()
+	ro.Selected = r.Selected
+	ro.BorderColor = theme.RadioBorderColor
+	ro.FillColor = theme.RadioFillColor
+	ro.InnerColor = theme.RadioInnerColor
+	ro.OnChange = r.OnChange
+	ro.SetOnClick(func() {
+		if ro.OnChange != nil {
+			ro.OnChange(!ro.Selected)
 		}
 	})
-	return r
+	return ro
 }
 
-func (e *radioElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(radioWidget)
-	r := e.ro
-	r.SetSelected(w.Selected)
-	r.OnChange = w.OnChange
-}
-
-func (e *radioElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderRadio)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(radioWidget)
-	if w.Label != "" {
-		child := widgets.Text(w.Label).FontSize(14).Color(ui.GetTheme().TextColor)
-		e.Child = ui.UpdateChild(e, nil, child)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (r radioWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	old := oldWidget.(radioWidget)
+	radioRO := ro.(*render.RenderRadio)
+	radioRO.SetSelected(r.Selected)
+	radioRO.OnChange = r.OnChange
+	if old.Label != r.Label {
+		// Label 变化由 SingleChildProvider 自动处理子元素 diff
+		// RenderRadio 本身无需额外操作
 	}
 }
 
-func (e *radioElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(radioWidget)
-	if w.Label != "" {
-		child := widgets.Text(w.Label).FontSize(14).Color(ui.GetTheme().TextColor)
-		e.Child = ui.UpdateChild(e, e.Child, child)
-	} else {
-		e.Child = ui.UpdateChild(e, e.Child, nil)
+// GetChildWidget implements SingleChildProvider.
+func (r radioWidget) GetChildWidget() ui.Widget {
+	if r.Label == "" {
+		return nil
 	}
+	return widgets.Text(r.Label).FontSize(14).Color(ui.GetTheme().TextColor)
 }

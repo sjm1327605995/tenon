@@ -20,25 +20,18 @@ type checkboxWidget struct {
 }
 
 func (c checkboxWidget) CreateElement() ui.Element {
-	e := &checkboxElement{}
-	e.SingleChildRenderObjectElement.RenderObjectElement.BaseElement.Init(e, c)
-	return e
+	return ui.NewSingleChildRenderObjectElement(c)
 }
 
-type checkboxElement struct {
-	ui.SingleChildRenderObjectElement
-	ro *render.RenderCheckbox
-}
-
-func (e *checkboxElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(checkboxWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (c checkboxWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
 	r := render.NewRenderCheckbox()
-	r.Checked = w.Checked
+	r.Checked = c.Checked
 	r.BorderColor = theme.CheckboxBorderColor
 	r.FillColor = theme.CheckboxFillColor
 	r.CheckColor = theme.CheckboxCheckColor
-	r.OnChange = w.OnChange
+	r.OnChange = c.OnChange
 	r.SetOnClick(func() {
 		r.Checked = !r.Checked
 		if r.OnChange != nil {
@@ -48,30 +41,21 @@ func (e *checkboxElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
-func (e *checkboxElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(checkboxWidget)
-	r := e.ro
-	r.SetChecked(w.Checked)
-	r.OnChange = w.OnChange
-}
-
-func (e *checkboxElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderCheckbox)
-	e.RenderObject = e.ro
-	e.SingleChildRenderObjectElement.Mount(parent, slot)
-	w := e.GetWidget().(checkboxWidget)
-	if w.Label != "" {
-		child := widgets.Text(w.Label).FontSize(14).Color(ui.GetTheme().TextColor)
-		e.Child = ui.UpdateChild(e, nil, child)
+// UpdateRenderObject implements RenderObjectUpdater.
+func (c checkboxWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	old := oldWidget.(checkboxWidget)
+	r := ro.(*render.RenderCheckbox)
+	r.SetChecked(c.Checked)
+	r.OnChange = c.OnChange
+	if old.Label != c.Label {
+		// Label 变化由 SingleChildProvider 自动处理子元素 diff
 	}
 }
 
-func (e *checkboxElement) UpdateChild(oldWidget ui.Widget) {
-	w := e.GetWidget().(checkboxWidget)
-	if w.Label != "" {
-		child := widgets.Text(w.Label).FontSize(14).Color(ui.GetTheme().TextColor)
-		e.Child = ui.UpdateChild(e, e.Child, child)
-	} else {
-		e.Child = ui.UpdateChild(e, e.Child, nil)
+// GetChildWidget implements SingleChildProvider.
+func (c checkboxWidget) GetChildWidget() ui.Widget {
+	if c.Label == "" {
+		return nil
 	}
+	return widgets.Text(c.Label).FontSize(14).Color(ui.GetTheme().TextColor)
 }
