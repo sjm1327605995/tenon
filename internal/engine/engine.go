@@ -377,13 +377,11 @@ func (e *Engine) findFocuser(ro render.RenderObject) render.RenderObject {
 	for ro != nil {
 		if f, ok := ro.(Focusabler); ok {
 			// 跳过显式标记为不可聚焦的 RenderBox
-			if fb, ok := ro.(interface{ IsFocusable() bool }); ok && !fb.IsFocusable() {
+			if !f.IsFocusable() {
 				ro = ro.GetParent()
 				continue
 			}
-			if fro, ok := f.(render.RenderObject); ok {
-				return fro
-			}
+			return f
 		}
 		ro = ro.GetParent()
 	}

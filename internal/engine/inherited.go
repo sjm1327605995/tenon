@@ -69,11 +69,23 @@ func (i *InheritedElement) GetChildren() []Element {
 	return []Element{i.Child}
 }
 
+func (i *InheritedElement) GetBuildContext() BuildContext {
+	return i.buildContext
+}
+
+func (i *InheritedElement) GetInheritedWidget() InheritedWidget {
+	return i.widget
+}
+
+func (i *InheritedElement) AddDependent(dependent Element) {
+	i.addDependent(dependent)
+}
+
 func (i *InheritedElement) FindRenderObject() render.RenderObject {
-	if i.Child != nil {
-		return i.Child.FindRenderObject()
+	if i.Child == nil {
+		return nil
 	}
-	return nil
+	return i.Child.FindRenderObject()
 }
 
 // addDependent 注册一个依赖该 InheritedWidget 的子 Element。
@@ -92,9 +104,7 @@ func (i *InheritedElement) removeDependent(dependent Element) {
 // notifyDependents 通知所有依赖者 rebuild。
 func (i *InheritedElement) notifyDependents() {
 	for dependent := range i.dependents {
-		if se, ok := dependent.(*StatefulElement); ok {
-			se.didChangeDependencies()
-		}
+		dependent.DidChangeDependencies()
 	}
 }
 
@@ -102,10 +112,10 @@ func (i *InheritedElement) notifyDependents() {
 // 如果找到，将调用者 Element 注册为依赖者。
 func getInheritedWidgetOfExactType(from Element, t reflect.Type) (InheritedWidget, bool) {
 	for p := from.GetParent(); p != nil; p = p.GetParent() {
-		if ie, ok := p.(*InheritedElement); ok {
-			if reflect.TypeOf(ie.widget) == t {
-				ie.addDependent(from)
-				return ie.widget, true
+		if iw := p.GetInheritedWidget(); iw != nil {
+			if reflect.TypeOf(iw) == t {
+				p.AddDependent(from)
+				return iw, true
 			}
 		}
 	}

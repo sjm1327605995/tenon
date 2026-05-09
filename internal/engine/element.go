@@ -7,21 +7,28 @@ import (
 )
 
 // globalKeyRegistry 维护 GlobalKey 到 Element 的映射。
-var globalKeyRegistry sync.Map
+var (
+	globalKeyRegistry   = make(map[*GlobalKey]Element)
+	globalKeyRegistryMu sync.RWMutex
+)
 
 func registerGlobalKey(key *GlobalKey, element Element) {
-	globalKeyRegistry.Store(key, element)
+	globalKeyRegistryMu.Lock()
+	globalKeyRegistry[key] = element
+	globalKeyRegistryMu.Unlock()
 }
 
 func unregisterGlobalKey(key *GlobalKey) {
-	globalKeyRegistry.Delete(key)
+	globalKeyRegistryMu.Lock()
+	delete(globalKeyRegistry, key)
+	globalKeyRegistryMu.Unlock()
 }
 
 func getGlobalKeyElement(key *GlobalKey) Element {
-	if v, ok := globalKeyRegistry.Load(key); ok {
-		return v.(Element)
-	}
-	return nil
+	globalKeyRegistryMu.RLock()
+	el := globalKeyRegistry[key]
+	globalKeyRegistryMu.RUnlock()
+	return el
 }
 
 // Element 是 Element 树中的节点，负责 Widget 的生命周期管理和 RenderObject 的创建/更新。
@@ -40,6 +47,14 @@ type Element interface {
 
 	// RenderObject 关联
 	FindRenderObject() render.RenderObject
+	GetRenderObject() render.RenderObject
+	GetBuildContext() BuildContext
+	GetState() State
+
+	// InheritedWidget 关联
+	GetInheritedWidget() InheritedWidget
+	AddDependent(dependent Element)
+	DidChangeDependencies()
 }
 
 // BaseElement 提供 Element 的默认实现。
@@ -59,12 +74,18 @@ func (b *BaseElement) GetWidget() Widget     { return b.widget }
 func (b *BaseElement) GetParent() Element    { return b.parent }
 func (b *BaseElement) GetChildren() []Element { return nil }
 func (b *BaseElement) GetSlot() int          { return b.slot }
+func (b *BaseElement) GetRenderObject() render.RenderObject { return nil }
+func (b *BaseElement) GetBuildContext() BuildContext        { return nil }
+func (b *BaseElement) GetState() State                      { return nil }
+func (b *BaseElement) GetInheritedWidget() InheritedWidget  { return nil }
+func (b *BaseElement) AddDependent(dependent Element)        {}
+func (b *BaseElement) DidChangeDependencies()                {}
 
 func (b *BaseElement) Mount(parent Element, slot int) {
 	b.parent = parent
 	b.slot = slot
 	if key := b.widget.GetKey(); key != nil {
-		if gk, ok := key.(*GlobalKey); ok {
+		if gk := key.AsGlobalKey(); gk != nil {
 			registerGlobalKey(gk, b.self)
 		}
 	}
@@ -76,7 +97,7 @@ func (b *BaseElement) Update(newWidget Widget) {
 
 func (b *BaseElement) Unmount() {
 	if key := b.widget.GetKey(); key != nil {
-		if gk, ok := key.(*GlobalKey); ok {
+		if gk := key.AsGlobalKey(); gk != nil {
 			unregisterGlobalKey(gk)
 		}
 	}
@@ -190,11 +211,9 @@ func (r *RenderObjectElement) Mount(parent Element, slot int) {
 		// 将 RenderObject 挂载到最近的 RenderObjectElement 祖先
 		// 跳过 ComponentElement（如 StatefulElement），因为它们没有自己的 RenderObject
 		for p := parent; p != nil; p = p.GetParent() {
-			if proe, ok := p.(interface{ GetRenderObject() render.RenderObject }); ok {
-				if pro := proe.GetRenderObject(); pro != nil {
-					pro.AddChild(r.RenderObject)
-					break
-				}
+			if pro := p.GetRenderObject(); pro != nil {
+				pro.AddChild(r.RenderObject)
+				break
 			}
 		}
 	}
@@ -213,11 +232,9 @@ func (r *RenderObjectElement) Unmount() {
 		// 从最近的 RenderObjectElement 祖先移除
 		// 跳过 ComponentElement（如 StatefulElement），因为它们没有自己的 RenderObject
 		for p := r.parent; p != nil; p = p.GetParent() {
-			if proe, ok := p.(interface{ GetRenderObject() render.RenderObject }); ok {
-				if pro := proe.GetRenderObject(); pro != nil {
-					pro.RemoveChild(r.RenderObject)
-					break
-				}
+			if pro := p.GetRenderObject(); pro != nil {
+				pro.RemoveChild(r.RenderObject)
+				break
 			}
 		}
 		r.RenderObject.Detach()
