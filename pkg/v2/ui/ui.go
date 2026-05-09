@@ -90,6 +90,7 @@ type (
 	TestEnvironment   = internal.TestEnvironment
 	Hooks             = internal.Hooks
 	FCWidget          = internal.FCWidget
+	BorderSlice       = render.BorderSlice
 )
 
 // 核心函数。

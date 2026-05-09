@@ -30,7 +30,8 @@ func EditableText(content string) EditableTextWidget {
 	}
 }
 
-func (e EditableTextWidget) Size(size float32) EditableTextWidget {
+func (e EditableTextWidget) Size(size float32) EditableTextWidget { return e.FontSize(size) }
+func (e EditableTextWidget) FontSize(size float32) EditableTextWidget {
 	e.fontSize = size
 	return e
 }
@@ -208,6 +209,11 @@ func (t TextFieldWidget) OnChange(fn func(string)) TextFieldWidget {
 
 func (t TextFieldWidget) OnSubmit(fn func(string)) TextFieldWidget {
 	t.editable = t.editable.OnSubmit(fn)
+	return t
+}
+
+func (t TextFieldWidget) FontSize(size float32) TextFieldWidget {
+	t.editable = t.editable.FontSize(size)
 	return t
 }
 

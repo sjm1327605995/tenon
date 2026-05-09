@@ -28,7 +28,8 @@ func Row(children ...ui.Widget) RowWidget {
 	}
 }
 
-func (r RowWidget) Gapf(v float32) RowWidget {
+func (r RowWidget) Gapf(v float32) RowWidget { return r.Gap(v) }
+func (r RowWidget) Gap(v float32) RowWidget {
 	r.gap = v
 	return r
 }
@@ -43,7 +44,8 @@ func (r RowWidget) AlignItems(v yoga.Align) RowWidget {
 	return r
 }
 
-func (r RowWidget) Paddingf(insets ui.EdgeInsets) RowWidget {
+func (r RowWidget) Paddingf(insets ui.EdgeInsets) RowWidget { return r.Padding(insets) }
+func (r RowWidget) Padding(insets ui.EdgeInsets) RowWidget {
 	r.padding = insets
 	return r
 }
@@ -74,7 +76,8 @@ func Column(children ...ui.Widget) ColumnWidget {
 	}
 }
 
-func (c ColumnWidget) Gapf(v float32) ColumnWidget {
+func (c ColumnWidget) Gapf(v float32) ColumnWidget { return c.Gap(v) }
+func (c ColumnWidget) Gap(v float32) ColumnWidget {
 	c.gap = v
 	return c
 }
@@ -89,7 +92,8 @@ func (c ColumnWidget) AlignItems(v yoga.Align) ColumnWidget {
 	return c
 }
 
-func (c ColumnWidget) Paddingf(insets ui.EdgeInsets) ColumnWidget {
+func (c ColumnWidget) Paddingf(insets ui.EdgeInsets) ColumnWidget { return c.Padding(insets) }
+func (c ColumnWidget) Padding(insets ui.EdgeInsets) ColumnWidget {
 	c.padding = insets
 	return c
 }

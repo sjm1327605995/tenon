@@ -194,18 +194,21 @@ func DrawStrokedCirclePath(screen *ebiten.Image, cx, cy, radius, strokeWidth flo
 	vector.StrokePath(screen, path, strokeOp, op)
 }
 
-// Transform 定义 2D 仿射变换参数。
+// Transform 定义 2D/3D 仿射变换参数。
 type Transform struct {
-	Rotation  float32
-	ScaleX    float32
-	ScaleY    float32
-	SkewX     float32
-	SkewY     float32
+	Rotation   float32
+	RotateX    float32 // 绕 X 轴旋转（度），正值向上翻转
+	RotateY    float32 // 绕 Y 轴旋转（度），正值向右翻转
+	ScaleX     float32
+	ScaleY     float32
+	SkewX      float32
+	SkewY      float32
 	TranslateX float32 // 平移 X（像素）
 	TranslateY float32 // 平移 Y（像素）
-	OriginX   float32 // 0~1，相对于元素宽高的比例
-	OriginY   float32 // 0~1，相对于元素宽高的比例
-	Alpha     float32
+	OriginX    float32 // 0~1，相对于元素宽高的比例
+	OriginY    float32 // 0~1，相对于元素宽高的比例
+	Alpha      float32
+	Perspective float32 // 透视距离（像素），0 表示无透视
 }
 
 // DefaultTransform 返回无变换的默认值。
@@ -213,10 +216,16 @@ func DefaultTransform() Transform {
 	return Transform{ScaleX: 1, ScaleY: 1, OriginX: 0.5, OriginY: 0.5, Alpha: 1}
 }
 
-// IsIdentity 检查是否接近无变换状态。
+// IsIdentity 检查是否接近无变换状态（不含 3D）。
 func (t Transform) IsIdentity() bool {
-	return t.Rotation == 0 && t.ScaleX == 1 && t.ScaleY == 1 &&
+	return t.Rotation == 0 && t.RotateX == 0 && t.RotateY == 0 && t.Perspective == 0 &&
+		t.ScaleX == 1 && t.ScaleY == 1 &&
 		t.SkewX == 0 && t.SkewY == 0 && t.TranslateX == 0 && t.TranslateY == 0 && t.Alpha == 1
+}
+
+// Has3D 判断是否有 3D 旋转变换。
+func (t Transform) Has3D() bool {
+	return t.RotateX != 0 || t.RotateY != 0 || t.Perspective != 0
 }
 
 // BuildTransformGeoM 以元素中心（由 OriginX/OriginY 比例决定）为锚点，构建变换矩阵。
@@ -233,6 +242,63 @@ func BuildTransformGeoM(bounds Bounds, t Transform) ebiten.GeoM {
 	g.Translate(ox, oy)
 	g.Translate(float64(t.TranslateX), float64(t.TranslateY))
 	return g
+}
+
+// project3D 将 3D 坐标通过透视投影到 2D。
+func project3D(x, y, z, perspective float64) (float64, float64) {
+	if perspective <= 0 {
+		return x, y
+	}
+	s := 1.0 + z/perspective
+	if s < 0.001 {
+		s = 0.001
+	}
+	return x / s, y / s
+}
+
+// rotateX3D 绕 X 轴旋转点。
+func rotateX3D(y, z float64, angleDeg float64) (float64, float64) {
+	rad := angleDeg * math.Pi / 180
+	c := math.Cos(rad)
+	s := math.Sin(rad)
+	return y*c - z*s, y*s + z*c
+}
+
+// rotateY3D 绕 Y 轴旋转点。
+func rotateY3D(x, z float64, angleDeg float64) (float64, float64) {
+	rad := angleDeg * math.Pi / 180
+	c := math.Cos(rad)
+	s := math.Sin(rad)
+	return x*c + z*s, -x*s + z*c
+}
+
+// Build3DVertices 将矩形 bounds 通过 3D 旋转+透视投影后生成 4 个屏幕坐标顶点。
+// 返回的 4 个点按左上、右上、右下、左下顺序。
+func Build3DVertices(bounds Bounds, t Transform) [4][2]float64 {
+	ox := float64(bounds.Width) * float64(t.OriginX)
+	oy := float64(bounds.Height) * float64(t.OriginY)
+
+	corners := [4][3]float64{
+		{-ox, -oy, 0},                    // 左上
+		{float64(bounds.Width) - ox, -oy, 0}, // 右上
+		{float64(bounds.Width) - ox, float64(bounds.Height) - oy, 0}, // 右下
+		{-ox, float64(bounds.Height) - oy, 0}, // 左下
+	}
+
+	var result [4][2]float64
+	for i, p := range corners {
+		x, y, z := p[0], p[1], p[2]
+		// RotateX
+		y, z = rotateX3D(y, z, float64(t.RotateX))
+		// RotateY
+		x, z = rotateY3D(x, z, float64(t.RotateY))
+		// Perspective projection
+		x, y = project3D(x, y, z, float64(t.Perspective))
+		// Translate back from origin
+		result[i][0] = x + ox + float64(bounds.X) + float64(t.TranslateX)
+		result[i][1] = y + oy + float64(bounds.Y) + float64(t.TranslateY)
+	}
+	return result
 }
 
 // ApplyColorScaleAlpha 在已有 ColorScale 基础上应用透明度。

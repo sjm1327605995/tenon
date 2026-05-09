@@ -1,6 +1,7 @@
 package widgets
 
 import (
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 	"github.com/sjm1327605995/tenon/yoga"
@@ -11,6 +12,8 @@ type ContainerWidget struct {
 	ui.BaseWidget
 	child            ui.Widget
 	backgroundColor  *render.Color
+	backgroundImage  *ebiten.Image
+	backgroundSlice  render.BorderSlice
 	borderRadius     float32
 	borderColor      *render.Color
 	borderWidth      float32
@@ -45,6 +48,14 @@ func Container(child ui.Widget) ContainerWidget {
 
 func (c ContainerWidget) Background(color render.Color) ContainerWidget {
 	c.backgroundColor = &color
+	return c
+}
+
+// BackgroundImage 设置 NinePatch 或普通拉伸背景图片。
+// slice 全为 0 时使用普通拉伸，否则使用 9-slice 缩放。
+func (c ContainerWidget) BackgroundImage(img *ebiten.Image, slice render.BorderSlice) ContainerWidget {
+	c.backgroundImage = img
+	c.backgroundSlice = slice
 	return c
 }
 
@@ -102,12 +113,14 @@ func (c ContainerWidget) Basis(v float32) ContainerWidget {
 	return c
 }
 
-func (c ContainerWidget) Pad(insets ui.EdgeInsets) ContainerWidget {
+func (c ContainerWidget) Pad(insets ui.EdgeInsets) ContainerWidget { return c.Padding(insets) }
+func (c ContainerWidget) Padding(insets ui.EdgeInsets) ContainerWidget {
 	c.padding = insets
 	return c
 }
 
-func (c ContainerWidget) Marginf(insets ui.EdgeInsets) ContainerWidget {
+func (c ContainerWidget) Marginf(insets ui.EdgeInsets) ContainerWidget { return c.Margin(insets) }
+func (c ContainerWidget) Margin(insets ui.EdgeInsets) ContainerWidget {
 	c.margin = insets
 	return c
 }
@@ -184,6 +197,9 @@ func (c ContainerWidget) GetChildWidget() ui.Widget {
 func applyContainerProps(r *render.RenderBox, old, w ContainerWidget) {
 	if !render.ColorPtrEquals(old.backgroundColor, w.backgroundColor) {
 		r.SetBackgroundColor(w.backgroundColor)
+	}
+	if old.backgroundImage != w.backgroundImage || old.backgroundSlice != w.backgroundSlice {
+		r.SetBackgroundImage(w.backgroundImage, w.backgroundSlice)
 	}
 	if old.borderRadius != w.borderRadius {
 		r.SetBorderRadius(w.borderRadius)

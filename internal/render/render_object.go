@@ -2,6 +2,7 @@ package render
 
 import (
 	"image/color"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/yoga"
@@ -21,6 +22,11 @@ type Size struct {
 type BoxConstraints struct {
 	MinWidth, MaxWidth   float32
 	MinHeight, MaxHeight float32
+}
+
+// Tickable 是可以接收时间推进的 RenderObject。
+type Tickable interface {
+	Tick(dt time.Duration) bool
 }
 
 // RenderObject 是渲染树中的节点，负责布局和绘制。

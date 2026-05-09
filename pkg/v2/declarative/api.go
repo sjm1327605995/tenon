@@ -10,7 +10,7 @@ import (
 	"image/color"
 	"time"
 
-	"github.com/sjm1327605995/tenon"
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
 	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
@@ -131,9 +131,13 @@ type FlexBox struct {
 }
 
 func (f FlexBox) Gap(v float32) FlexBox           { f.gap = v; return f }
+func (f FlexBox) Gapf(v float32) FlexBox          { return f.Gap(v) }
 func (f FlexBox) Padding(v float32) FlexBox       { f.padding = ui.EdgeInsetsAll(v); return f }
+func (f FlexBox) Paddingf(insets ui.EdgeInsets) FlexBox { f.padding = insets; return f }
 func (f FlexBox) Justify(v yoga.Justify) FlexBox  { f.justify = v; return f }
+func (f FlexBox) JustifyContent(v yoga.Justify) FlexBox { f.justify = v; return f }
 func (f FlexBox) Align(v yoga.Align) FlexBox      { f.alignItems = v; return f }
+func (f FlexBox) AlignItems(v yoga.Align) FlexBox { f.alignItems = v; return f }
 func (f FlexBox) Grow(v float32) FlexBox          { f.flexGrow = v; return f }
 func (f FlexBox) CreateElement() ui.Element       { return newBuilder(f) }
 func (f FlexBox) GetKey() ui.Key                  { return ui.NilKey{} }
@@ -224,9 +228,13 @@ type ButtonWidget struct {
 }
 
 func (b ButtonWidget) Style(v ButtonStyle) ButtonWidget { b.style = v; return b }
+func (b ButtonWidget) Variantf(v ButtonStyle) ButtonWidget { return b.Style(v) }
 func (b ButtonWidget) OnClick(fn func()) ButtonWidget   { b.onClick = fn; return b }
+func (b ButtonWidget) OnTap(fn func()) ButtonWidget     { return b.OnClick(fn) }
 func (b ButtonWidget) Disabled(v bool) ButtonWidget     { b.disabled = v; return b }
+func (b ButtonWidget) SetDisabled(v bool) ButtonWidget  { return b.Disabled(v) }
 func (b ButtonWidget) Loading(v bool) ButtonWidget      { b.loading = v; return b }
+func (b ButtonWidget) SetLoading(v bool) ButtonWidget   { return b.Loading(v) }
 func (b ButtonWidget) CreateElement() ui.Element        { return newBuilder(b) }
 func (b ButtonWidget) GetKey() ui.Key                   { return ui.NilKey{} }
 func (b ButtonWidget) unwrap() ui.Widget {
@@ -245,21 +253,78 @@ func Input(placeholder string) InputWidget {
 
 type InputWidget struct {
 	placeholder string
+	value       string
 	onChange    func(string)
 	onSubmit    func(string)
 	multiline   bool
+	width       float32
+	height      float32
+	fontSize    float32
+	bg          *render.Color
+	borderColor *render.Color
+	borderW     float32
+	radius      float32
+	padding     ui.EdgeInsets
 }
 
+func (i InputWidget) Value(v string) InputWidget           { i.value = v; return i }
 func (i InputWidget) OnChange(fn func(string)) InputWidget { i.onChange = fn; return i }
 func (i InputWidget) OnSubmit(fn func(string)) InputWidget { i.onSubmit = fn; return i }
 func (i InputWidget) Multiline() InputWidget                { i.multiline = true; return i }
+func (i InputWidget) Width(v float32) InputWidget           { i.width = v; return i }
+func (i InputWidget) Height(v float32) InputWidget          { i.height = v; return i }
+func (i InputWidget) FontSize(v float32) InputWidget        { i.fontSize = v; return i }
+func (i InputWidget) Background(c color.Color) InputWidget  { i.bg = render.NewColorFrom(c); return i }
+func (i InputWidget) Border(c color.Color, w float32) InputWidget { i.borderColor = render.NewColorFrom(c); i.borderW = w; return i }
+func (i InputWidget) CornerRadius(v float32) InputWidget    { i.radius = v; return i }
+func (i InputWidget) Padding(v float32) InputWidget         { i.padding = ui.EdgeInsetsAll(v); return i }
 func (i InputWidget) CreateElement() ui.Element             { return newBuilder(i) }
 func (i InputWidget) GetKey() ui.Key                        { return ui.NilKey{} }
 func (i InputWidget) unwrap() ui.Widget {
 	if i.multiline {
-		return widgets.Textarea("").Placeholder(i.placeholder)
+		w := widgets.Textarea(i.value).Placeholder(i.placeholder)
+		if i.width > 0 {
+			w = w.W(i.width)
+		}
+		if i.height > 0 {
+			w = w.H(i.height)
+		}
+		if i.fontSize > 0 {
+			w = w.FontSize(i.fontSize)
+		}
+		if i.bg != nil {
+			w = w.Background(*i.bg)
+		}
+		if i.borderColor != nil && i.borderW > 0 {
+			w = w.Border(*i.borderColor, i.borderW)
+		}
+		if i.radius > 0 {
+			w = w.Radius(i.radius)
+		}
+		return w
 	}
-	w := widgets.TextField("").Placeholder(i.placeholder)
+	w := widgets.TextField(i.value).Placeholder(i.placeholder)
+	if i.width > 0 {
+		w = w.W(i.width)
+	}
+	if i.height > 0 {
+		w = w.H(i.height)
+	}
+	if i.fontSize > 0 {
+		w = w.FontSize(i.fontSize)
+	}
+	if i.bg != nil {
+		w = w.Bg(*i.bg)
+	}
+	if i.borderColor != nil && i.borderW > 0 {
+		w = w.Border(*i.borderColor, i.borderW)
+	}
+	if i.radius > 0 {
+		w = w.Radius(i.radius)
+	}
+	if i.padding != (ui.EdgeInsets{}) {
+		w = w.Pad(i.padding)
+	}
 	if i.onChange != nil {
 		w = w.OnChange(i.onChange)
 	}
@@ -276,26 +341,34 @@ func Container(child Widget) ContainerBox {
 }
 
 type ContainerBox struct {
-	child   Widget
-	bg      *render.Color
-	radius  float32
-	border  *render.Color
-	borderW float32
-	padding ui.EdgeInsets
-	margin  ui.EdgeInsets
-	width   float32
-	height  float32
-	onClick func()
+	child      Widget
+	bg         *render.Color
+	bgImage    *ebiten.Image
+	bgSlice    render.BorderSlice
+	radius     float32
+	border     *render.Color
+	borderW    float32
+	padding    ui.EdgeInsets
+	margin     ui.EdgeInsets
+	width      float32
+	height     float32
+	onClick    func()
 }
 
 func (c ContainerBox) Background(cl color.Color) ContainerBox      { c.bg = render.NewColorFrom(cl); return c }
+func (c ContainerBox) BackgroundImage(img *ebiten.Image, slice render.BorderSlice) ContainerBox { c.bgImage = img; c.bgSlice = slice; return c }
 func (c ContainerBox) CornerRadius(v float32) ContainerBox         { c.radius = v; return c }
 func (c ContainerBox) Border(cl color.Color, w float32) ContainerBox { c.border = render.NewColorFrom(cl); c.borderW = w; return c }
 func (c ContainerBox) Padding(v float32) ContainerBox              { c.padding = ui.EdgeInsetsAll(v); return c }
+func (c ContainerBox) Pad(insets ui.EdgeInsets) ContainerBox       { c.padding = insets; return c }
 func (c ContainerBox) Margin(v float32) ContainerBox               { c.margin = ui.EdgeInsetsAll(v); return c }
+func (c ContainerBox) Marginf(insets ui.EdgeInsets) ContainerBox   { c.margin = insets; return c }
 func (c ContainerBox) Width(v float32) ContainerBox                { c.width = v; return c }
+func (c ContainerBox) W(v float32) ContainerBox                    { return c.Width(v) }
 func (c ContainerBox) Height(v float32) ContainerBox               { c.height = v; return c }
+func (c ContainerBox) H(v float32) ContainerBox                    { return c.Height(v) }
 func (c ContainerBox) OnClick(fn func()) ContainerBox              { c.onClick = fn; return c }
+func (c ContainerBox) OnTap(fn func()) ContainerBox                { return c.OnClick(fn) }
 func (c ContainerBox) CreateElement() ui.Element                   { return newBuilder(c) }
 func (c ContainerBox) GetKey() ui.Key                              { return ui.NilKey{} }
 func (c ContainerBox) unwrap() ui.Widget {
@@ -309,7 +382,10 @@ func (c ContainerBox) unwrap() ui.Widget {
 	if c.border != nil && c.borderW > 0 {
 		w = w.Border(*c.border, c.borderW)
 	}
-	w = w.Pad(c.padding).Marginf(c.margin)
+	if c.bgImage != nil {
+		w = w.BackgroundImage(c.bgImage, c.bgSlice)
+	}
+	w = w.Padding(c.padding).Margin(c.margin)
 	if c.width > 0 {
 		w = w.W(c.width)
 	}
@@ -388,4 +464,530 @@ func GetNavigator(ctx BuildContext) ui.NavigatorState { return ui.GetNavigator(c
 func Push(ctx BuildContext, name string, params ...RouteParams) { ui.NavPush(ctx, name, params...) }
 func Pop(ctx BuildContext)                           { ui.NavPop(ctx) }
 func SetTheme(t *ui.Theme)                           { ui.SetTheme(t) }
-func Run(buildFunc ui.BuildFunc, width, height int)  { tenon.Run(buildFunc, width, height) }
+func Run(buildFunc ui.BuildFunc, width, height int) {
+	wrappedBuildFunc := func() ui.Widget {
+		return ui.ThemeProvider(ui.GetTheme(), buildFunc())
+	}
+	engine := ui.NewEngine(wrappedBuildFunc, width, height)
+	engine.Run()
+}
+
+
+// ==================== Image ====================
+
+func Image(src *ebiten.Image) ImageBox {
+	return ImageBox{src: src}
+}
+
+type ImageBox struct {
+	src          *ebiten.Image
+	fit          render.ObjectFit
+	width        float32
+	height       float32
+	borderRadius float32
+	tint         color.Color
+}
+
+func (i ImageBox) Fit(f render.ObjectFit) ImageBox     { i.fit = f; return i }
+func (i ImageBox) Width(v float32) ImageBox             { i.width = v; return i }
+func (i ImageBox) W(v float32) ImageBox                 { return i.Width(v) }
+func (i ImageBox) Height(v float32) ImageBox            { i.height = v; return i }
+func (i ImageBox) H(v float32) ImageBox                 { return i.Height(v) }
+func (i ImageBox) CornerRadius(v float32) ImageBox      { i.borderRadius = v; return i }
+func (i ImageBox) Radius(v float32) ImageBox            { return i.CornerRadius(v) }
+func (i ImageBox) Tint(c color.Color) ImageBox          { i.tint = c; return i }
+func (i ImageBox) CreateElement() ui.Element            { return newBuilder(i) }
+func (i ImageBox) GetKey() ui.Key                       { return ui.NilKey{} }
+func (i ImageBox) unwrap() ui.Widget {
+	w := widgets.Image(i.src)
+	if i.fit != 0 {
+		w = w.Fit(i.fit)
+	}
+	if i.width > 0 {
+		w = w.W(i.width)
+	}
+	if i.height > 0 {
+		w = w.H(i.height)
+	}
+	if i.borderRadius > 0 {
+		w = w.Radius(i.borderRadius)
+	}
+	if i.tint != nil {
+		w = w.Tint(i.tint)
+	}
+	return w
+}
+
+// ==================== Icon ====================
+
+func Icon(name string) IconBox {
+	return IconBox{name: name}
+}
+
+type IconBox struct {
+	name     string
+	size     float32
+	iconColor color.Color
+}
+
+func (i IconBox) Size(v float32) IconBox       { i.size = v; return i }
+func (i IconBox) Color(c color.Color) IconBox  { i.iconColor = c; return i }
+func (i IconBox) CreateElement() ui.Element    { return newBuilder(i) }
+func (i IconBox) GetKey() ui.Key               { return ui.NilKey{} }
+func (i IconBox) unwrap() ui.Widget {
+	w := widgets.Icon(i.name)
+	if i.size > 0 {
+		w = w.Size(i.size)
+	}
+	if i.iconColor != nil {
+		w = w.Color(i.iconColor)
+	}
+	return w
+}
+
+// ==================== Scroll ====================
+
+func Scroll(child Widget) ScrollBox {
+	return ScrollBox{child: child}
+}
+
+type ScrollBox struct {
+	child     Widget
+	width     float32
+	height    float32
+	maxHeight float32
+}
+
+func (s ScrollBox) Width(v float32) ScrollBox     { s.width = v; return s }
+func (s ScrollBox) Height(v float32) ScrollBox    { s.height = v; return s }
+func (s ScrollBox) MaxHeight(v float32) ScrollBox { s.maxHeight = v; return s }
+func (s ScrollBox) CreateElement() ui.Element     { return newBuilder(s) }
+func (s ScrollBox) GetKey() ui.Key                { return ui.NilKey{} }
+func (s ScrollBox) unwrap() ui.Widget {
+	w := widgets.Scroll(s.child)
+	if s.width > 0 {
+		w = w.W(s.width)
+	}
+	if s.height > 0 {
+		w = w.H(s.height)
+	}
+	if s.maxHeight > 0 {
+		w = w.MaxHeight(s.maxHeight)
+	}
+	return w
+}
+
+// ==================== Stack / Positioned ====================
+
+func Stack(children ...Widget) StackBox {
+	return StackBox{children: children}
+}
+
+type StackBox struct {
+	children []Widget
+	width    float32
+	height   float32
+	bg       *render.Color
+	radius   float32
+}
+
+func (s StackBox) Width(v float32) StackBox        { s.width = v; return s }
+func (s StackBox) W(v float32) StackBox            { return s.Width(v) }
+func (s StackBox) Height(v float32) StackBox       { s.height = v; return s }
+func (s StackBox) H(v float32) StackBox            { return s.Height(v) }
+func (s StackBox) Background(c color.Color) StackBox { s.bg = render.NewColorFrom(c); return s }
+func (s StackBox) BackgroundColor(c render.Color) StackBox { s.bg = &c; return s }
+func (s StackBox) CornerRadius(v float32) StackBox  { s.radius = v; return s }
+func (s StackBox) Radius(v float32) StackBox        { return s.CornerRadius(v) }
+func (s StackBox) CreateElement() ui.Element        { return newBuilder(s) }
+func (s StackBox) GetKey() ui.Key                   { return ui.NilKey{} }
+func (s StackBox) unwrap() ui.Widget {
+	realChildren := make([]ui.Widget, len(s.children))
+	for i, c := range s.children {
+		if u, ok := c.(unwrapper); ok {
+			realChildren[i] = u.unwrap()
+		} else {
+			realChildren[i] = c
+		}
+	}
+	w := widgets.Stack(realChildren...)
+	if s.width > 0 {
+		w = w.W(s.width)
+	}
+	if s.height > 0 {
+		w = w.H(s.height)
+	}
+	if s.bg != nil {
+		w = w.Background(*s.bg)
+	}
+	if s.radius > 0 {
+		w = w.Radius(s.radius)
+	}
+	return w
+}
+
+func Positioned(child Widget) PositionedBox {
+	return PositionedBox{child: child, left: -1, top: -1, right: -1, bottom: -1}
+}
+
+type PositionedBox struct {
+	child  Widget
+	left   float32
+	top    float32
+	right  float32
+	bottom float32
+	width  float32
+	height float32
+	center bool
+}
+
+func (p PositionedBox) Left(v float32) PositionedBox   { p.left = v; return p }
+func (p PositionedBox) L(v float32) PositionedBox      { return p.Left(v) }
+func (p PositionedBox) Top(v float32) PositionedBox    { p.top = v; return p }
+func (p PositionedBox) T(v float32) PositionedBox      { return p.Top(v) }
+func (p PositionedBox) Right(v float32) PositionedBox  { p.right = v; return p }
+func (p PositionedBox) R(v float32) PositionedBox      { return p.Right(v) }
+func (p PositionedBox) Bottom(v float32) PositionedBox { p.bottom = v; return p }
+func (p PositionedBox) B(v float32) PositionedBox      { return p.Bottom(v) }
+func (p PositionedBox) Width(v float32) PositionedBox  { p.width = v; return p }
+func (p PositionedBox) W(v float32) PositionedBox      { return p.Width(v) }
+func (p PositionedBox) Height(v float32) PositionedBox { p.height = v; return p }
+func (p PositionedBox) H(v float32) PositionedBox      { return p.Height(v) }
+func (p PositionedBox) Center() PositionedBox           { p.center = true; return p }
+func (p PositionedBox) CreateElement() ui.Element       { return newBuilder(p) }
+func (p PositionedBox) GetKey() ui.Key                  { return ui.NilKey{} }
+func (p PositionedBox) unwrap() ui.Widget {
+	w := widgets.Positioned(p.child)
+	if p.center {
+		w = w.Center()
+	} else {
+		if p.left >= 0 {
+			w = w.L(p.left)
+		}
+		if p.top >= 0 {
+			w = w.T(p.top)
+		}
+		if p.right >= 0 {
+			w = w.R(p.right)
+		}
+		if p.bottom >= 0 {
+			w = w.B(p.bottom)
+		}
+	}
+	if p.width > 0 {
+		w = w.W(p.width)
+	}
+	if p.height > 0 {
+		w = w.H(p.height)
+	}
+	return w
+}
+
+// ==================== Select ====================
+
+func Select(options []widgets.SelectOption) SelectBox {
+	return SelectBox{options: options}
+}
+
+type SelectBox struct {
+	options     []widgets.SelectOption
+	value       string
+	placeholder string
+	onChange    func(string)
+	disabled    bool
+	width       float32
+}
+
+func (s SelectBox) Value(v string) SelectBox         { s.value = v; return s }
+func (s SelectBox) WithValue(v string) SelectBox     { return s.Value(v) }
+func (s SelectBox) Placeholder(v string) SelectBox  { s.placeholder = v; return s }
+func (s SelectBox) WithPlaceholder(v string) SelectBox { return s.Placeholder(v) }
+func (s SelectBox) OnChange(fn func(string)) SelectBox { s.onChange = fn; return s }
+func (s SelectBox) WithOnChange(fn func(string)) SelectBox { return s.OnChange(fn) }
+func (s SelectBox) Disabled(v bool) SelectBox        { s.disabled = v; return s }
+func (s SelectBox) WithDisabled(v bool) SelectBox    { return s.Disabled(v) }
+func (s SelectBox) Width(v float32) SelectBox        { s.width = v; return s }
+func (s SelectBox) WithWidth(v float32) SelectBox    { return s.Width(v) }
+func (s SelectBox) CreateElement() ui.Element        { return newBuilder(s) }
+func (s SelectBox) GetKey() ui.Key                   { return ui.NilKey{} }
+func (s SelectBox) unwrap() ui.Widget {
+	w := widgets.Select(s.options)
+	w = w.SelectedValue(s.value)
+	w = w.PlaceholderText(s.placeholder)
+	w = w.OnChanged(s.onChange)
+	w = w.SetDisabled(s.disabled)
+	if s.width > 0 {
+		w = w.Width_(s.width)
+	}
+	return w
+}
+
+// ==================== NinePatch ====================
+
+func NinePatch(src *ebiten.Image, slice render.BorderSlice) NinePatchBox {
+	return NinePatchBox{src: src, slice: slice}
+}
+
+type NinePatchBox struct {
+	src    *ebiten.Image
+	slice  render.BorderSlice
+	width  float32
+	height float32
+}
+
+func (n NinePatchBox) Width(v float32) NinePatchBox  { n.width = v; return n }
+func (n NinePatchBox) Height(v float32) NinePatchBox { n.height = v; return n }
+func (n NinePatchBox) CreateElement() ui.Element      { return newBuilder(n) }
+func (n NinePatchBox) GetKey() ui.Key                 { return ui.NilKey{} }
+func (n NinePatchBox) unwrap() ui.Widget {
+	w := widgets.NinePatch(n.src, n.slice)
+	if n.width > 0 {
+		w = w.W(n.width)
+	}
+	if n.height > 0 {
+		w = w.H(n.height)
+	}
+	return w
+}
+
+// ==================== Sprite ====================
+
+func Sprite(frames []*ebiten.Image) SpriteBox {
+	return SpriteBox{frames: frames}
+}
+
+type SpriteBox struct {
+	frames        []*ebiten.Image
+	frameDuration time.Duration
+	loop          bool
+	autoPlay      bool
+	width         float32
+	height        float32
+}
+
+func (s SpriteBox) FrameDuration(d time.Duration) SpriteBox { s.frameDuration = d; return s }
+func (s SpriteBox) Loop(v bool) SpriteBox                   { s.loop = v; return s }
+func (s SpriteBox) AutoPlay(v bool) SpriteBox               { s.autoPlay = v; return s }
+func (s SpriteBox) Width(v float32) SpriteBox               { s.width = v; return s }
+func (s SpriteBox) Height(v float32) SpriteBox              { s.height = v; return s }
+func (s SpriteBox) CreateElement() ui.Element               { return newBuilder(s) }
+func (s SpriteBox) GetKey() ui.Key                          { return ui.NilKey{} }
+func (s SpriteBox) unwrap() ui.Widget {
+	w := widgets.Sprite(s.frames)
+	if s.frameDuration > 0 {
+		w = w.FrameDuration(s.frameDuration)
+	}
+	w = w.Loop(s.loop)
+	w = w.AutoPlay(s.autoPlay)
+	if s.width > 0 {
+		w = w.W(s.width)
+	}
+	if s.height > 0 {
+		w = w.H(s.height)
+	}
+	return w
+}
+
+// ==================== SpriteButton ====================
+
+func SpriteButton(normal *ebiten.Image) SpriteButtonBox {
+	return SpriteButtonBox{normal: normal}
+}
+
+type SpriteButtonBox struct {
+	normal   *ebiten.Image
+	hover    *ebiten.Image
+	pressed  *ebiten.Image
+	disabled *ebiten.Image
+	slice    render.BorderSlice
+	label    string
+	onClick  func()
+	width    float32
+	height   float32
+	isDisabled bool
+	loading    bool
+}
+
+func (b SpriteButtonBox) Hover(img *ebiten.Image) SpriteButtonBox       { b.hover = img; return b }
+func (b SpriteButtonBox) Pressed(img *ebiten.Image) SpriteButtonBox     { b.pressed = img; return b }
+func (b SpriteButtonBox) DisabledImg(img *ebiten.Image) SpriteButtonBox { b.disabled = img; return b }
+func (b SpriteButtonBox) Slice(s render.BorderSlice) SpriteButtonBox    { b.slice = s; return b }
+func (b SpriteButtonBox) Label(text string) SpriteButtonBox              { b.label = text; return b }
+func (b SpriteButtonBox) OnClick(fn func()) SpriteButtonBox             { b.onClick = fn; return b }
+func (b SpriteButtonBox) Width(v float32) SpriteButtonBox               { b.width = v; return b }
+func (b SpriteButtonBox) Height(v float32) SpriteButtonBox              { b.height = v; return b }
+func (b SpriteButtonBox) Disabled(v bool) SpriteButtonBox               { b.isDisabled = v; return b }
+func (b SpriteButtonBox) Loading(v bool) SpriteButtonBox                { b.loading = v; return b }
+func (b SpriteButtonBox) CreateElement() ui.Element                      { return newBuilder(b) }
+func (b SpriteButtonBox) GetKey() ui.Key                                 { return ui.NilKey{} }
+func (b SpriteButtonBox) unwrap() ui.Widget {
+	w := widgets.SpriteButton(b.normal).
+		Hover(b.hover).
+		Pressed(b.pressed).
+		Disabled(b.disabled).
+		Slice(b.slice).
+		Label(b.label).
+		OnTap(b.onClick).
+		W(b.width).
+		H(b.height).
+		Disable(b.isDisabled).
+		Loading(b.loading)
+	return w
+}
+
+// ==================== GameProgressBar ====================
+
+func GameProgressBar(progress float32, track, fill *ebiten.Image) GameProgressBarBox {
+	return GameProgressBarBox{progress: progress, track: track, fill: fill}
+}
+
+type GameProgressBarBox struct {
+	progress float32
+	track    *ebiten.Image
+	fill     *ebiten.Image
+	slice    render.BorderSlice
+	width    float32
+	height   float32
+}
+
+func (p GameProgressBarBox) Slice(s render.BorderSlice) GameProgressBarBox { p.slice = s; return p }
+func (p GameProgressBarBox) Width(v float32) GameProgressBarBox             { p.width = v; return p }
+func (p GameProgressBarBox) Height(v float32) GameProgressBarBox            { p.height = v; return p }
+func (p GameProgressBarBox) CreateElement() ui.Element                      { return newBuilder(p) }
+func (p GameProgressBarBox) GetKey() ui.Key                                 { return ui.NilKey{} }
+func (p GameProgressBarBox) unwrap() ui.Widget {
+	w := widgets.GameProgressBar(p.progress, p.track, p.fill).
+		Slice(p.slice)
+	if p.width > 0 {
+		w = w.W(p.width)
+	}
+	if p.height > 0 {
+		w = w.H(p.height)
+	}
+	return w
+}
+
+// ==================== Grid ====================
+
+func Grid(cols int, gap float32, children ...Widget) Widget {
+	realChildren := make([]ui.Widget, len(children))
+	for i, c := range children {
+		if u, ok := c.(unwrapper); ok {
+			realChildren[i] = u.unwrap()
+		} else {
+			realChildren[i] = c
+		}
+	}
+	return widgets.Grid(cols, gap, realChildren...)
+}
+
+// ==================== Draggable / DropTarget ====================
+
+func Draggable(child Widget, data any) Widget {
+	return widgets.Draggable(child, data)
+}
+
+func DropTarget(child Widget, onAccept func(any)) Widget {
+	return widgets.DropTarget(child, onAccept)
+}
+
+// ==================== FlipCard ====================
+
+func FlipCard(front, back Widget) FlipCardBox {
+	return FlipCardBox{front: front, back: back, duration: 300 * time.Millisecond}
+}
+
+type FlipCardBox struct {
+	front    Widget
+	back     Widget
+	duration time.Duration
+}
+
+func (f FlipCardBox) Duration(d time.Duration) FlipCardBox { f.duration = d; return f }
+func (f FlipCardBox) CreateElement() ui.Element             { return newBuilder(f) }
+func (f FlipCardBox) GetKey() ui.Key                        { return ui.NilKey{} }
+func (f FlipCardBox) unwrap() ui.Widget {
+	w := widgets.FlipCard(f.front, f.back).WithDuration(f.duration)
+	return w
+}
+
+// ==================== Transform ====================
+
+func Transform(child Widget) TransformBox {
+	return TransformBox{child: child, scaleX: 1, scaleY: 1, originX: 0.5, originY: 0.5, alpha: 1}
+}
+
+type TransformBox struct {
+	child       Widget
+	rotation    float32
+	rotateX     float32
+	rotateY     float32
+	perspective float32
+	scaleX      float32
+	scaleY      float32
+	skewX       float32
+	skewY       float32
+	originX     float32
+	originY     float32
+	alpha       float32
+}
+
+func (t TransformBox) Rotate(deg float32) TransformBox     { t.rotation = deg; return t }
+func (t TransformBox) RotateX(deg float32) TransformBox     { t.rotateX = deg; return t }
+func (t TransformBox) RotateY(deg float32) TransformBox     { t.rotateY = deg; return t }
+func (t TransformBox) Perspective(dist float32) TransformBox { t.perspective = dist; return t }
+func (t TransformBox) Scale(x, y float32) TransformBox     { t.scaleX = x; t.scaleY = y; return t }
+func (t TransformBox) ScaleUniform(s float32) TransformBox { t.scaleX = s; t.scaleY = s; return t }
+func (t TransformBox) Skew(x, y float32) TransformBox      { t.skewX = x; t.skewY = y; return t }
+func (t TransformBox) Anchor(ox, oy float32) TransformBox  { t.originX = ox; t.originY = oy; return t }
+func (t TransformBox) Opacity(a float32) TransformBox      { t.alpha = a; return t }
+func (t TransformBox) CreateElement() ui.Element            { return newBuilder(t) }
+func (t TransformBox) GetKey() ui.Key                       { return ui.NilKey{} }
+func (t TransformBox) unwrap() ui.Widget {
+	w := widgets.Transform(t.child).
+		Rotate(t.rotation).
+		RotateX(t.rotateX).
+		RotateY(t.rotateY).
+		Perspective(t.perspective).
+		Scale(t.scaleX, t.scaleY).
+		Skew(t.skewX, t.skewY).
+		Anchor(t.originX, t.originY).
+		Opacity(t.alpha)
+	return w
+}
+
+
+// ==================== Card3D ====================
+
+func Card3D(front, back *ebiten.Image) Card3DBox {
+	return Card3DBox{front: front, back: back}
+}
+
+type Card3DBox struct {
+	front       *ebiten.Image
+	back        *ebiten.Image
+	rotateX     float32
+	rotateY     float32
+	perspective float32
+	width       float32
+	height      float32
+}
+
+func (c Card3DBox) RotateX(deg float32) Card3DBox     { c.rotateX = deg; return c }
+func (c Card3DBox) RotateY(deg float32) Card3DBox     { c.rotateY = deg; return c }
+func (c Card3DBox) Perspective(dist float32) Card3DBox { c.perspective = dist; return c }
+func (c Card3DBox) Width(v float32) Card3DBox          { c.width = v; return c }
+func (c Card3DBox) Height(v float32) Card3DBox         { c.height = v; return c }
+func (c Card3DBox) W(v float32) Card3DBox              { return c.Width(v) }
+func (c Card3DBox) H(v float32) Card3DBox              { return c.Height(v) }
+func (c Card3DBox) CreateElement() ui.Element          { return newBuilder(c) }
+func (c Card3DBox) GetKey() ui.Key                     { return ui.NilKey{} }
+func (c Card3DBox) unwrap() ui.Widget {
+	w := widgets.Card3D(c.front, c.back).
+		RotateX(c.rotateX).
+		RotateY(c.rotateY).
+		Perspective(c.perspective).
+		W(c.width).
+		H(c.height)
+	return w
+}
