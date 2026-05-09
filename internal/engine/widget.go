@@ -22,6 +22,7 @@ type Widget interface {
 type Key interface {
 	Equals(other Key) bool
 	String() string
+	AsGlobalKey() *GlobalKey
 }
 
 // NilKey 表示没有 Key。
@@ -29,6 +30,7 @@ type NilKey struct{}
 
 func (NilKey) Equals(other Key) bool { _, ok := other.(NilKey); return ok }
 func (NilKey) String() string       { return "NilKey" }
+func (NilKey) AsGlobalKey() *GlobalKey { return nil }
 
 // IsNilKey 判断 Key 是否为 NilKey。
 func IsNilKey(k Key) bool {
@@ -61,6 +63,8 @@ func (k *ValueKey[T]) String() string {
 	return fmt.Sprintf("ValueKey(%v)", k.Value)
 }
 
+func (k *ValueKey[T]) AsGlobalKey() *GlobalKey { return nil }
+
 // LocalKey 基于内存地址的 Key，用于框架内部自动生成。
 type LocalKey struct {
 	id int
@@ -83,6 +87,8 @@ func (k *LocalKey) Equals(other Key) bool {
 func (k *LocalKey) String() string {
 	return fmt.Sprintf("LocalKey(%d)", k.id)
 }
+
+func (k *LocalKey) AsGlobalKey() *GlobalKey { return nil }
 
 // GlobalKey 是全局唯一的 Key，可跨树访问对应的 Element/State。
 type GlobalKey struct {
@@ -108,12 +114,12 @@ func (k *GlobalKey) String() string {
 	return fmt.Sprintf("GlobalKey(%d)", k.id)
 }
 
+func (k *GlobalKey) AsGlobalKey() *GlobalKey { return k }
+
 // CurrentContext 返回与该 GlobalKey 关联的 BuildContext。
 func (k *GlobalKey) CurrentContext() BuildContext {
 	if el := getGlobalKeyElement(k); el != nil {
-		if se, ok := el.(*StatefulElement); ok {
-			return se.buildContext
-		}
+		return el.GetBuildContext()
 	}
 	return nil
 }
@@ -129,9 +135,7 @@ func (k *GlobalKey) CurrentWidget() Widget {
 // CurrentState 返回与该 GlobalKey 关联的 State（如果是 StatefulElement）。
 func (k *GlobalKey) CurrentState() State {
 	if el := getGlobalKeyElement(k); el != nil {
-		if se, ok := el.(*StatefulElement); ok {
-			return se.state
-		}
+		return el.GetState()
 	}
 	return nil
 }

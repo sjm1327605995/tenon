@@ -111,6 +111,10 @@ func (s *StatefulElement) GetState() State {
 	return s.state
 }
 
+func (s *StatefulElement) GetBuildContext() BuildContext {
+	return s.buildContext
+}
+
 func (s *StatefulElement) Mount(parent Element, slot int) {
 	s.ComponentElement.Mount(parent, slot)
 
@@ -190,7 +194,7 @@ func (s *StatefulElement) markNeedsBuild() {
 	}
 }
 
-func (s *StatefulElement) didChangeDependencies() {
+func (s *StatefulElement) DidChangeDependencies() {
 	if ddc, ok := s.state.(stateDidChangeDepender); ok {
 		ddc.DidChangeDependencies()
 	}

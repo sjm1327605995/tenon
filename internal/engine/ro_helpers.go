@@ -36,6 +36,7 @@ type Focusabler interface {
 	Focus()
 	Blur()
 	IsFocused() bool
+	IsFocusable() bool
 }
 
 // tryGetFocuser 从 ro 向上搜索最近的 Focusabler 祖先。

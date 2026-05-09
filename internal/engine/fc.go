@@ -56,6 +56,10 @@ func (e *fcElement) GetChildren() []Element {
 	return []Element{e.child}
 }
 
+func (e *fcElement) GetBuildContext() BuildContext {
+	return e.buildContext
+}
+
 func (e *fcElement) FindRenderObject() render.RenderObject {
 	if e.child != nil {
 		return e.child.FindRenderObject()
