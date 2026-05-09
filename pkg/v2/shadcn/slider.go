@@ -20,41 +20,33 @@ type sliderWidget struct {
 }
 
 func (s sliderWidget) CreateElement() ui.Element {
-	e := &sliderElement{}
-	e.RenderObjectElement.BaseElement.Init(e, s)
-	return e
+	return ui.NewRenderObjectElement(s)
 }
 
-type sliderElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderSlider
-}
-
-func (e *sliderElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(sliderWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (s sliderWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
 	r := render.NewRenderSlider()
-	r.MinValue = w.MinValue
-	r.MaxValue = w.MaxValue
-	r.SetValue(w.Value)
+	r.MinValue = s.MinValue
+	r.MaxValue = s.MaxValue
+	r.SetValue(s.Value)
 	r.TrackColor = theme.SliderTrackColor
 	r.FillColor = theme.SliderFillColor
 	r.ThumbColor = theme.SliderThumbColor
-	r.OnChange = w.OnChange
+	r.OnChange = s.OnChange
 	return r
 }
 
-func (e *sliderElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderSlider)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *sliderElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(sliderWidget)
-	r := e.ro
-	r.SetMinValue(w.MinValue)
-	r.SetMaxValue(w.MaxValue)
-	r.SetValue(w.Value)
-	r.OnChange = w.OnChange
+// UpdateRenderObject implements RenderObjectUpdater.
+func (s sliderWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	old := oldWidget.(sliderWidget)
+	r := ro.(*render.RenderSlider)
+	r.SetMinValue(s.MinValue)
+	r.SetMaxValue(s.MaxValue)
+	r.SetValue(s.Value)
+	r.OnChange = s.OnChange
+	if old.MinValue != s.MinValue || old.MaxValue != s.MaxValue || old.Value != s.Value {
+		// 确保布局刷新
+		r.MarkNeedsLayout()
+	}
 }

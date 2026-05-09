@@ -24,44 +24,29 @@ type skeletonWidget struct {
 }
 
 func (s skeletonWidget) CreateElement() ui.Element {
-	e := &skeletonElement{}
-	e.RenderObjectElement.BaseElement.Init(e, s)
-	return e
+	return ui.NewRenderObjectElement(s)
 }
 
-type skeletonElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderBox
-}
-
-func (e *skeletonElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(skeletonWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (s skeletonWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
 	r := render.NewRenderBox()
 	r.SetBackgroundColor(newColor(theme.MutedColor))
 	r.SetBorderRadius(theme.BorderRadius / 2)
-	r.StyleSetWidth(w.width)
-	r.StyleSetHeight(w.height)
+	r.StyleSetWidth(s.width)
+	r.StyleSetHeight(s.height)
 	return r
 }
 
-func (e *skeletonElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderBox)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *skeletonElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(skeletonWidget)
-	r := e.ro
+// UpdateRenderObject implements RenderObjectUpdater.
+func (s skeletonWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
 	old := oldWidget.(skeletonWidget)
-
-	// Background color is theme-derived; always update in case theme changed
+	r := ro.(*render.RenderBox)
 	r.SetBackgroundColor(newColor(ui.GetTheme().MutedColor))
-	if old.width != w.width {
-		r.StyleSetWidth(w.width)
+	if old.width != s.width {
+		r.StyleSetWidth(s.width)
 	}
-	if old.height != w.height {
-		r.StyleSetHeight(w.height)
+	if old.height != s.height {
+		r.StyleSetHeight(s.height)
 	}
 }

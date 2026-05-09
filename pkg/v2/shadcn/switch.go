@@ -18,25 +18,18 @@ type switchWidget struct {
 }
 
 func (s switchWidget) CreateElement() ui.Element {
-	e := &switchElement{}
-	e.RenderObjectElement.BaseElement.Init(e, s)
-	return e
+	return ui.NewRenderObjectElement(s)
 }
 
-type switchElement struct {
-	ui.RenderObjectElement
-	ro *render.RenderSwitch
-}
-
-func (e *switchElement) CreateRenderObject() render.RenderObject {
-	w := e.GetWidget().(switchWidget)
+// CreateRenderObject implements RenderObjectFactory.
+func (s switchWidget) CreateRenderObject(element ui.Element) render.RenderObject {
 	theme := ui.GetTheme()
 	r := render.NewRenderSwitch()
-	r.Checked = w.Checked
+	r.Checked = s.Checked
 	r.OffColor = theme.SwitchOffColor
 	r.OnColor = theme.SwitchOnColor
 	r.ThumbColor = theme.SwitchThumbColor
-	r.OnChange = w.OnChange
+	r.OnChange = s.OnChange
 	r.SetOnClick(func() {
 		r.Checked = !r.Checked
 		if r.OnChange != nil {
@@ -46,15 +39,9 @@ func (e *switchElement) CreateRenderObject() render.RenderObject {
 	return r
 }
 
-func (e *switchElement) Mount(parent ui.Element, slot int) {
-	e.ro = e.CreateRenderObject().(*render.RenderSwitch)
-	e.RenderObject = e.ro
-	e.RenderObjectElement.Mount(parent, slot)
-}
-
-func (e *switchElement) UpdateRenderObject(oldWidget ui.Widget) {
-	w := e.GetWidget().(switchWidget)
-	r := e.ro
-	r.SetChecked(w.Checked)
-	r.OnChange = w.OnChange
+// UpdateRenderObject implements RenderObjectUpdater.
+func (s switchWidget) UpdateRenderObject(ro render.RenderObject, oldWidget ui.Widget) {
+	r := ro.(*render.RenderSwitch)
+	r.SetChecked(s.Checked)
+	r.OnChange = s.OnChange
 }
