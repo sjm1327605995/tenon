@@ -21,7 +21,6 @@ type (
 	ComponentElement  = internal.ComponentElement
 	StatefulWidget    = internal.StatefulWidget
 	State             = internal.State
-	BaseState         = internal.BaseState
 	StatefulElement   = internal.StatefulElement
 	SingleChildComponentElement = internal.SingleChildComponentElement
 	RenderObjectElement = internal.RenderObjectElement
@@ -89,6 +88,8 @@ type (
 	TransformTween    = internal.TransformTween
 	Float32Tween      = internal.Float32Tween
 	TestEnvironment   = internal.TestEnvironment
+	Hooks             = internal.Hooks
+	FCWidget          = internal.FCWidget
 )
 
 // 核心函数。
@@ -149,6 +150,8 @@ var (
 	Tooltip               = internal.Tooltip
 	ContextMenu           = internal.ContextMenu
 	MenuBar               = internal.MenuBar
+	FC                    = internal.FC
+	UseEffect             = internal.UseEffect
 )
 
 // 动画常量。
@@ -195,6 +198,12 @@ type (
 	Gutter        = internal.Gutter
 	Direction     = internal.Direction
 )
+
+// BaseState 是 BaseStateOf[Widget] 的别名，保持向后兼容。
+type BaseState = internal.BaseStateOf[Widget]
+
+// BaseStateOf 是泛型 State 基类，避免 GetWidget() 类型断言。
+type BaseStateOf[W Widget] = internal.BaseStateOf[W]
 
 // Render 类型别名（供 ui 包用户使用）。
 type RenderObject = render.RenderObject

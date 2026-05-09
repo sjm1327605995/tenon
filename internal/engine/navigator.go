@@ -181,7 +181,7 @@ func (n NavigatorWidget) CreateState() State {
 // ==================== Navigator State ====================
 
 type navigatorState struct {
-	BaseState
+	BaseStateOf[NavigatorWidget]
 	pageStack []Page
 	transType PageTransition
 	animating bool
@@ -190,10 +190,7 @@ type navigatorState struct {
 }
 
 func (s *navigatorState) InitState() {
-	w, ok := s.GetWidget().(NavigatorWidget)
-	if !ok {
-		return
-	}
+	w := s.Widget()
 	s.transType = w.transition
 	if w.initial != "" {
 		s.pageStack = []Page{
@@ -211,10 +208,7 @@ func (s *navigatorState) DidUpdateWidget(oldWidget Widget) {}
 // ---- NavigatorState 接口 ----
 
 func (s *navigatorState) Push(name string, params ...RouteParams) {
-	w, ok := s.GetWidget().(NavigatorWidget)
-	if !ok {
-		return
-	}
+	w := s.Widget()
 	builder, ok := w.routes[name]
 	if !ok {
 		return
@@ -244,10 +238,7 @@ func (s *navigatorState) PopToRoot() {
 }
 
 func (s *navigatorState) PushReplacement(name string, params ...RouteParams) {
-	w, ok := s.GetWidget().(NavigatorWidget)
-	if !ok {
-		return
-	}
+	w := s.Widget()
 	builder, ok := w.routes[name]
 	if !ok {
 		return
@@ -327,10 +318,7 @@ func (s *navigatorState) Build(ctx BuildContext) Widget {
 		return buildEmptyPage()
 	}
 
-	w, ok := s.GetWidget().(NavigatorWidget)
-	if !ok {
-		return buildEmptyPage()
-	}
+	w := s.Widget()
 	current := s.pageStack[len(s.pageStack)-1]
 
 	// 用 Builder 延迟页面构建，确保子页面的 BuildContext 在 NavigatorContext 之下，

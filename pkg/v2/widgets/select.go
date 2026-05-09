@@ -51,7 +51,7 @@ func (s SelectWidget) CreateState() ui.State {
 }
 
 type selectState struct {
-	ui.BaseState
+	ui.BaseStateOf[SelectWidget]
 	open        bool
 	dismisserID int
 	value       string
@@ -64,7 +64,7 @@ func (s *selectState) InitState() {
 			s.SetState(nil)
 		}
 	})
-	w := s.GetWidget().(SelectWidget)
+	w := s.Widget()
 	s.value = w.Value
 }
 func (s *selectState) Dispose() {
@@ -72,14 +72,14 @@ func (s *selectState) Dispose() {
 }
 func (s *selectState) DidUpdateWidget(old ui.Widget) {
 	oldW := old.(SelectWidget)
-	w := s.GetWidget().(SelectWidget)
+	w := s.Widget()
 	if oldW.Value != w.Value {
 		s.value = w.Value
 	}
 }
 
 func (s *selectState) Build(ctx ui.BuildContext) ui.Widget {
-	w := s.GetWidget().(SelectWidget)
+	w := s.Widget()
 	theme := ui.ThemeOf(ctx)
 	trigger := s.buildTrigger(w, theme)
 	if !s.open {
@@ -213,7 +213,7 @@ func (m MultiSelectWidget) CreateState() ui.State {
 }
 
 type multiSelectState struct {
-	ui.BaseState
+	ui.BaseStateOf[MultiSelectWidget]
 	open        bool
 	dismisserID int
 	values      []string
@@ -226,7 +226,7 @@ func (s *multiSelectState) InitState() {
 			s.SetState(nil)
 		}
 	})
-	w := s.GetWidget().(MultiSelectWidget)
+	w := s.Widget()
 	s.values = append([]string(nil), w.Values...)
 }
 func (s *multiSelectState) Dispose() {
@@ -234,14 +234,14 @@ func (s *multiSelectState) Dispose() {
 }
 func (s *multiSelectState) DidUpdateWidget(old ui.Widget) {
 	oldW := old.(MultiSelectWidget)
-	w := s.GetWidget().(MultiSelectWidget)
+	w := s.Widget()
 	if !sliceEqual(oldW.Values, w.Values) {
 		s.values = append([]string(nil), w.Values...)
 	}
 }
 
 func (s *multiSelectState) Build(ctx ui.BuildContext) ui.Widget {
-	w := s.GetWidget().(MultiSelectWidget)
+	w := s.Widget()
 	theme := ui.ThemeOf(ctx)
 
 	display := w.Placeholder

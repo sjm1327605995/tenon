@@ -106,13 +106,9 @@ func (s StatefulBuilder) CreateState() State {
 
 // statefulBuilderState 是 StatefulBuilder 的内部 State 实现。
 type statefulBuilderState struct {
-	BaseState
+	BaseStateOf[StatefulBuilder]
 }
 
 func (s *statefulBuilderState) Build(ctx BuildContext) Widget {
-	w, ok := s.GetWidget().(StatefulBuilder)
-	if !ok {
-		panic("statefulBuilderState: widget is not StatefulBuilder")
-	}
-	return w.Builder(ctx, s.SetState)
+	return s.Widget().Builder(ctx, s.SetState)
 }

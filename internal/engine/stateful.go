@@ -45,23 +45,25 @@ type State interface {
 	GetContext() BuildContext
 }
 
-// BaseState 提供 State 的默认实现。
-type BaseState struct {
+// BaseStateOf 提供 State 的泛型默认实现，避免 GetWidget() 的类型断言。
+type BaseStateOf[W Widget] struct {
 	self    State
 	element *StatefulElement
-	widget  Widget
+	widget  W
 }
 
-func (b *BaseState) Init(self State) {
+func (b *BaseStateOf[W]) Init(self State) {
 	b.self = self
 }
 
-func (b *BaseState) bind(element *StatefulElement, widget Widget) {
+func (b *BaseStateOf[W]) bind(element *StatefulElement, widget Widget) {
 	b.element = element
-	b.widget = widget
+	if widget != nil {
+		b.widget = widget.(W)
+	}
 }
 
-func (b *BaseState) SetState(fn func()) {
+func (b *BaseStateOf[W]) SetState(fn func()) {
 	if fn != nil {
 		fn()
 	}
@@ -70,16 +72,24 @@ func (b *BaseState) SetState(fn func()) {
 	}
 }
 
-func (b *BaseState) GetWidget() Widget {
+func (b *BaseStateOf[W]) GetWidget() Widget {
 	return b.widget
 }
 
-func (b *BaseState) GetContext() BuildContext {
+// Widget 返回具体类型的 Widget，无需类型断言。
+func (b *BaseStateOf[W]) Widget() W {
+	return b.widget
+}
+
+func (b *BaseStateOf[W]) GetContext() BuildContext {
 	if b.element == nil {
 		return nil
 	}
 	return b.element.buildContext
 }
+
+// BaseState 是 BaseStateOf[Widget] 的别名，保持向后兼容。
+type BaseState = BaseStateOf[Widget]
 
 // NewStatefulElement 创建 StatefulElement。
 func NewStatefulElement(widget StatefulWidget) *StatefulElement {

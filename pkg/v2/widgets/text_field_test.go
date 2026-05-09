@@ -17,7 +17,7 @@ func TestTextFieldLayout(t *testing.T) {
 		Pad(ui.EdgeInsetsAll(8))
 
 	// Create element and mount
-	el := tf.CreateElement().(*TextFieldElement)
+	el := tf.CreateElement().(*ui.SingleChildRenderObjectElement)
 	el.Mount(nil, 0)
 
 	// Get render objects

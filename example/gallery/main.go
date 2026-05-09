@@ -585,12 +585,12 @@ func (c CounterButton) CreateState() ui.State {
 }
 
 type counterState struct {
-	tenon.BaseState
+	tenon.BaseStateOf[CounterButton]
 	count int
 }
 
 func (s *counterState) InitState() {
-	s.count = s.GetWidget().(CounterButton).initial
+	s.count = s.Widget().initial
 }
 
 func (s *counterState) Build(ctx tenon.BuildContext) tenon.Widget {
@@ -602,7 +602,7 @@ func (s *counterState) Build(ctx tenon.BuildContext) tenon.Widget {
 		}),
 		tenon.Button("Reset").Variantf(tenon.ButtonOutline).OnTap(func() {
 			s.SetState(func() {
-				s.count = s.GetWidget().(CounterButton).initial
+				s.count = s.Widget().initial
 			})
 		}),
 	).Gapf(8)

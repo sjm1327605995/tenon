@@ -55,12 +55,12 @@ func (t testStatefulWidget) CreateState() State {
 }
 
 type testState struct {
-	BaseState
+	BaseStateOf[testStatefulWidget]
 	count int
 }
 
 func (s *testState) InitState() {
-	s.count = s.GetWidget().(testStatefulWidget).initial
+	s.count = s.Widget().initial
 }
 
 func (s *testState) Build(ctx BuildContext) Widget {
@@ -178,7 +178,7 @@ func TestStatefulElementDidUpdateWidget(t *testing.T) {
 		t.Fatalf("state should persist across updates, count should be 10, got %d", state.count)
 	}
 
-	if state.GetWidget().(testStatefulWidget).initial != 20 {
+	if state.Widget().initial != 20 {
 		t.Fatal("widget should be updated to new widget")
 	}
 }

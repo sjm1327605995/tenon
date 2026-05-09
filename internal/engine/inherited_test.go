@@ -45,7 +45,7 @@ func (c testInheritedConsumer) CreateState() State {
 }
 
 type testInheritedConsumerState struct {
-	BaseState
+	BaseStateOf[testInheritedConsumer]
 	value int
 }
 

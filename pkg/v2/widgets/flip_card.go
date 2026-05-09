@@ -38,13 +38,13 @@ func (f FlipCardWidget) CreateState() ui.State {
 
 // FlipCardState 管理翻转动画和当前朝向。
 type FlipCardState struct {
-	ui.BaseState
+	ui.BaseStateOf[FlipCardWidget]
 	flipped    bool
 	controller *ui.AnimationController
 }
 
 func (s *FlipCardState) InitState() {
-	w := s.GetWidget().(FlipCardWidget)
+	w := s.Widget()
 	s.controller = &ui.AnimationController{
 		Duration:   w.Duration,
 		LowerBound: 0,
@@ -66,7 +66,7 @@ func (s *FlipCardState) Dispose() {
 
 func (s *FlipCardState) DidUpdateWidget(old ui.Widget) {
 	oldW := old.(FlipCardWidget)
-	newW := s.GetWidget().(FlipCardWidget)
+	newW := s.Widget()
 	if oldW.Duration != newW.Duration {
 		s.controller.Duration = newW.Duration
 	}
@@ -91,7 +91,7 @@ func (s *FlipCardState) onTick() {
 }
 
 func (s *FlipCardState) Build(ctx ui.BuildContext) ui.Widget {
-	w := s.GetWidget().(FlipCardWidget)
+	w := s.Widget()
 	v := s.controller.Value // 0 → 1
 
 	var frontScaleX, backScaleX float32
