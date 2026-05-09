@@ -23,34 +23,32 @@ func Opacity(child Widget, alpha float32) OpacityWidget {
 }
 
 func (o OpacityWidget) CreateElement() Element {
-	e := &opacityElement{}
+	e := &opacityElement{widget: o}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, o)
 	return e
 }
 
 type opacityElement struct {
 	SingleChildComponentElement
+	widget OpacityWidget
 }
 
 func (e *opacityElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w, ok := e.GetWidget().(OpacityWidget)
-	if !ok {
-		return
+	if e.widget.Child != nil {
+		e.Child = UpdateChild(e, nil, e.widget.Child)
 	}
-	if w.Child != nil {
-		e.Child = UpdateChild(e, nil, w.Child)
-	}
-	e.applyAlpha(w.Alpha)
+	e.applyAlpha(e.widget.Alpha)
 }
 
-func (e *opacityElement) PerformRebuild(oldWidget Widget) {
-	w, ok := e.GetWidget().(OpacityWidget)
-	if !ok {
-		return
-	}
-	e.Child = UpdateChild(e, e.Child, w.Child)
-	e.applyAlpha(w.Alpha)
+func (e *opacityElement) Update(newWidget Widget) {
+	e.widget = newWidget.(OpacityWidget)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *opacityElement) UpdateChild(oldWidget Widget) {
+	e.Child = UpdateChild(e, e.Child, e.widget.Child)
+	e.applyAlpha(e.widget.Alpha)
 }
 
 func (e *opacityElement) applyAlpha(alpha float32) {
@@ -78,34 +76,32 @@ func SlideOffset(child Widget, offsetX, offsetY float32) SlideOffsetWidget {
 }
 
 func (s SlideOffsetWidget) CreateElement() Element {
-	e := &slideOffsetElement{}
+	e := &slideOffsetElement{widget: s}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, s)
 	return e
 }
 
 type slideOffsetElement struct {
 	SingleChildComponentElement
+	widget SlideOffsetWidget
 }
 
 func (e *slideOffsetElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w, ok := e.GetWidget().(SlideOffsetWidget)
-	if !ok {
-		return
+	if e.widget.Child != nil {
+		e.Child = UpdateChild(e, nil, e.widget.Child)
 	}
-	if w.Child != nil {
-		e.Child = UpdateChild(e, nil, w.Child)
-	}
-	e.applyOffset(w.OffsetX, w.OffsetY)
+	e.applyOffset(e.widget.OffsetX, e.widget.OffsetY)
 }
 
-func (e *slideOffsetElement) PerformRebuild(oldWidget Widget) {
-	w, ok := e.GetWidget().(SlideOffsetWidget)
-	if !ok {
-		return
-	}
-	e.Child = UpdateChild(e, e.Child, w.Child)
-	e.applyOffset(w.OffsetX, w.OffsetY)
+func (e *slideOffsetElement) Update(newWidget Widget) {
+	e.widget = newWidget.(SlideOffsetWidget)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *slideOffsetElement) UpdateChild(oldWidget Widget) {
+	e.Child = UpdateChild(e, e.Child, e.widget.Child)
+	e.applyOffset(e.widget.OffsetX, e.widget.OffsetY)
 }
 
 func (e *slideOffsetElement) applyOffset(offsetX, offsetY float32) {

@@ -18,7 +18,7 @@ func Draggable(child ui.Widget, data any) DraggableWidget {
 }
 
 func (d DraggableWidget) CreateElement() ui.Element {
-	e := &DraggableElement{}
+	e := &DraggableElement{widget: d}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, d)
 	return e
 }
@@ -26,24 +26,28 @@ func (d DraggableWidget) CreateElement() ui.Element {
 // DraggableElement 负责将 Data 同步到子节点的 RenderObject。
 type DraggableElement struct {
 	ui.SingleChildComponentElement
+	widget DraggableWidget
 }
 
-func (e *DraggableElement) PerformRebuild(oldWidget ui.Widget) {
-	w := e.GetWidget().(DraggableWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.Child)
+func (e *DraggableElement) Update(newWidget ui.Widget) {
+	e.widget = newWidget.(DraggableWidget)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *DraggableElement) UpdateChild(oldWidget ui.Widget) {
+	e.Child = ui.UpdateChild(e, e.Child, e.widget.Child)
 	if ro := e.Child.FindRenderObject(); ro != nil {
-		ro.SetDragData(w.Data)
+		ro.SetDragData(e.widget.Data)
 	}
 }
 
 func (e *DraggableElement) Mount(parent ui.Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(DraggableWidget)
-	if w.Child != nil {
-		e.Child = ui.UpdateChild(e, nil, w.Child)
+	if e.widget.Child != nil {
+		e.Child = ui.UpdateChild(e, nil, e.widget.Child)
 	}
 	if ro := e.Child.FindRenderObject(); ro != nil {
-		ro.SetDragData(w.Data)
+		ro.SetDragData(e.widget.Data)
 	}
 }
 
@@ -62,7 +66,7 @@ func DropTarget(child ui.Widget, onAccept func(data any)) DropTargetWidget {
 }
 
 func (d DropTargetWidget) CreateElement() ui.Element {
-	e := &DropTargetElement{}
+	e := &DropTargetElement{widget: d}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, d)
 	return e
 }
@@ -70,14 +74,19 @@ func (d DropTargetWidget) CreateElement() ui.Element {
 // DropTargetElement 负责将拖放回调同步到子节点的 RenderObject。
 type DropTargetElement struct {
 	ui.SingleChildComponentElement
+	widget DropTargetWidget
 }
 
-func (e *DropTargetElement) PerformRebuild(oldWidget ui.Widget) {
-	w := e.GetWidget().(DropTargetWidget)
-	e.Child = ui.UpdateChild(e, e.Child, w.Child)
+func (e *DropTargetElement) Update(newWidget ui.Widget) {
+	e.widget = newWidget.(DropTargetWidget)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *DropTargetElement) UpdateChild(oldWidget ui.Widget) {
+	e.Child = ui.UpdateChild(e, e.Child, e.widget.Child)
 	if ro := e.Child.FindRenderObject(); ro != nil {
 		ro.SetOnDragEnter(func(data any) {
-			if w.OnWillAccept != nil && !w.OnWillAccept(data) {
+			if e.widget.OnWillAccept != nil && !e.widget.OnWillAccept(data) {
 				return
 			}
 			// visual feedback 可在此触发
@@ -86,38 +95,37 @@ func (e *DropTargetElement) PerformRebuild(oldWidget ui.Widget) {
 			// 取消 visual feedback
 		})
 		ro.SetOnDrop(func(data any) {
-			if w.OnWillAccept != nil && !w.OnWillAccept(data) {
-				if w.OnReject != nil {
-					w.OnReject(data)
+			if e.widget.OnWillAccept != nil && !e.widget.OnWillAccept(data) {
+				if e.widget.OnReject != nil {
+					e.widget.OnReject(data)
 				}
 				return
 			}
-			w.OnAccept(data)
+			e.widget.OnAccept(data)
 		})
 	}
 }
 
 func (e *DropTargetElement) Mount(parent ui.Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w := e.GetWidget().(DropTargetWidget)
-	if w.Child != nil {
-		e.Child = ui.UpdateChild(e, nil, w.Child)
+	if e.widget.Child != nil {
+		e.Child = ui.UpdateChild(e, nil, e.widget.Child)
 	}
 	if ro := e.Child.FindRenderObject(); ro != nil {
 		ro.SetOnDragEnter(func(data any) {
-			if w.OnWillAccept != nil && !w.OnWillAccept(data) {
+			if e.widget.OnWillAccept != nil && !e.widget.OnWillAccept(data) {
 				return
 			}
 		})
 		ro.SetOnDragLeave(func() {})
 		ro.SetOnDrop(func(data any) {
-			if w.OnWillAccept != nil && !w.OnWillAccept(data) {
-				if w.OnReject != nil {
-					w.OnReject(data)
+			if e.widget.OnWillAccept != nil && !e.widget.OnWillAccept(data) {
+				if e.widget.OnReject != nil {
+					e.widget.OnReject(data)
 				}
 				return
 			}
-			w.OnAccept(data)
+			e.widget.OnAccept(data)
 		})
 	}
 }

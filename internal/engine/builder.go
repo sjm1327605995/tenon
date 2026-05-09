@@ -18,7 +18,7 @@ type Builder struct {
 }
 
 func (b Builder) CreateElement() Element {
-	e := &statelessElement{}
+	e := &statelessElement{widget: b}
 	e.ComponentElement.BaseElement.Init(e, b)
 	return e
 }
@@ -28,30 +28,24 @@ type statelessElement struct {
 	ComponentElement
 	child        Element
 	buildContext *elementBuildContext
+	widget       Builder
 }
 
 func (e *statelessElement) Mount(parent Element, slot int) {
 	e.ComponentElement.Mount(parent, slot)
 	e.buildContext = &elementBuildContext{element: e}
-	w, ok := e.GetWidget().(Builder)
-	if !ok {
-		panic("statelessElement: widget is not Builder")
-	}
-	e.child = UpdateChild(e, nil, w.Builder(e.buildContext))
+	e.child = UpdateChild(e, nil, e.widget.Builder(e.buildContext))
 }
 
 func (e *statelessElement) Update(newWidget Widget) {
 	oldWidget := e.widget
 	e.BaseElement.Update(newWidget)
+	e.widget = newWidget.(Builder)
 	e.performRebuild(oldWidget)
 }
 
 func (e *statelessElement) performRebuild(oldWidget Widget) {
-	w, ok := e.GetWidget().(Builder)
-	if !ok {
-		panic("statelessElement: widget is not Builder")
-	}
-	e.child = UpdateChild(e, e.child, w.Builder(e.buildContext))
+	e.child = UpdateChild(e, e.child, e.widget.Builder(e.buildContext))
 }
 
 func (e *statelessElement) GetChildren() []Element {

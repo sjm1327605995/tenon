@@ -23,11 +23,13 @@ type InheritedElement struct {
 	Child        Element
 	dependents   map[Element]struct{}
 	buildContext *elementBuildContext
+	widget       InheritedWidget
 }
 
 func NewInheritedElement(widget Widget) *InheritedElement {
 	e := &InheritedElement{
 		dependents: make(map[Element]struct{}),
+		widget:     widget.(InheritedWidget),
 	}
 	e.BaseElement.Init(e, widget)
 	return e
@@ -36,27 +38,20 @@ func NewInheritedElement(widget Widget) *InheritedElement {
 func (i *InheritedElement) Mount(parent Element, slot int) {
 	i.ComponentElement.Mount(parent, slot)
 	i.buildContext = &elementBuildContext{element: i}
-	if iw, ok := i.GetWidget().(InheritedWidget); ok {
-		i.Child = UpdateChild(i, nil, iw.BuildChild(i.buildContext))
-	}
+	i.Child = UpdateChild(i, nil, i.widget.BuildChild(i.buildContext))
 }
 
 func (i *InheritedElement) Update(newWidget Widget) {
-	oldWidget := i.GetWidget()
+	oldWidget := i.widget
 	i.BaseElement.Update(newWidget)
+	i.widget = newWidget.(InheritedWidget)
 
-	if old, ok := oldWidget.(InheritedWidget); ok {
-		if newIW, ok := newWidget.(InheritedWidget); ok {
-			if old.UpdateShouldNotify(newIW) {
-				i.notifyDependents()
-			}
-		}
+	if oldWidget.UpdateShouldNotify(i.widget) {
+		i.notifyDependents()
 	}
 
 	// 更新子树
-	if iw, ok := newWidget.(InheritedWidget); ok {
-		i.Child = UpdateChild(i, i.Child, iw.BuildChild(i.buildContext))
-	}
+	i.Child = UpdateChild(i, i.Child, i.widget.BuildChild(i.buildContext))
 }
 
 func (i *InheritedElement) Unmount() {
@@ -108,10 +103,9 @@ func (i *InheritedElement) notifyDependents() {
 func getInheritedWidgetOfExactType(from Element, t reflect.Type) (InheritedWidget, bool) {
 	for p := from.GetParent(); p != nil; p = p.GetParent() {
 		if ie, ok := p.(*InheritedElement); ok {
-			if reflect.TypeOf(ie.GetWidget()) == t {
+			if reflect.TypeOf(ie.widget) == t {
 				ie.addDependent(from)
-				iw, ok := ie.GetWidget().(InheritedWidget)
-				return iw, ok
+				return ie.widget, true
 			}
 		}
 	}

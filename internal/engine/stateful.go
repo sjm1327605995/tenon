@@ -93,7 +93,7 @@ type BaseState = BaseStateOf[Widget]
 
 // NewStatefulElement 创建 StatefulElement。
 func NewStatefulElement(widget StatefulWidget) *StatefulElement {
-	e := &StatefulElement{}
+	e := &StatefulElement{widget: widget}
 	e.ComponentElement.BaseElement.Init(e, widget)
 	return e
 }
@@ -104,6 +104,7 @@ type StatefulElement struct {
 	state        State
 	child        Element
 	buildContext *elementBuildContext
+	widget       StatefulWidget
 }
 
 func (s *StatefulElement) GetState() State {
@@ -113,14 +114,10 @@ func (s *StatefulElement) GetState() State {
 func (s *StatefulElement) Mount(parent Element, slot int) {
 	s.ComponentElement.Mount(parent, slot)
 
-	widget, ok := s.GetWidget().(StatefulWidget)
-	if !ok {
-		panic("StatefulElement: widget is not StatefulWidget")
-	}
-	s.state = widget.CreateState()
+	s.state = s.widget.CreateState()
 
 	if bs, ok := s.state.(stateBinder); ok {
-		bs.bind(s, widget)
+		bs.bind(s, s.widget)
 	}
 
 	s.buildContext = &elementBuildContext{element: s}
@@ -137,8 +134,9 @@ func (s *StatefulElement) Mount(parent Element, slot int) {
 }
 
 func (s *StatefulElement) Update(newWidget Widget) {
-	oldWidget := s.GetWidget()
+	oldWidget := s.widget
 	s.ComponentElement.Update(newWidget)
+	s.widget = newWidget.(StatefulWidget)
 
 	if bs, ok := s.state.(stateBinder); ok {
 		bs.bind(s, newWidget)

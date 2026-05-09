@@ -103,30 +103,28 @@ func NewTooltipOverlay(child Widget) TooltipOverlay {
 }
 
 func (t TooltipOverlay) CreateElement() Element {
-	e := &tooltipOverlayElement{}
+	e := &tooltipOverlayElement{widget: t}
 	e.SingleChildComponentElement.ComponentElement.BaseElement.Init(e, t)
 	return e
 }
 
 type tooltipOverlayElement struct {
 	SingleChildComponentElement
+	widget TooltipOverlay
 }
 
 func (e *tooltipOverlayElement) Mount(parent Element, slot int) {
 	e.SingleChildComponentElement.Mount(parent, slot)
-	w, ok := e.GetWidget().(TooltipOverlay)
-	if !ok {
-		return
-	}
-	if w.Child != nil {
-		e.Child = UpdateChild(e, nil, w.Child)
+	if e.widget.Child != nil {
+		e.Child = UpdateChild(e, nil, e.widget.Child)
 	}
 }
 
-func (e *tooltipOverlayElement) PerformRebuild(oldWidget Widget) {
-	w, ok := e.GetWidget().(TooltipOverlay)
-	if !ok {
-		return
-	}
-	e.Child = UpdateChild(e, e.Child, w.Child)
+func (e *tooltipOverlayElement) Update(newWidget Widget) {
+	e.widget = newWidget.(TooltipOverlay)
+	e.SingleChildComponentElement.Update(newWidget)
+}
+
+func (e *tooltipOverlayElement) UpdateChild(oldWidget Widget) {
+	e.Child = UpdateChild(e, e.Child, e.widget.Child)
 }
