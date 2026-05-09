@@ -37,11 +37,16 @@ func Select(options []SelectOption) SelectWidget {
 	return SelectWidget{Options: options, Placeholder: "请选择...", Width: 200}
 }
 
-func (s SelectWidget) WithValue(v string) SelectWidget           { s.Value = v; return s }
-func (s SelectWidget) WithPlaceholder(v string) SelectWidget     { s.Placeholder = v; return s }
-func (s SelectWidget) WithOnChange(fn func(string)) SelectWidget { s.OnChange = fn; return s }
-func (s SelectWidget) WithDisabled(v bool) SelectWidget          { s.Disabled = v; return s }
-func (s SelectWidget) WithWidth(v float32) SelectWidget          { s.Width = v; return s }
+func (s SelectWidget) WithValue(v string) SelectWidget           { return s.SelectedValue(v) }
+func (s SelectWidget) SelectedValue(v string) SelectWidget       { s.Value = v; return s }
+func (s SelectWidget) WithPlaceholder(v string) SelectWidget     { return s.PlaceholderText(v) }
+func (s SelectWidget) PlaceholderText(v string) SelectWidget     { s.Placeholder = v; return s }
+func (s SelectWidget) WithOnChange(fn func(string)) SelectWidget { return s.OnChanged(fn) }
+func (s SelectWidget) OnChanged(fn func(string)) SelectWidget    { s.OnChange = fn; return s }
+func (s SelectWidget) WithDisabled(v bool) SelectWidget          { return s.SetDisabled(v) }
+func (s SelectWidget) SetDisabled(v bool) SelectWidget           { s.Disabled = v; return s }
+func (s SelectWidget) WithWidth(v float32) SelectWidget          { return s.Width_(v) }
+func (s SelectWidget) Width_(v float32) SelectWidget             { s.Width = v; return s }
 
 func (s SelectWidget) CreateElement() ui.Element { return ui.NewStatefulElement(s) }
 func (s SelectWidget) CreateState() ui.State {

@@ -1,7 +1,10 @@
 package tenon
 
 import (
+	"image/color"
+
 	"github.com/sjm1327605995/tenon/internal/engine"
+	"github.com/sjm1327605995/tenon/pkg/v2/declarative"
 	"github.com/sjm1327605995/tenon/pkg/v2/render"
 	"github.com/sjm1327605995/tenon/pkg/v2/shadcn"
 	"github.com/sjm1327605995/tenon/pkg/v2/ui"
@@ -33,6 +36,8 @@ type (
 	Gutter            = ui.Gutter
 	AnimatedContainer = widgets.AnimatedContainer
 	SelectOption      = widgets.SelectOption
+	BorderSlice       = render.BorderSlice
+	SpriteSheet       = widgets.SpriteSheet
 	FragmentWidget    = engine.FragmentWidget
 	Hooks             = engine.Hooks
 )
@@ -84,22 +89,51 @@ const (
 	AnimationCompleted = ui.AnimationCompleted
 )
 
-// Widget 构造函数，SwiftUI-like API。
+// Widget 构造函数 — React/SwiftUI 声明式 API（推荐）。
+// 用户可直接通过 tenon.XXX 调用，无需再 import 子包。
 var (
-	Text               = widgets.Text
-	Row                = widgets.Row
-	Column             = widgets.Column
-	Container          = widgets.Container
-	Button             = widgets.Button
-	Image              = widgets.Image
-	Icon               = widgets.Icon
-	Stack              = widgets.Stack
-	Positioned         = widgets.Positioned
-	Scroll             = widgets.Scroll
-	TextField          = widgets.TextField
-	EditableText       = widgets.EditableText
+	// 基础组件
+	Text       = declarative.Text
+	Button     = declarative.Button
+	Input      = declarative.Input
+	Image      = declarative.Image
+	Icon       = declarative.Icon
+	Scroll     = declarative.Scroll
+	Container  = declarative.Container
+	CardBox    = declarative.Card
+	Animated   = declarative.Animated
+	Navigator  = declarative.Navigator
+
+	// 布局
+	VStack     = declarative.VStack
+	HStack     = declarative.HStack
+	Spacer     = declarative.Spacer
+	Stack      = declarative.Stack
+	Positioned = declarative.Positioned
+	Grid       = declarative.Grid
+
+	// 游戏 GUI
+	NinePatch       = declarative.NinePatch
+	Sprite          = declarative.Sprite
+	SpriteButton    = declarative.SpriteButton
+	GameProgressBar = declarative.GameProgressBar
+	Card3D          = declarative.Card3D
+
+	// 交互与特效
+	Draggable  = declarative.Draggable
+	DropTarget = declarative.DropTarget
+	FlipCard   = declarative.FlipCard
+	Transform  = declarative.Transform
+
+	// 表单
+	Select = declarative.Select
+
+	// 兼容保留 — imperative widgets API（旧代码仍可用）
+	Row                  = widgets.Row
+	Column               = widgets.Column
+	TextField            = widgets.TextField
+	EditableText         = widgets.EditableText
 	NewAnimatedContainer = widgets.NewAnimatedContainer
-	Select               = widgets.Select
 	MultiSelect          = widgets.MultiSelect
 )
 
@@ -122,6 +156,7 @@ const (
 // 图标配置。
 var (
 	RegisterIconFallback = widgets.RegisterIconFallback
+	NewSpriteSheet       = widgets.NewSpriteSheet
 )
 
 // Shadcn 组件。
@@ -260,3 +295,8 @@ const (
 	ObjectFitNone      = render.ObjectFitNone
 	ObjectFitScaleDown = render.ObjectFitScaleDown
 )
+
+// RGBA 返回标准库 color.Color，避免 *Color 解引用问题。
+func RGBA(r, g, b, a uint8) color.Color {
+	return color.RGBA{R: r, G: g, B: b, A: a}
+}

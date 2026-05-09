@@ -23,6 +23,9 @@ type (
 	RenderSlider  = internal.RenderSlider
 	RenderProgressBar = internal.RenderProgressBar
 	RenderEditableText = internal.RenderEditableText
+	RenderNinePatch   = internal.RenderNinePatch
+	RenderSprite      = internal.RenderSprite
+	BorderSlice       = internal.BorderSlice
 	RenderSvgIcon      = internal.RenderSvgIcon
 	ParticleSystemRenderObject = internal.ParticleSystemRenderObject
 	PipelineOwner = internal.PipelineOwner
@@ -57,6 +60,8 @@ var (
 	NewRenderProgressBar = internal.NewRenderProgressBar
 	NewRenderEditableText = internal.NewRenderEditableText
 	NewRenderSvgIcon      = internal.NewRenderSvgIcon
+	NewRenderNinePatch    = internal.NewRenderNinePatch
+	NewRenderSprite       = internal.NewRenderSprite
 	NewParticleSystemRenderObject = internal.NewParticleSystemRenderObject
 	NewPipelineOwner = internal.NewPipelineOwner
 	NewColor         = internal.NewColor

@@ -14,6 +14,11 @@ type RenderProgressBar struct {
 	TrackColor   color.Color
 	FillColor    color.Color
 	BarRadius    float32
+
+	// TrackImage / FillImage 是游戏风格的图片背景；非 nil 时优先于颜色。
+	TrackImage *ebiten.Image
+	FillImage  *ebiten.Image
+	Slice      BorderSlice // 9-slice 参数；全 0 时普通拉伸
 }
 
 func NewRenderProgressBar() *RenderProgressBar {
@@ -39,6 +44,16 @@ func (r *RenderProgressBar) SetProgress(v float32) {
 	}
 }
 
+func (r *RenderProgressBar) SetImages(track, fill *ebiten.Image, slice BorderSlice) {
+	if r.TrackImage == track && r.FillImage == fill && r.Slice == slice {
+		return
+	}
+	r.TrackImage = track
+	r.FillImage = fill
+	r.Slice = slice
+	r.MarkNeedsPaint()
+}
+
 func (r *RenderProgressBar) Paint(screen *ebiten.Image, offset Offset) {
 	bounds := r.bounds
 	if bounds.Width <= 0 || bounds.Height <= 0 {
@@ -56,11 +71,23 @@ func (r *RenderProgressBar) Paint(screen *ebiten.Image, offset Offset) {
 	DrawRoundedRectFill(screen, x, y, w, h, br, r.TrackColor)
 
 	// Fill
-	if r.FillColor != nil && r.Progress > 0 {
-		fillW := w * r.Progress
-		if fillW > w {
-			fillW = w
+	fillW := w * r.Progress
+	if fillW > w {
+		fillW = w
+	}
+	if r.FillImage != nil && fillW > 0 {
+		if r.Slice.Top > 0 || r.Slice.Right > 0 || r.Slice.Bottom > 0 || r.Slice.Left > 0 {
+			ninePatch := &RenderNinePatch{Source: r.FillImage, Slice: r.Slice}
+			ninePatch.Paint(screen, Offset{X: x, Y: y})
+		} else {
+			op := &ebiten.DrawImageOptions{}
+			sw := float64(fillW) / float64(r.FillImage.Bounds().Dx())
+			sh := float64(h) / float64(r.FillImage.Bounds().Dy())
+			op.GeoM.Scale(sw, sh)
+			op.GeoM.Translate(float64(x), float64(y))
+			screen.DrawImage(r.FillImage, op)
 		}
+	} else if r.FillColor != nil && r.Progress > 0 {
 		DrawRoundedRectFill(screen, x, y, fillW, h, br, r.FillColor)
 	}
 }

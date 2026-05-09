@@ -42,7 +42,8 @@ func (t TextareaWidget) Placeholder(text string) TextareaWidget {
 	return t
 }
 
-func (t TextareaWidget) Size(size float32) TextareaWidget {
+func (t TextareaWidget) Size(size float32) TextareaWidget { return t.FontSize(size) }
+func (t TextareaWidget) FontSize(size float32) TextareaWidget {
 	t.fontSize = size
 	return t
 }
@@ -57,7 +58,8 @@ func (t TextareaWidget) H(v float32) TextareaWidget {
 	return t
 }
 
-func (t TextareaWidget) Bg(c render.Color) TextareaWidget {
+func (t TextareaWidget) Bg(c render.Color) TextareaWidget { return t.Background(c) }
+func (t TextareaWidget) Background(c render.Color) TextareaWidget {
 	t.background = &c
 	return t
 }

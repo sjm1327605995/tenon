@@ -31,7 +31,8 @@ func (s ScrollWidget) H(v float32) ScrollWidget {
 	return s
 }
 
-func (s ScrollWidget) MaxH(v float32) ScrollWidget {
+func (s ScrollWidget) MaxH(v float32) ScrollWidget { return s.MaxHeight(v) }
+func (s ScrollWidget) MaxHeight(v float32) ScrollWidget {
 	s.maxHeight = v
 	return s
 }

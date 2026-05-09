@@ -190,6 +190,11 @@ func (e *Engine) Update() error {
 		e.flushBuild()
 	}
 
+	// Tick all tickable render objects
+	if e.rootRenderObject != nil {
+		e.tickRenderObjects(e.rootRenderObject, dt)
+	}
+
 	if e.rootRenderObject != nil && e.rootRenderObject.GetYoga() != nil {
 		rootYoga := e.rootRenderObject.GetYoga()
 		rootYoga.StyleSetWidth(float32(e.screenWidth))
@@ -648,6 +653,22 @@ func (e *Engine) flushGlobalBuild() {
 
 // ==================== Sync bounds ====================
 
+func (e *Engine) tickRenderObjects(ro render.RenderObject, dt time.Duration) {
+	if ro == nil {
+		return
+	}
+	if t, ok := ro.(render.Tickable); ok {
+		if t.Tick(dt) {
+			ro.MarkNeedsPaint()
+		}
+	}
+	for _, child := range ro.GetChildren() {
+		if child.GetParent() == ro {
+			e.tickRenderObjects(child, dt)
+		}
+	}
+}
+
 func (e *Engine) syncBounds(ro render.RenderObject) {
 	if ro == nil {
 		return
@@ -807,6 +828,12 @@ func (e *Engine) drawRenderObjectWithTransform(screen *ebiten.Image, ro render.R
 	// 将子树绘制到临时 surface，节点的 (0,0) 对齐到 temp 的 (0,0)
 	e._drawRenderObject(temp, ro, render.Offset{X: -bounds.X, Y: -bounds.Y})
 
+	// 3D 变换使用 DrawTriangles 实现透视投影
+	if t.Has3D() {
+		e.drawWith3DTransform(screen, temp, bounds, parentOffset, t)
+		return
+	}
+
 	geoM := render.BuildTransformGeoM(render.Bounds{X: 0, Y: 0, Width: bounds.Width, Height: bounds.Height}, t)
 	geoM.Translate(float64(parentOffset.X+bounds.X), float64(parentOffset.Y+bounds.Y))
 
@@ -815,6 +842,23 @@ func (e *Engine) drawRenderObjectWithTransform(screen *ebiten.Image, ro render.R
 		op.ColorScale.Scale(float32(t.Alpha), float32(t.Alpha), float32(t.Alpha), float32(t.Alpha))
 	}
 	screen.DrawImage(temp, op)
+}
+
+func (e *Engine) drawWith3DTransform(screen *ebiten.Image, temp *ebiten.Image, bounds render.Bounds, parentOffset render.Offset, t render.Transform) {
+	b := render.Bounds{X: parentOffset.X + bounds.X, Y: parentOffset.Y + bounds.Y, Width: bounds.Width, Height: bounds.Height}
+	verts := render.Build3DVertices(b, t)
+
+	w, h := float32(temp.Bounds().Dx()), float32(temp.Bounds().Dy())
+	vertices := []ebiten.Vertex{
+		{DstX: float32(verts[0][0]), DstY: float32(verts[0][1]), SrcX: 0, SrcY: 0, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: t.Alpha},
+		{DstX: float32(verts[1][0]), DstY: float32(verts[1][1]), SrcX: w, SrcY: 0, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: t.Alpha},
+		{DstX: float32(verts[2][0]), DstY: float32(verts[2][1]), SrcX: w, SrcY: h, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: t.Alpha},
+		{DstX: float32(verts[3][0]), DstY: float32(verts[3][1]), SrcX: 0, SrcY: h, ColorR: 1, ColorG: 1, ColorB: 1, ColorA: t.Alpha},
+	}
+	indices := []uint16{0, 1, 2, 0, 2, 3}
+
+	op := &ebiten.DrawTrianglesOptions{Filter: ebiten.FilterLinear}
+	screen.DrawTriangles(vertices, indices, temp, op)
 }
 
 // ==================== Run ====================

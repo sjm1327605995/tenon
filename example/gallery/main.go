@@ -256,7 +256,7 @@ func galleryStack() tenon.Widget {
 		tenon.Positioned(
 			tenon.Text("Center").FontSize(tenon.GetTheme().FontSizeBase),
 		).Center(),
-	).W(300).H(120).Background(*tenon.NewColor(243, 244, 246, 255)).Radius(8)
+	).W(300).H(120).BackgroundColor(tenon.Color{R: 243, G: 244, B: 246, A: 255}).Radius(8)
 }
 
 func galleryEditableText() tenon.Widget {

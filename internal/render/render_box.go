@@ -23,6 +23,11 @@ type RenderBox struct {
 	ShadowOffsetY      float32
 	clipChildren       bool
 	focusable          bool
+
+	// BackgroundImage 是背景图片；与 BackgroundColor 互斥，优先绘制图片。
+	BackgroundImage *ebiten.Image
+	// BackgroundSlice 是 9-slice 切图参数；非零值时使用 NinePatch 绘制，否则普通拉伸。
+	BackgroundSlice BorderSlice
 }
 
 func NewRenderBox() *RenderBox {
@@ -79,11 +84,38 @@ func (r *RenderBox) Paint(screen *ebiten.Image, offset Offset) {
 func (r *RenderBox) paintContent(screen *ebiten.Image, b Bounds) {
 	x, y, w, h := b.X, b.Y, b.Width, b.Height
 
-	PaintBoxShadow(screen, x, y, w, h, r.BorderRadius, r.ShadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
-	PaintBackground(screen, x, y, w, h, r.BorderRadius, r.BackgroundColor)
+	var shadowColor color.Color
+	if r.ShadowColor != nil {
+		shadowColor = r.ShadowColor
+	}
+	PaintBoxShadow(screen, x, y, w, h, r.BorderRadius, shadowColor, r.ShadowBlur, r.ShadowOffsetX, r.ShadowOffsetY)
+
+	var bgColor color.Color
+	if r.BackgroundColor != nil {
+		bgColor = r.BackgroundColor
+	}
+	PaintBackground(screen, x, y, w, h, r.BorderRadius, bgColor)
+
+	// 绘制背景图片（优先于背景色）
+	if r.BackgroundImage != nil {
+		if r.BackgroundSlice.Top > 0 || r.BackgroundSlice.Right > 0 || r.BackgroundSlice.Bottom > 0 || r.BackgroundSlice.Left > 0 {
+			ninePatch := &RenderNinePatch{Source: r.BackgroundImage, Slice: r.BackgroundSlice}
+			ninePatch.Paint(screen, Offset{X: x, Y: y})
+		} else {
+			op := &ebiten.DrawImageOptions{}
+			sw := float64(w) / float64(r.BackgroundImage.Bounds().Dx())
+			sh := float64(h) / float64(r.BackgroundImage.Bounds().Dy())
+			op.GeoM.Scale(sw, sh)
+			op.GeoM.Translate(float64(x), float64(y))
+			screen.DrawImage(r.BackgroundImage, op)
+		}
+	}
 
 	// 绘制边框（子元素 focus 时使用 FocusedBorderColor）
-	borderColor := r.BorderColor
+	var borderColor color.Color
+	if r.BorderColor != nil {
+		borderColor = r.BorderColor
+	}
 	if r.hasFocusedChild() && r.FocusedBorderColor != nil {
 		borderColor = r.FocusedBorderColor
 	}
@@ -108,6 +140,15 @@ func (r *RenderBox) SetBackgroundColor(c *Color) {
 		return
 	}
 	r.BackgroundColor = c
+	r.MarkNeedsPaint()
+}
+
+func (r *RenderBox) SetBackgroundImage(img *ebiten.Image, slice BorderSlice) {
+	if r.BackgroundImage == img && r.BackgroundSlice == slice {
+		return
+	}
+	r.BackgroundImage = img
+	r.BackgroundSlice = slice
 	r.MarkNeedsPaint()
 }
 

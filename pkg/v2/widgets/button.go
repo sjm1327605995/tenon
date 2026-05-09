@@ -34,22 +34,26 @@ func Button(label string) ButtonWidget {
 	return ButtonWidget{label: label, variant: ButtonDefault}
 }
 
-func (b ButtonWidget) Variantf(v ButtonVariant) ButtonWidget {
+func (b ButtonWidget) Variantf(v ButtonVariant) ButtonWidget { return b.Variant(v) }
+func (b ButtonWidget) Variant(v ButtonVariant) ButtonWidget {
 	b.variant = v
 	return b
 }
 
-func (b ButtonWidget) OnTap(fn func()) ButtonWidget {
+func (b ButtonWidget) OnTap(fn func()) ButtonWidget { return b.OnClick(fn) }
+func (b ButtonWidget) OnClick(fn func()) ButtonWidget {
 	b.onClick = fn
 	return b
 }
 
-func (b ButtonWidget) SetDisabled(v bool) ButtonWidget {
+func (b ButtonWidget) SetDisabled(v bool) ButtonWidget { return b.Disabled(v) }
+func (b ButtonWidget) Disabled(v bool) ButtonWidget {
 	b.disabled = v
 	return b
 }
 
-func (b ButtonWidget) SetLoading(v bool) ButtonWidget {
+func (b ButtonWidget) SetLoading(v bool) ButtonWidget { return b.Loading(v) }
+func (b ButtonWidget) Loading(v bool) ButtonWidget {
 	b.loading = v
 	return b
 }
