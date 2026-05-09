@@ -3,37 +3,36 @@ package tenon
 import (
 	"image/color"
 
-	"github.com/sjm1327605995/tenon/internal/engine"
-	"github.com/sjm1327605995/tenon/pkg/v2/declarative"
-	"github.com/sjm1327605995/tenon/pkg/v2/render"
-	"github.com/sjm1327605995/tenon/pkg/v2/shadcn"
-	"github.com/sjm1327605995/tenon/pkg/v2/ui"
-	"github.com/sjm1327605995/tenon/pkg/v2/widgets"
+	"github.com/sjm1327605995/tenon/pkg/declarative"
+	"github.com/sjm1327605995/tenon/pkg/engine"
+	"github.com/sjm1327605995/tenon/pkg/render"
+	"github.com/sjm1327605995/tenon/pkg/shadcn"
+	"github.com/sjm1327605995/tenon/pkg/widgets"
 )
 
 // 核心类型别名，用户可直接使用。
 type (
-	Widget            = ui.Widget
-	Element           = ui.Element
-	StatefulWidget    = ui.StatefulWidget
-	BaseWidget        = ui.BaseWidget
-	BuildContext      = ui.BuildContext
-	Builder           = ui.Builder
-	StatefulBuilder   = ui.StatefulBuilder
-	GlobalKey         = ui.GlobalKey
-	Engine            = ui.Engine
-	Theme             = ui.Theme
-	EdgeInsets        = ui.EdgeInsets
+	Widget            = engine.Widget
+	Element           = engine.Element
+	StatefulWidget    = engine.StatefulWidget
+	BaseWidget        = engine.BaseWidget
+	BuildContext      = engine.BuildContext
+	Builder           = engine.Builder
+	StatefulBuilder   = engine.StatefulBuilder
+	GlobalKey         = engine.GlobalKey
+	Engine            = engine.Engine
+	Theme             = engine.Theme
+	EdgeInsets        = engine.EdgeInsets
 	Color             = render.Color
-	FlexDirection     = ui.FlexDirection
-	Justify           = ui.Justify
-	Align             = ui.Align
-	Wrap              = ui.Wrap
-	PositionType      = ui.PositionType
-	Display           = ui.Display
-	Overflow          = ui.Overflow
-	Edge              = ui.Edge
-	Gutter            = ui.Gutter
+	FlexDirection     = engine.FlexDirection
+	Justify           = engine.Justify
+	Align             = engine.Align
+	Wrap              = engine.Wrap
+	PositionType      = engine.PositionType
+	Display           = engine.Display
+	Overflow          = engine.Overflow
+	Edge              = engine.Edge
+	Gutter            = engine.Gutter
 	AnimatedContainer = widgets.AnimatedContainer
 	SelectOption      = widgets.SelectOption
 	BorderSlice       = render.BorderSlice
@@ -43,50 +42,50 @@ type (
 )
 
 // BaseState 是 BaseStateOf[Widget] 的别名，保持向后兼容。
-type BaseState = ui.BaseStateOf[ui.Widget]
+type BaseState = engine.BaseStateOf[engine.Widget]
 
 // BaseStateOf 是泛型 State 基类，避免 GetWidget() 类型断言。
-type BaseStateOf[W ui.Widget] = ui.BaseStateOf[W]
+type BaseStateOf[W engine.Widget] = engine.BaseStateOf[W]
 
 // 核心函数。
 var (
-	NewEngine             = ui.NewEngine
-	NewStatefulElement    = ui.NewStatefulElement
-	Rebuild               = ui.RebuildDefault
-	SetTheme              = ui.SetTheme
-	GetTheme              = ui.GetTheme
-	ThemeOf               = ui.ThemeOf
-	NewBuilder            = ui.NewBuilder
-	NewStatefulBuilder    = ui.NewStatefulBuilder
-	NewGlobalKey          = ui.NewGlobalKey
-	DefaultLightTheme     = ui.DefaultLightTheme
+	NewEngine             = engine.NewEngine
+	NewStatefulElement    = engine.NewStatefulElement
+	Rebuild               = engine.RebuildDefault
+	SetTheme              = engine.SetTheme
+	GetTheme              = engine.GetTheme
+	ThemeOf               = engine.ThemeOf
+	NewBuilder            = engine.NewBuilder
+	NewStatefulBuilder    = engine.NewStatefulBuilder
+	NewGlobalKey          = engine.NewGlobalKey
+	DefaultLightTheme     = engine.DefaultLightTheme
 	Fragment              = engine.Fragment
-	DefaultDarkTheme      = ui.DefaultDarkTheme
-	EdgeInsetsAll         = ui.EdgeInsetsAll
-	EdgeInsetsSymmetric   = ui.EdgeInsetsSymmetric
-	EdgeInsetsOnly        = ui.EdgeInsetsOnly
+	DefaultDarkTheme      = engine.DefaultDarkTheme
+	EdgeInsetsAll         = engine.EdgeInsetsAll
+	EdgeInsetsSymmetric   = engine.EdgeInsetsSymmetric
+	EdgeInsetsOnly        = engine.EdgeInsetsOnly
 	NewColor              = render.NewColor
 	NewColorFrom          = render.NewColorFrom
 )
 
 // 动画类型别名。
 type (
-	AnimationController = ui.AnimationController
-	AnimationStatus     = ui.AnimationStatus
-	Curve               = ui.Curve
-	LinearCurve         = ui.LinearCurve
-	EaseInOutCurve      = ui.EaseInOutCurve
+	AnimationController = engine.AnimationController
+	AnimationStatus     = engine.AnimationStatus
+	Curve               = engine.Curve
+	LinearCurve         = engine.LinearCurve
+	EaseInOutCurve      = engine.EaseInOutCurve
 )
 
 // 注意：Tween[T] 和 Animation[T] 是泛型类型，无法通过别名导出。
-// 用户需要直接使用 ui.Tween[T] 和 ui.Animation[T]。
+// 用户需要直接使用 engine.Tween[T] 和 engine.Animation[T]。
 
 // 动画常量。
 const (
-	AnimationDismissed = ui.AnimationDismissed
-	AnimationForward   = ui.AnimationForward
-	AnimationReverse   = ui.AnimationReverse
-	AnimationCompleted = ui.AnimationCompleted
+	AnimationDismissed = engine.AnimationDismissed
+	AnimationForward   = engine.AnimationForward
+	AnimationReverse   = engine.AnimationReverse
+	AnimationCompleted = engine.AnimationCompleted
 )
 
 // Widget 构造函数 — React/SwiftUI 声明式 API（推荐）。
@@ -194,51 +193,51 @@ type (
 
 // Yoga/Flex 常量快捷导出。
 const (
-	FlexDirectionColumn  = ui.FlexDirectionColumn
-	FlexDirectionRow     = ui.FlexDirectionRow
-	JustifyFlexStart     = ui.JustifyFlexStart
-	JustifyCenter        = ui.JustifyCenter
-	JustifyFlexEnd       = ui.JustifyFlexEnd
-	JustifySpaceBetween  = ui.JustifySpaceBetween
-	JustifySpaceAround   = ui.JustifySpaceAround
-	JustifySpaceEvenly   = ui.JustifySpaceEvenly
-	AlignAuto            = ui.AlignAuto
-	AlignFlexStart       = ui.AlignFlexStart
-	AlignCenter          = ui.AlignCenter
-	AlignFlexEnd         = ui.AlignFlexEnd
-	AlignStretch         = ui.AlignStretch
-	AlignBaseline        = ui.AlignBaseline
-	WrapNoWrap           = ui.WrapNoWrap
-	WrapWrap             = ui.WrapWrap
-	PositionTypeRelative = ui.PositionTypeRelative
-	PositionTypeAbsolute = ui.PositionTypeAbsolute
-	DisplayFlex          = ui.DisplayFlex
-	DisplayNone          = ui.DisplayNone
-	OverflowVisible      = ui.OverflowVisible
-	OverflowHidden       = ui.OverflowHidden
-	OverflowScroll       = ui.OverflowScroll
-	EdgeLeft             = ui.EdgeLeft
-	EdgeTop              = ui.EdgeTop
-	EdgeRight            = ui.EdgeRight
-	EdgeBottom           = ui.EdgeBottom
-	EdgeStart            = ui.EdgeStart
-	EdgeEnd              = ui.EdgeEnd
-	EdgeHorizontal       = ui.EdgeHorizontal
-	EdgeVertical         = ui.EdgeVertical
-	EdgeAll              = ui.EdgeAll
-	GutterColumn         = ui.GutterColumn
-	GutterRow            = ui.GutterRow
-	GutterAll            = ui.GutterAll
+	FlexDirectionColumn  = engine.FlexDirectionColumn
+	FlexDirectionRow     = engine.FlexDirectionRow
+	JustifyFlexStart     = engine.JustifyFlexStart
+	JustifyCenter        = engine.JustifyCenter
+	JustifyFlexEnd       = engine.JustifyFlexEnd
+	JustifySpaceBetween  = engine.JustifySpaceBetween
+	JustifySpaceAround   = engine.JustifySpaceAround
+	JustifySpaceEvenly   = engine.JustifySpaceEvenly
+	AlignAuto            = engine.AlignAuto
+	AlignFlexStart       = engine.AlignFlexStart
+	AlignCenter          = engine.AlignCenter
+	AlignFlexEnd         = engine.AlignFlexEnd
+	AlignStretch         = engine.AlignStretch
+	AlignBaseline        = engine.AlignBaseline
+	WrapNoWrap           = engine.WrapNoWrap
+	WrapWrap             = engine.WrapWrap
+	PositionTypeRelative = engine.PositionTypeRelative
+	PositionTypeAbsolute = engine.PositionTypeAbsolute
+	DisplayFlex          = engine.DisplayFlex
+	DisplayNone          = engine.DisplayNone
+	OverflowVisible      = engine.OverflowVisible
+	OverflowHidden       = engine.OverflowHidden
+	OverflowScroll       = engine.OverflowScroll
+	EdgeLeft             = engine.EdgeLeft
+	EdgeTop              = engine.EdgeTop
+	EdgeRight            = engine.EdgeRight
+	EdgeBottom           = engine.EdgeBottom
+	EdgeStart            = engine.EdgeStart
+	EdgeEnd              = engine.EdgeEnd
+	EdgeHorizontal       = engine.EdgeHorizontal
+	EdgeVertical         = engine.EdgeVertical
+	EdgeAll              = engine.EdgeAll
+	GutterColumn         = engine.GutterColumn
+	GutterRow            = engine.GutterRow
+	GutterAll            = engine.GutterAll
 )
 
 // Run 启动 ebiten 窗口并运行应用。
 // 根 Widget 会自动包裹在 ThemeProvider 中。
-func Run(buildFunc ui.BuildFunc, width, height int) {
-	wrappedBuildFunc := func() ui.Widget {
-		return ui.ThemeProvider(ui.GetTheme(), buildFunc())
+func Run(buildFunc engine.BuildFunc, width, height int) {
+	wrappedBuildFunc := func() engine.Widget {
+		return engine.ThemeProvider(engine.GetTheme(), buildFunc())
 	}
-	engine := ui.NewEngine(wrappedBuildFunc, width, height)
-	engine.Run()
+	eng := engine.NewEngine(wrappedBuildFunc, width, height)
+	eng.Run()
 }
 
 // Button 变体

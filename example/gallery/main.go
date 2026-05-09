@@ -7,8 +7,8 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon"
-	"github.com/sjm1327605995/tenon/pkg/fonts"
-	"github.com/sjm1327605995/tenon/pkg/v2/ui"
+	"github.com/sjm1327605995/tenon/pkg/font"
+	"github.com/sjm1327605995/tenon/pkg/engine"
 )
 
 func galleryCheckbox() tenon.Widget {
@@ -578,7 +578,7 @@ func (c CounterButton) CreateElement() tenon.Element {
 	return tenon.NewStatefulElement(c)
 }
 
-func (c CounterButton) CreateState() ui.State {
+func (c CounterButton) CreateState() engine.State {
 	s := &counterState{}
 	s.Init(s)
 	return s
@@ -609,13 +609,13 @@ func (s *counterState) Build(ctx tenon.BuildContext) tenon.Widget {
 }
 
 func main() {
-	if err := fonts.InitDefaultFont(); err != nil {
+	if err := font.InitDefaultFont(); err != nil {
 		panic("failed to init font: " + err.Error())
 	}
-	if err := fonts.ReloadFontFromFile(fonts.FontFamilyDefault, "font/OPPOSans-Medium.ttf"); err != nil {
+	if err := font.ReloadFontFromFile(font.FontFamilyDefault, "font/OPPOSans-Medium.ttf"); err != nil {
 		panic("failed to load CJK font: " + err.Error())
 	}
-	if err := fonts.PreloadCommonSizes(fonts.FontFamilyDefault, []float32{12, 14, 16, 18, 20, 24, 32, 48}); err != nil {
+	if err := font.PreloadCommonSizes(font.FontFamilyDefault, []float32{12, 14, 16, 18, 20, 24, 32, 48}); err != nil {
 		panic("failed to preload CJK font sizes: " + err.Error())
 	}
 	app := &galleryApp{}

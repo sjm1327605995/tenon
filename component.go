@@ -2,8 +2,8 @@ package tenon
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/sjm1327605995/tenon/internal/engine"
-	"github.com/sjm1327605995/tenon/internal/render"
+	"github.com/sjm1327605995/tenon/pkg/engine"
+	"github.com/sjm1327605995/tenon/pkg/render"
 )
 
 // Component 是 go-tui 风格的组件接口。

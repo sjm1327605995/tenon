@@ -5,7 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/sjm1327605995/tenon"
-	"github.com/sjm1327605995/tenon/pkg/fonts"
+	"github.com/sjm1327605995/tenon/pkg/font"
 )
 
 // Counter 是一个 go-tui 风格的组件。
@@ -44,7 +44,7 @@ func (c *Counter) Render(app *tenon.App) tenon.Widget {
 }
 
 func main() {
-	if err := fonts.InitDefaultFont(); err != nil {
+	if err := font.InitDefaultFont(); err != nil {
 		panic(err)
 	}
 
