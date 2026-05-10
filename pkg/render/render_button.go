@@ -43,8 +43,8 @@ func NewRenderButton() *RenderButton {
 	r.yoga.StyleSetFlexDirection(yoga.FlexDirectionRow)
 	r.yoga.StyleSetJustifyContent(yoga.JustifyCenter)
 	r.yoga.StyleSetAlignItems(yoga.AlignCenter)
-	r.yoga.StyleSetPadding(yoga.EdgeHorizontal, 16)
-	r.yoga.StyleSetPadding(yoga.EdgeVertical, 10)
+	r.yoga.StyleSetPadding(yoga.EdgeHorizontal, 12)
+	r.yoga.StyleSetPadding(yoga.EdgeVertical, 6)
 	r.State = ButtonStateNormal
 	return r
 }

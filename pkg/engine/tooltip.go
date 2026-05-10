@@ -121,8 +121,10 @@ func (e *tooltipOverlayElement) Mount(parent Element, slot int) {
 }
 
 func (e *tooltipOverlayElement) Update(newWidget Widget) {
+	oldWidget := e.widget
 	e.widget = newWidget.(TooltipOverlay)
-	e.SingleChildComponentElement.Update(newWidget)
+	e.BaseElement.Update(newWidget)
+	e.UpdateChild(oldWidget)
 }
 
 func (e *tooltipOverlayElement) UpdateChild(oldWidget Widget) {

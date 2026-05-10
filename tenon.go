@@ -34,6 +34,7 @@ type (
 	Edge              = engine.Edge
 	Gutter            = engine.Gutter
 	AnimatedContainer = widgets.AnimatedContainer
+	RenderComponent   = widgets.RenderComponent
 	SelectOption      = widgets.SelectOption
 	BorderSlice       = render.BorderSlice
 	SpriteSheet       = widgets.SpriteSheet
@@ -102,6 +103,7 @@ var (
 	CardBox    = declarative.Card
 	Animated   = declarative.Animated
 	Navigator  = declarative.Navigator
+	GetNavigator = declarative.GetNavigator
 
 	// 布局
 	VStack     = declarative.VStack

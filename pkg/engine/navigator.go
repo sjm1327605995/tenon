@@ -3,6 +3,8 @@ package engine
 import (
 	"reflect"
 	"time"
+
+	"github.com/sjm1327605995/tenon/pkg/render"
 )
 
 // ==================== Route & Page ====================
@@ -311,6 +313,59 @@ func (s *navigatorState) stopAnim() {
 	}
 }
 
+// ==================== navTransitionWidget ====================
+
+// navTransitionWidget 是导航器转场容器，始终使用 RenderStack 作为根 render object。
+// 这样可以避免转场时 widget 类型变化导致的旧页面 unmount 和闪烁。
+type navTransitionWidget struct {
+	BaseWidget
+	children []Widget
+}
+
+// navTransitionElement 在 mount/update 时自动将子页面拉伸填满父容器。
+type navTransitionElement struct {
+	MultiChildRenderObjectElement
+}
+
+func (e *navTransitionElement) Mount(parent Element, slot int) {
+	e.MultiChildRenderObjectElement.Mount(parent, slot)
+	e.stretchChildren()
+}
+
+func (e *navTransitionElement) Update(newWidget Widget) {
+	e.MultiChildRenderObjectElement.Update(newWidget)
+	e.stretchChildren()
+}
+
+func (e *navTransitionElement) stretchChildren() {
+	for _, child := range e.Children {
+		if ro := child.FindRenderObject(); ro != nil {
+			if y := ro.GetYoga(); y != nil {
+				y.StyleSetWidthPercent(100)
+				y.StyleSetHeightPercent(100)
+			}
+		}
+	}
+}
+
+func (n navTransitionWidget) CreateElement() Element {
+	e := &navTransitionElement{}
+	e.MultiChildRenderObjectElement.BaseElement.Init(e, n)
+	return e
+}
+
+func (n navTransitionWidget) CreateRenderObject(element Element) render.RenderObject {
+	return render.NewRenderStack()
+}
+
+func (n navTransitionWidget) UpdateRenderObject(ro render.RenderObject, oldWidget Widget) {
+	// Stack 不需要更新
+}
+
+func (n navTransitionWidget) GetChildrenWidgets() []Widget {
+	return n.children
+}
+
 // ---- Build ----
 
 func (s *navigatorState) Build(ctx BuildContext) Widget {
@@ -321,9 +376,8 @@ func (s *navigatorState) Build(ctx BuildContext) Widget {
 	w := s.Widget()
 	current := s.pageStack[len(s.pageStack)-1]
 
-	// 用 Builder 延迟页面构建，确保子页面的 BuildContext 在 NavigatorContext 之下，
-	// 从而能通过 GetNavigator(ctx) 获取导航能力。
-	pageBuilder := NewBuilder(func(innerCtx BuildContext) Widget {
+	// 构建当前页面
+	currentBuilder := NewBuilder(func(innerCtx BuildContext) Widget {
 		var pageWidget Widget
 		if current.Builder != nil {
 			pageWidget = current.Builder(innerCtx, current.Params)
@@ -332,38 +386,44 @@ func (s *navigatorState) Build(ctx BuildContext) Widget {
 		}
 		return pageWidget
 	})
+	currentPage := NewNavigatorContext(s, currentBuilder)
 
-	// 包裹 NavigatorContext
-	pageWidget := NewNavigatorContext(s, pageBuilder)
-
-	if !s.animating {
-		return pageWidget
+	// 非动画状态：只显示当前页面
+	if !s.animating || len(s.pageStack) < 2 {
+		return navTransitionWidget{children: []Widget{Opacity(currentPage, 1)}}
 	}
 
-	// 转场动画
+	// 动画状态：同时显示旧页面和新页面
+	prev := s.pageStack[len(s.pageStack)-2]
+	prevBuilder := NewBuilder(func(innerCtx BuildContext) Widget {
+		var pageWidget Widget
+		if prev.Builder != nil {
+			pageWidget = prev.Builder(innerCtx, prev.Params)
+		} else if builder, ok := w.routes[prev.Name]; ok {
+			pageWidget = builder(innerCtx, prev.Params)
+		}
+		return pageWidget
+	})
+	prevPage := NewNavigatorContext(s, prevBuilder)
+
 	switch s.transType {
 	case TransitionFade:
-		return buildNavFade(pageWidget, s.progress)
+		return navTransitionWidget{children: []Widget{
+			Opacity(prevPage, 1-s.progress),
+			Opacity(currentPage, s.progress),
+		}}
 	case TransitionSlide, TransitionSlideUp:
-		return buildNavSlide(pageWidget, s.progress)
+		return navTransitionWidget{children: []Widget{
+			SlideOffset(prevPage, -s.progress, 0),
+			SlideOffset(currentPage, 1-s.progress, 0),
+		}}
 	default:
-		return pageWidget
+		return navTransitionWidget{children: []Widget{Opacity(currentPage, 1)}}
 	}
 }
 
 func buildEmptyPage() Widget {
-	// 返回一个空的 flex column
-	return nil
-}
-
-func buildNavFade(content Widget, progress float32) Widget {
-	return Opacity(content, progress)
-}
-
-func buildNavSlide(content Widget, progress float32) Widget {
-	// progress 0→1 对应从右侧滑入（offsetX 1→0）
-	offsetX := 1.0 - progress
-	return SlideOffset(content, offsetX, 0)
+	return navTransitionWidget{children: nil}
 }
 
 // ==================== 便捷导航函数 ====================
