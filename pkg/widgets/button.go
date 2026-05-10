@@ -27,6 +27,7 @@ type ButtonWidget struct {
 	onClick  func()
 	disabled bool
 	loading  bool
+	height   float32
 }
 
 // Button creates a button Widget.
@@ -58,6 +59,11 @@ func (b ButtonWidget) Loading(v bool) ButtonWidget {
 	return b
 }
 
+func (b ButtonWidget) H(v float32) ButtonWidget {
+	b.height = v
+	return b
+}
+
 func (b ButtonWidget) CreateElement() engine.Element {
 	return engine.NewSingleChildRenderObjectElement(b)
 }
@@ -76,6 +82,10 @@ func (b ButtonWidget) CreateRenderObject(element engine.Element) render.RenderOb
 		r.SetState(render.ButtonStateDisabled)
 	}
 	r.SetOnClick(b.onClick)
+
+	if b.height > 0 {
+		r.StyleSetHeight(b.height)
+	}
 
 	if b.label == "" {
 		r.StyleSetWidthPercent(100)

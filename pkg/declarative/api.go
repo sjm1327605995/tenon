@@ -225,6 +225,7 @@ type ButtonWidget struct {
 	onClick  func()
 	disabled bool
 	loading  bool
+	height   float32
 }
 
 func (b ButtonWidget) Style(v ButtonStyle) ButtonWidget { b.style = v; return b }
@@ -235,14 +236,19 @@ func (b ButtonWidget) Disabled(v bool) ButtonWidget     { b.disabled = v; return
 func (b ButtonWidget) SetDisabled(v bool) ButtonWidget  { return b.Disabled(v) }
 func (b ButtonWidget) Loading(v bool) ButtonWidget      { b.loading = v; return b }
 func (b ButtonWidget) SetLoading(v bool) ButtonWidget   { return b.Loading(v) }
+func (b ButtonWidget) H(v float32) ButtonWidget         { b.height = v; return b }
 func (b ButtonWidget) CreateElement() engine.Element        { return newBuilder(b) }
 func (b ButtonWidget) GetKey() engine.Key                   { return engine.NilKey{} }
 func (b ButtonWidget) unwrap() engine.Widget {
-	return widgets.Button(b.label).
+	w := widgets.Button(b.label).
 		Variantf(b.style).
 		OnTap(b.onClick).
 		SetDisabled(b.disabled).
 		SetLoading(b.loading)
+	if b.height > 0 {
+		w = w.H(b.height)
+	}
+	return w
 }
 
 // ==================== Input ====================
@@ -341,18 +347,22 @@ func Container(child Widget) ContainerBox {
 }
 
 type ContainerBox struct {
-	child      Widget
-	bg         *render.Color
-	bgImage    *ebiten.Image
-	bgSlice    render.BorderSlice
-	radius     float32
-	border     *render.Color
-	borderW    float32
-	padding    engine.EdgeInsets
-	margin     engine.EdgeInsets
-	width      float32
-	height     float32
-	onClick    func()
+	child         Widget
+	bg            *render.Color
+	bgImage       *ebiten.Image
+	bgSlice       render.BorderSlice
+	radius        float32
+	border        *render.Color
+	borderW       float32
+	padding       engine.EdgeInsets
+	margin        engine.EdgeInsets
+	width         float32
+	height        float32
+	onClick       func()
+	shadowColor   *render.Color
+	shadowBlur    float32
+	shadowOffsetX float32
+	shadowOffsetY float32
 }
 
 func (c ContainerBox) Background(cl color.Color) ContainerBox      { c.bg = render.NewColorFrom(cl); return c }
@@ -369,6 +379,13 @@ func (c ContainerBox) Height(v float32) ContainerBox               { c.height = 
 func (c ContainerBox) H(v float32) ContainerBox                    { return c.Height(v) }
 func (c ContainerBox) OnClick(fn func()) ContainerBox              { c.onClick = fn; return c }
 func (c ContainerBox) OnTap(fn func()) ContainerBox                { return c.OnClick(fn) }
+func (c ContainerBox) Shadow(cl color.Color, blur, offsetX, offsetY float32) ContainerBox {
+	c.shadowColor = render.NewColorFrom(cl)
+	c.shadowBlur = blur
+	c.shadowOffsetX = offsetX
+	c.shadowOffsetY = offsetY
+	return c
+}
 func (c ContainerBox) CreateElement() engine.Element                   { return newBuilder(c) }
 func (c ContainerBox) GetKey() engine.Key                              { return engine.NilKey{} }
 func (c ContainerBox) unwrap() engine.Widget {
@@ -394,6 +411,9 @@ func (c ContainerBox) unwrap() engine.Widget {
 	}
 	if c.onClick != nil {
 		w = w.OnTap(c.onClick)
+	}
+	if c.shadowColor != nil {
+		w = w.Shadow(*c.shadowColor, c.shadowBlur, c.shadowOffsetX, c.shadowOffsetY)
 	}
 	return w
 }

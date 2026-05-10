@@ -42,8 +42,10 @@ func (e *opacityElement) Mount(parent Element, slot int) {
 }
 
 func (e *opacityElement) Update(newWidget Widget) {
+	oldWidget := e.widget
 	e.widget = newWidget.(OpacityWidget)
-	e.SingleChildComponentElement.Update(newWidget)
+	e.BaseElement.Update(newWidget)
+	e.UpdateChild(oldWidget)
 }
 
 func (e *opacityElement) UpdateChild(oldWidget Widget) {
@@ -95,8 +97,10 @@ func (e *slideOffsetElement) Mount(parent Element, slot int) {
 }
 
 func (e *slideOffsetElement) Update(newWidget Widget) {
+	oldWidget := e.widget
 	e.widget = newWidget.(SlideOffsetWidget)
-	e.SingleChildComponentElement.Update(newWidget)
+	e.BaseElement.Update(newWidget)
+	e.UpdateChild(oldWidget)
 }
 
 func (e *slideOffsetElement) UpdateChild(oldWidget Widget) {

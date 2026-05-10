@@ -609,6 +609,24 @@ func (e *Engine) flushBuild() {
 			e.flushGlobalBuild()
 		}
 	}
+
+	// 3. 同步 rootRenderObject：局部 rebuild 可能替换/重建 render object 树，
+	//    但 RenderObjectElement.Mount 只能挂到最近的 RenderObjectElement 祖先。
+	//    当 Navigator transition 插入 Opacity/SlideOffset 等无 RenderObject 的节点时，
+	//    新的 root render object 不会被自动 attach，需要在这里同步。
+	if e.rootElement != nil {
+		newRootRO := e.rootElement.FindRenderObject()
+		if newRootRO != e.rootRenderObject {
+			if e.rootRenderObject != nil {
+				e.rootRenderObject.Detach()
+			}
+			e.rootRenderObject = newRootRO
+			if e.rootRenderObject != nil {
+				e.rootRenderObject.Attach(e.owner)
+				e.rootRenderObject.MarkNeedsLayout()
+			}
+		}
+	}
 }
 
 func (e *Engine) flushGlobalBuild() {
