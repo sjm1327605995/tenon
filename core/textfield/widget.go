@@ -1,6 +1,7 @@
 ﻿package textfield
 
 import (
+	"github.com/sjm1327605995/tenon/a11y"
 	"github.com/sjm1327605995/tenon/event"
 	"github.com/sjm1327605995/tenon/geometry"
 	"github.com/sjm1327605995/tenon/state"
@@ -276,9 +277,47 @@ func (w *Widget) Unmount() {
 	// Bindings are cleaned up automatically by WidgetBase.CleanupBindings().
 }
 
+// --- Accessibility ---
+
+// AccessibilityRole returns the ARIA role for this widget.
+func (w *Widget) AccessibilityRole() a11y.Role {
+	return a11y.RoleTextField
+}
+
+// AccessibilityLabel returns the accessibility label.
+func (w *Widget) AccessibilityLabel() string {
+	if w.cfg.a11yLabel != "" {
+		return w.cfg.a11yLabel
+	}
+	return "Text Field"
+}
+
+// AccessibilityHint returns the placeholder text as a hint.
+func (w *Widget) AccessibilityHint() string {
+	return w.cfg.placeholder
+}
+
+// AccessibilityValue returns the current input value.
+func (w *Widget) AccessibilityValue() string {
+	return w.cfg.value
+}
+
+// AccessibilityState returns the current accessibility state.
+func (w *Widget) AccessibilityState() a11y.State {
+	return a11y.State{
+		Disabled: w.cfg.ResolvedDisabled(),
+	}
+}
+
+// AccessibilityActions returns the list of supported actions.
+func (w *Widget) AccessibilityActions() []a11y.Action {
+	return []a11y.Action{a11y.ActionFocus, a11y.ActionSetValue}
+}
+
 // Verify Widget implements required interfaces at compile time.
 var (
 	_ widget.Widget    = (*Widget)(nil)
 	_ widget.Focusable = (*Widget)(nil)
 	_ widget.Lifecycle = (*Widget)(nil)
+	_ a11y.Accessible  = (*Widget)(nil)
 )

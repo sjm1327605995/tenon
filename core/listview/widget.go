@@ -1,6 +1,9 @@
 ﻿package listview
 
 import (
+	"fmt"
+
+	"github.com/sjm1327605995/tenon/a11y"
 	"github.com/sjm1327605995/tenon/core/scrollview"
 	"github.com/sjm1327605995/tenon/event"
 	"github.com/sjm1327605995/tenon/geometry"
@@ -417,9 +420,52 @@ const (
 	defaultViewportHeight float32 = 400
 )
 
+// --- Accessibility ---
+
+// AccessibilityRole returns the ARIA role for this widget.
+func (w *Widget) AccessibilityRole() a11y.Role {
+	return a11y.RoleList
+}
+
+// AccessibilityLabel returns the accessibility label.
+func (w *Widget) AccessibilityLabel() string {
+	if w.cfg.a11yLabel != "" {
+		return w.cfg.a11yLabel
+	}
+	return "List"
+}
+
+// AccessibilityHint returns the accessibility hint.
+func (w *Widget) AccessibilityHint() string {
+	return ""
+}
+
+// AccessibilityValue returns the current list state as a string.
+func (w *Widget) AccessibilityValue() string {
+	count := w.cfg.ResolvedItemCount()
+	selected := w.cfg.ResolvedSelectedIndex()
+	if selected >= 0 && selected < count {
+		return fmt.Sprintf("Item %d of %d selected", selected+1, count)
+	}
+	return fmt.Sprintf("%d items", count)
+}
+
+// AccessibilityState returns the current accessibility state.
+func (w *Widget) AccessibilityState() a11y.State {
+	return a11y.State{
+		Disabled: w.cfg.ResolvedDisabled(),
+	}
+}
+
+// AccessibilityActions returns the list of supported actions.
+func (w *Widget) AccessibilityActions() []a11y.Action {
+	return []a11y.Action{a11y.ActionScrollUp, a11y.ActionScrollDown}
+}
+
 // Verify Widget implements required interfaces at compile time.
 var (
 	_ widget.Widget    = (*Widget)(nil)
 	_ widget.Focusable = (*Widget)(nil)
 	_ widget.Lifecycle = (*Widget)(nil)
+	_ a11y.Accessible  = (*Widget)(nil)
 )
