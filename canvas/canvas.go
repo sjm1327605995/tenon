@@ -7,7 +7,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-	"golang.org/x/image/font/basicfont"
+	"github.com/sjm1327605995/tenon/font"
 	"github.com/sjm1327605995/tenon/geometry"
 	"github.com/sjm1327605995/tenon/widget"
 )
@@ -75,15 +75,17 @@ func (c *EbitenCanvas) StrokeRect(r geometry.Rect, col widget.Color, strokeWidth
 }
 
 // DrawRoundRect fills a rounded rectangle with the given color.
-// TODO: proper rounded rect using vector triangles.
 func (c *EbitenCanvas) DrawRoundRect(r geometry.Rect, col widget.Color, radius float32) {
-	c.DrawRect(r, col)
+	sr := c.toScreen(r)
+	path := roundedRectPath(sr, radius)
+	drawPath(c.target, &path, toEbitenColor(col))
 }
 
 // StrokeRoundRect draws the outline of a rounded rectangle.
-// TODO: proper rounded rect stroke using vector triangles.
 func (c *EbitenCanvas) StrokeRoundRect(r geometry.Rect, col widget.Color, radius float32, strokeWidth float32) {
-	c.StrokeRect(r, col, strokeWidth)
+	sr := c.toScreen(r)
+	path := roundedRectPath(sr, radius)
+	strokePath(c.target, &path, toEbitenColor(col), strokeWidth)
 }
 
 // DrawCircle fills a circle with the given color.
@@ -105,7 +107,11 @@ func (c *EbitenCanvas) StrokeCircle(center geometry.Point, radius float32, col w
 // StrokeArc draws a circular arc outline.
 func (c *EbitenCanvas) StrokeArc(center geometry.Point, radius float32, startAngle, sweepAngle float64,
 	col widget.Color, strokeWidth float32) {
-	// TODO: implement arc using path
+	sc := c.toScreenPt(center)
+	path := vector.Path{}
+	path.MoveTo(float32(sc.X)+radius*cosf32(startAngle), float32(sc.Y)+radius*sinf32(startAngle))
+	path.Arc(float32(sc.X), float32(sc.Y), radius, float32(startAngle), float32(startAngle+sweepAngle), vector.Clockwise)
+	strokePath(c.target, &path, toEbitenColor(col), strokeWidth)
 }
 
 // DrawLine draws a line between two points.
@@ -172,8 +178,6 @@ func (c *EbitenCanvas) ClipBounds() geometry.Rect {
 	return c.clipStack[len(c.clipStack)-1]
 }
 
-var basicFace = text.NewGoXFace(basicfont.Face7x13)
-
 // DrawText draws text within the given bounding rectangle.
 func (c *EbitenCanvas) DrawText(s string, bounds geometry.Rect, fontSize float32, col widget.Color, bold bool, align widget.TextAlign) {
 	sr := c.toScreen(bounds)
@@ -181,32 +185,29 @@ func (c *EbitenCanvas) DrawText(s string, bounds geometry.Rect, fontSize float32
 		return
 	}
 
-	scale := float64(fontSize) / 13.0
-	w, h := text.Measure(s, basicFace, 0)
-	scaledW := w * scale
-	scaledH := h * scale
+	face := text.NewGoXFace(font.Face(fontSize))
+	w, h := text.Measure(s, face, 0)
 
 	x := float64(sr.Min.X)
 	y := float64(sr.Min.Y)
 	switch align {
 	case widget.TextAlignCenter:
-		x += (float64(sr.Width()) - scaledW) / 2
+		x += (float64(sr.Width()) - w) / 2
 	case widget.TextAlignRight:
-		x += float64(sr.Width()) - scaledW
+		x += float64(sr.Width()) - w
 	}
-	y += (float64(sr.Height()) - scaledH) / 2
+	y += (float64(sr.Height()) - h) / 2
 
 	op := &text.DrawOptions{}
-	op.GeoM.Scale(scale, scale)
 	op.GeoM.Translate(x, y)
 	r8, g8, b8, a8 := col.RGBA8()
 	op.ColorScale.Scale(float32(r8)/255, float32(g8)/255, float32(b8)/255, float32(a8)/255)
-	text.Draw(c.target, s, basicFace, op)
+	text.Draw(c.target, s, face, op)
 }
 
 // MeasureText returns the width in pixels of the given text string.
 func (c *EbitenCanvas) MeasureText(s string, fontSize float32, bold bool) float32 {
-	scale := float64(fontSize) / 13.0
-	w, _ := text.Measure(s, basicFace, 0)
-	return float32(w * scale)
+	face := text.NewGoXFace(font.Face(fontSize))
+	w, _ := text.Measure(s, face, 0)
+	return float32(w)
 }
