@@ -1,257 +1,753 @@
-# Tenon
+<p align="center">
+  <img src="https://raw.githubusercontent.com/gogpu/.github/main/assets/logo.png" alt="GoGPU Logo" width="120" />
+</p>
 
-> A fine-grained reactive UI framework for Go, powered by Ebiten and Yoga.
+<h1 align="center">gogpu/ui</h1>
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D1.25-blue)](https://golang.org)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+<p align="center">
+  <strong>Enterprise-Grade GUI Toolkit for Go</strong><br>
+  Modern widgets, reactive state, GPU-accelerated rendering — zero CGO
+</p>
 
-**English** | [简体中文](README.zh-CN.md)
+<p align="center">
+  <a href="https://github.com/gogpu/ui/actions"><img src="https://github.com/gogpu/ui/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://app.codecov.io/gh/gogpu/ui"><img src="https://codecov.io/gh/gogpu/ui/branch/main/graph/badge.svg" alt="Coverage"></a>
+  <a href="https://goreportcard.com/report/github.com/gogpu/ui"><img src="https://goreportcard.com/badge/github.com/gogpu/ui" alt="Go Report Card"></a>
+  <a href="https://pkg.go.dev/github.com/gogpu/ui"><img src="https://pkg.go.dev/badge/github.com/gogpu/ui.svg" alt="Go Reference"></a>
+  <a href="https://github.com/gogpu/ui/releases/latest"><img src="https://img.shields.io/github/v/release/gogpu/ui?style=flat&label=version" alt="Version"></a>
+  <a href="https://go.dev/"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go Version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License"></a>
+  <a href="https://github.com/gogpu/ui/stargazers"><img src="https://img.shields.io/github/stars/gogpu/ui?style=flat&labelColor=555&color=yellow" alt="Stars"></a>
+  <a href="https://github.com/orgs/gogpu/discussions"><img src="https://img.shields.io/badge/Discussions-join-blue" alt="Discussions"></a>
+</p>
 
 ---
 
-## What is Tenon?
+> **Join the Discussion:** Help shape the future of Go GUI! Share your ideas, report issues, and discuss features at our [GitHub Discussions](https://github.com/orgs/gogpu/discussions/18).
 
-Tenon is a cross-platform UI framework for Go that brings modern reactive programming patterns to desktop application development. Unlike traditional immediate-mode or VDOM-based frameworks, Tenon adopts a **fine-grained reactive architecture** where state changes flow directly to native elements — no diffing overhead, no unnecessary rebuilds.
+---
 
-- **Widget** describes structure — lightweight, stateful, `Render()` produces the element tree
-- **Element** is the native component — persistent, reusable, holds its own Yoga node
-- **State** is a signal — changes propagate directly to subscribers, bypassing Widget rebuild
-- **Engine** orchestrates everything — layout (Yoga), rendering (Ebiten), events
+## Overview
 
-## Features
+**gogpu/ui** is an enterprise-grade GUI toolkit for Go, designed for building:
 
-- **Fine-Grained Reactivity** — State changes drive direct element updates, zero diff cost for property changes
-- **50+ Built-in Components** — View, Text, Button, Input, Modal, Toast, ScrollView, Table, Sidebar, Drawer, Tabs, and more
-- **Flexbox Layout** — Full Yoga layout engine with gap, align, justify, wrap support
-- **Theme System** — Built-in light / dark / Shadcn themes, fully customizable
-- **Animation Engine** — Tween animations with multiple easing functions
-- **Style System** — Register global or type-scoped styles via tags and classes
-- **Conditional Rendering** — `Switch` builder for clean multi-branch UI logic
-- **Auto Dependency Tracking** — State accessed during `Render()` is automatically subscribed
-- **Cross-Platform** — Windows, macOS, Linux via Ebiten
-- **Debug Tooling** — Built-in remote debugger for inspecting the element tree
+- **IDEs** (GoLand, VS Code class)
+- **Design Tools** (Photoshop, Figma class)
+- **CAD Applications**
+- **Professional Dashboards**
+- **Chrome/Electron Replacement Apps**
+
+### Key Differentiators
+
+| Feature | gogpu/ui | Fyne | Gio |
+|---------|----------|------|-----|
+| **CGO-free** | Yes | No | Yes |
+| **WebGPU rendering** | Yes | OpenGL | Direct GPU |
+| **Reactive state** | Signals | Binding | Events |
+| **Layout engine** | Flexbox + Grid | Custom | Flex |
+| **Accessibility** | Day 1 (ARIA roles) | Limited | Limited |
+| **Plugin system** | Yes | No | No |
+
+---
+
+## Screenshot
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/f67636bc-7426-4865-9269-11e2a81124ad" alt="gogpu/ui Widget Demo" width="600" />
+</p>
+
+<p align="center"><em>examples/hello — Checkboxes, Radio Buttons, ListView (1000 items), Material Design 3</em></p>
+
+---
 
 ## Quick Start
+
+> **Important:** The gogpu ecosystem is **pure Go with zero CGO**. You must set `CGO_ENABLED=0` (the Go default) — do **not** enable CGO.
+
+The fastest way to get started is to clone and run one of the included examples:
+
+```bash
+git clone https://github.com/gogpu/ui.git
+cd ui/examples/hello
+go run .
+```
+
+Here is a minimal example using `desktop.Run` (recommended):
 
 ```go
 package main
 
 import (
-    "image/color"
-    
-    "github.com/sjm1327605995/tenon"
-    "github.com/sjm1327605995/tenon/pkg/fonts"
-    "github.com/sjm1327605995/tenon/pkg/v2/components"
-    "github.com/sjm1327605995/tenon/pkg/v2/core"
-    "github.com/sjm1327605995/tenon/yoga"
+    "log"
+
+    _ "github.com/gogpu/gg/gpu"
+    "github.com/gogpu/gogpu"
+    "github.com/gogpu/ui/app"
+    "github.com/gogpu/ui/desktop"
+    "github.com/gogpu/ui/primitives"
+    "github.com/gogpu/ui/widget"
 )
 
-type App struct {
-    core.BaseWidget
-    count *core.State[int]
-}
-
-func NewApp() *App {
-    a := &App{count: core.NewState(0)}
-    a.Init(a)
-    return a
-}
-
-func (a *App) Render() core.Element {
-    return components.NewView().
-        SetWidthPercent(100).
-        SetHeightPercent(100).
-        SetPadding(yoga.EdgeAll, 24).
-        SetBackgroundColor(core.GetTheme().BackgroundColor).
-        Add(
-            components.NewText("Hello, Tenon!").
-                SetFontSize(24).
-                SetColor(core.GetTheme().TextColor),
-            components.NewButton("Clicked: 0").
-                SetOnClick(func() {
-                    a.count.Set(a.count.Get() + 1)
-                }),
-        )
-}
-
 func main() {
-    fonts.InitDefaultFont()
-    core.SetTheme(core.DefaultShadcnLightTheme())
-    
-    tenon.Run(NewApp(), 800, 600)
+    gogpuApp := gogpu.NewApp(gogpu.DefaultConfig().
+        WithTitle("My App").
+        WithSize(800, 600).
+        WithContinuousRender(false)) // Event-driven: 0% CPU when idle
+
+    uiApp := app.New(
+        app.WithWindowProvider(gogpuApp),
+        app.WithPlatformProvider(gogpuApp),
+        app.WithEventSource(gogpuApp.EventSource()),
+    )
+
+    uiApp.SetRoot(
+        primitives.Box(
+            primitives.Text("Hello gogpu/ui!").
+                FontSize(24).Bold().
+                Color(widget.RGBA8(33, 33, 33, 255)),
+            primitives.Text("Enterprise-grade GUI for Go").
+                FontSize(16).
+                Color(widget.RGBA8(100, 100, 100, 255)),
+        ).Padding(24).Gap(12).Background(widget.RGBA8(255, 255, 255, 255)),
+    )
+
+    if err := desktop.Run(gogpuApp, uiApp); err != nil {
+        log.Fatal(err)
+    }
 }
 ```
+
+---
+
+## Packages
+
+### Core (Phase 0)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `geometry` | Point, Size, Rect, Constraints, Insets | 98.8% |
+| `event` | MouseEvent, KeyEvent, WheelEvent, FocusEvent, Modifiers | 100% |
+| `widget` | Widget, WidgetBase, Context, Canvas, Lifecycle (mount/unmount), SchedulerRef | 100% |
+| `internal/render` | Canvas, SceneCanvas, IconCache (2-level LRU), DPI-aware SVG | 96.5% |
+| `internal/layout` | Flex, Stack, Grid layout engines | 89.9% |
+
+### MVP (Phase 1)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `a11y` | Accessibility: 35+ ARIA roles, Accessible interface, Tree, Announcer | 99.1% |
+| `state` | Reactive signals, Binding, Scheduler with push-based invalidation | 100% |
+| `primitives` | Box, Text, Image widgets with fluent builder API | 94.4% |
+| `app` | Window integration via gpucontext interfaces (dependency inversion) | 98.6% |
+
+### Extensibility (Phase 1.5)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `layout` | Public layout API with custom algorithms | 89.5% |
+| `registry` | Widget factory registration for third-party widgets | 100% |
+| `theme` | Theme system with Extensions and Registry | 100% |
+| `plugin` | Plugin bundling with dependency resolution | 99.4% |
+
+### Interactive Widgets (Phase 2 — Complete)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `cdk` | Component Development Kit — Content[C] polymorphic pattern | 100% |
+| `core/button` | Generic button with pluggable Painter, 4 variants, 3 sizes, signal bindings | 96%+ |
+| `core/checkbox` | Toggleable checkbox with checked/unchecked/indeterminate states, signal bindings | 96%+ |
+| `core/radio` | Mutually exclusive radio group with vertical/horizontal layout, signal bindings | 96%+ |
+| `core/textfield` | Text input with cursor, selection, clipboard, validation, signal bindings | 96%+ |
+| `core/slider` | Slider: continuous/discrete, horizontal/vertical, drag+keyboard, signal bindings | 94.6% |
+| `core/dialog` | Modal dialog: backdrop overlay, action buttons, focus trapping, Alert/Confirm | 96.9% |
+| `core/dropdown` | Dropdown/select with overlay menu, keyboard navigation, signal bindings | 96%+ |
+| `overlay` | Overlay/popup stack, container, position helper | 95%+ |
+| `primitives` | Box, Text, Image, RepaintBoundary (GPU texture caching via Layer Tree compositor) | 94.4% |
+| `theme/material3` | Material Design 3 — theme (HCT color science) + 21 component painters | 97%+ |
+| `focus` | Keyboard focus management with Tab/Shift+Tab navigation | 95.2% |
+| `internal/focus` | Internal focus manager implementation | 15.2% |
+
+### Phase 3 (Complete)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `animation` | Animation engine: tween, spring, M3 presets, orchestration (Stagger/Chain/Repeat/Reverse) | 92.3% |
+| `transition` | Widget enter/exit animations: Fade, Slide, Scale effects, Show/Hide wrapper | 98.7% |
+| `core/scrollview` | Scrollable container: vertical/horizontal/both, wheel+keyboard+drag, PushClip/PushTransform, signal bindings | 96.5% |
+| `core/tabview` | Tabbed navigation: lazy content switching, closeable tabs, keyboard nav, Top/Bottom position, signal bindings | 92.1% |
+| `core/listview` | Virtualized list: fixed-height items, recycling, single/multi selection, keyboard nav, M3 painter | 96%+ |
+| `core/gridview` | Virtualized 2D grid: fixed cell size, auto-fit columns, cell recycling, selection, keyboard nav | 92.1% |
+| `core/linechart` | Real-time line chart: multiple series, rolling window, grid, Y-axis labels, thread-safe PushValue | 98.8% |
+| `core/progressbar` | Linear progress bar: 0-100%, rounded corners, label, signal binding, PushClipRoundRect | 99.3% |
+| `core/collapsible` | Expandable section: animated expand/collapse, keyboard focus, arrow indicator, Tween animation | 98.2% |
+| `primitives` | Box (HBox/VBox direction), Text, Image, ThemeScope, RepaintBoundary | 94%+ |
+
+### Phase 4 (In Progress)
+
+| Package | Description | Coverage |
+|---------|-------------|----------|
+| `core/progress` | Circular progress: determinate arc + indeterminate spinner, polyline approximation | 97.4% |
+| `core/popover` | Popover (click) + Tooltip (hover): 12 placements, auto-flip, overlay integration | 97.1% |
+| `core/splitview` | Resizable split panels: draggable divider, min constraints, collapse, handle dots | 96.8% |
+| `core/treeview` | Hierarchical tree: expand/collapse, virtualized rendering, connector lines, keyboard nav | 96%+ |
+| `core/datatable` | Sortable column table: fixed header, virtualized rows, zebra striping, sort indicators | 96%+ |
+| `core/toolbar` | Horizontal action bar: icon buttons, separators, spacers, custom widget items | 96%+ |
+| `core/menu` | MenuBar + ContextMenu: submenus, separators, disabled items, shortcut display | 96%+ |
+| `core/docking` | IDE-style dockable panels: border layout, tabbed groups, Dock/Undock API | 95.3% |
+| `theme/material3` | 21 component painters (all widgets covered) | 97%+ |
+| `theme/devtools` | **JetBrains DevTools**: 22 painters, Int UI gray scale, dark/light, IDE-style | 96%+ |
+| `theme/fluent` | Microsoft Fluent Design: 9 painters, accent colors, inner focus ring, light/dark | 96%+ |
+| `theme/cupertino` | Apple HIG: 9 painters, iOS toggle switch, segmented control, pill buttons | 96%+ |
+| `theme/font` | Font Registry: CSS weight matching (W3C spec), Weight 100-900, Style, Family/Face | 97.7% |
+| `icon` | SVG icons (JetBrains expui), 2-level cache, DPI-aware rasterization, gg/svg renderer | 97%+ |
+| `i18n` | Internationalization: Locale, Bundle, Translator, CLDR plural rules, RTL, LocaleSignal | 97.9% |
+| `dnd` | Drag and drop: DragSource/DropTarget interfaces, Manager, 5px threshold, Escape cancel | 99.3% |
+| `offscreen` | Headless widget rendering: CPU-only `*image.RGBA` output, no GPU/window/app required | 100% |
+| `uitest` | Testing utilities: MockCanvas, MockContext, event factories, widget helpers, assertions | 93.1% |
+| `internal/dirty` | Dirty region tracking: Collector, Tracker, merge algorithm, partial repaints | 100% |
+
+| `compositor` | Layer Tree compositor: OffsetLayer, PictureLayer, ClipRectLayer, OpacityLayer — production render pipeline | 95%+ |
+
+**Total: ~189,000+ lines of code | 56+ packages | ~7,200+ tests | 97%+ average coverage**
+
+---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│  Widget (structure description)         │
-│  Render() → Element tree                │
-│  Called on mount & structural changes   │
-├─────────────────────────────────────────┤
-│  Element (persistent node)              │
-│  *View, *Text, *Button...               │
-│  Holds Yoga node, handles draw + events │
-│  Chainable setters apply immediately    │
-├─────────────────────────────────────────┤
-│  State (fine-grained signal)            │
-│  Set() notifies subscribers             │
-│  Auto-tracked during Render()           │
-├─────────────────────────────────────────┤
-│  Engine                                 │
-│  Build queue → Yoga layout → Draw loop  │
-│  Event routing → Animation tick         │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    User Application                         │
+├─────────────────────────────────────────────────────────────┤
+│  theme/material3/  │  theme/devtools/ │  theme/fluent/      │
+│  21 Painters       │  22 Painters     │  9 Painters         │
+│  theme/cupertino/  │                  │                     │
+│  9 Painters        │                  │                     │
+├─────────────────────────────────────────────────────────────┤
+│  22 Interactive Widgets (core/)                             │
+│  button, checkbox, radio, textfield, dropdown, slider,      │
+│  dialog, scrollview, tabview, listview, gridview, linechart,│
+│  progressbar, progress, collapsible, popover, splitview,    │
+│  treeview, datatable, toolbar, menu, docking                │
+├──────────────┬──────────────────────────────────────────────┤
+│  cdk/        │  Content[C] polymorphic pattern              │
+├──────────────┴──────────────────────────────────────────────┤
+│  primitives/       │  animation/     │  transition/         │
+│  Box (HBox/VBox),  │  Tween, Spring  │  Fade, Slide, Scale  │
+│  Text, Image,      │  M3 Presets,    │  Enter/Exit          │
+│  RepaintBoundary   │  Orchestration  │                      │
+├─────────────────────────────────────────────────────────────┤
+│  icon/  │  i18n/  │  dnd/   │  uitest/ │  theme/font/       │
+├─────────────────────────────────────────────────────────────┤
+│  app/ + FocusManager │  focus/ │  overlay/ │  render/       │
+├─────────────────────────────────────────────────────────────┤
+│  desktop/            (Layer Tree Compositor + Damage-Aware Blit)    │
+│  compositor/         (Production: OffsetLayer, PictureLayer, Opacity)│
+│  offscreen/          (headless widget → *image.RGBA)        │
+├─────────────────────────────────────────────────────────────┤
+│  layout/           │  state/         │  a11y/               │
+│  Flex, Stack, Grid │  Signals, Bind  │  ARIA Roles, Tree    │
+├─────────────────────────────────────────────────────────────┤
+│  registry/         │  plugin/        │  theme/              │
+├─────────────────────────────────────────────────────────────┤
+│  widget/           │  event/         │  geometry/           │
+│  Widget, Context   │  Mouse, Key     │  Point, Rect         │
+│  Canvas, Lifecycle │  Wheel, Focus   │  Constraints         │
+├─────────────────────────────────────────────────────────────┤
+│  internal/render   │  internal/layout│  internal/focus      │
+│  Canvas, Scene,    │  Flex, Grid     │  Manager, Ring       │
+│  IconCache (LRU)   │  internal/dirty │  Tracker, Collector  │
+├─────────────────────────────────────────────────────────────┤
+│  gogpu/gg          │  gpucontext     │  coregx/signals      │
+│  2D Graphics       │  Shared Ifaces  │  State Management    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Two Update Paths
+### Dependency Principle
 
-**Path A — Property Update (high frequency, zero diff)**
 ```
-user action → count.Set(42) → State notifies subscribers
-→ text.SetContent("42") → MarkNeedDraw → next frame redraw
-```
-No `Render()` call. No diff. No Yoga recalculation. Only the subscribed element updates.
+ui → gpucontext (interfaces)       ← dependency inversion
+ui → gg (2D rendering)
+ui → coregx/signals (reactive)
 
-**Path B — Structure Update (low frequency, sibling shallow diff)**
-```
-page change → RequestBuild() → Render() new tree
-→ sibling type comparison → reuse / replace / move Elements
-→ mark Yoga dirty → next frame relayout
-```
-Only direct children are compared by type. Properties are not diffed — they are handled by Path A.
-
-## Component Gallery
-
-Tenon ships with a comprehensive component library covering the full spectrum of desktop UI needs:
-
-**Layout** — `View`, `ScrollView`, `SplitView`, `Resizable`, `AspectRatio`, `Sidebar`, `Sheet`, `Drawer`
-
-**Display** — `Text`, `Image`, `SVGIcon`, `Badge`, `Divider`, `Kbd`, `Skeleton`, `Table`, `Carousel`
-
-**Form Controls** — `Button` (5 variants), `TextInput`, `TextArea`, `Select`, `Checkbox`, `Radio`, `RadioGroup`, `Switch`, `Slider`, `InputOTP`
-
-**Feedback** — `Modal`, `Alert`, `AlertDialog`, `Toast`, `Tooltip`, `Popover`, `ProgressBar`, `LoadingSpinner`
-
-**Navigation** — `Tab`, `Menu`, `Menubar`, `Breadcrumb`, `Pagination`, `Command`, `NavigationMenu`
-
-**Overlay** — `Dropdown`, `ContextMenu`, `HoverCard`, `FloatingButton`
-
-**Data** — `Accordion`, `Collapsible`, `Calendar`, `ListView`
-
-## Theming
-
-Tenon includes three built-in themes and full customization support:
-
-```go
-// Use a built-in theme
-core.SetTheme(core.DefaultShadcnLightTheme())
-core.SetTheme(core.DefaultShadcnDarkTheme())
-core.SetTheme(core.DefaultAntTheme())
-
-// Or build your own
-theme := &core.Theme{
-    PrimaryColor:      color.RGBA{59, 130, 246, 255},
-    BackgroundColor:   color.RGBA{255, 255, 255, 255},
-    TextColor:         color.RGBA{15, 23, 42, 255},
-    BorderRadius:      8,
-    // ... all theme fields
-}
-core.SetTheme(theme)
+gogpu → gpucontext (implements)    ← concrete implementation
+gg → wgpu → naga                   ← internal to gg
 ```
 
-All components read from the current theme by default and can be individually overridden via chainable setters.
+**ui never imports gogpu, wgpu, or naga directly.**
 
-## Animation
+### Render Pipeline
 
-```go
-// Tween animation
-tween := core.NewTween(300*time.Millisecond, core.EaseOutCubic).
-    OnUpdate(func(p float32) {
-        el.SetOpacity(p)
-    }).
-    OnComplete(func() {
-        // animation done
-    })
-tween.Start()
+Enterprise-grade retained-mode rendering (ADR-007):
 
-// State-driven transitions
-core.NewTween(200*time.Millisecond, core.EaseInOut).
-    OnUpdate(func(p float32) {
-        x := core.LerpFloat32(0, 200, p)
-        el.SetPosition(x, 0)
-    }).Start()
-```
+1. **O(1) frame skip** -- flat dirty boundary set, no tree walks when idle (0% GPU)
+2. **Layer Tree composition** -- OffsetLayer, PictureLayer, OpacityLayer, ClipRectLayer
+3. **Per-boundary GPU textures** -- dirty boundaries re-render to MSAA offscreen texture, clean reuse cached
+4. **Damage-aware blit** -- LoadOpLoad + multi-rect scissor, only dirty pixels touch the GPU
+5. **Persistent tree** -- layer objects reused across frames (97.9% fewer allocations)
 
-## Styling
+Validated by enterprise research: Flutter, Chrome, Qt6, Android, Skia patterns.
+Software backend e2e tests prove scissor=48x48 at HAL level.
 
-Register reusable styles globally or per element type:
-
-```go
-// Global style by class
-tenon.RegisterStyle("card", func(e tenon.Element) {
-    if v, ok := e.(*components.View); ok {
-        v.SetBackgroundColor(core.GetTheme().CardColor).
-          SetBorderRadius(core.GetTheme().BorderRadius).
-          SetShadow(color.RGBA{A: 20}, 12, 0, 2)
-    }
-})
-
-// Usage in Render()
-components.NewView().SetClass("card").Add(...)
-```
+---
 
 ## Examples
 
-Explore the [`example/`](example/) directory:
-
 | Example | Description |
 |---------|-------------|
-| [`v2-demo`](example/v2-demo) | Full component gallery with navigation |
-| [`shadcn-gallery`](example/shadcn-gallery) | Shadcn/UI-inspired styling showcase |
-| [`card`](example/card) | Card layout demonstration |
+| [`examples/hello`](examples/hello) | Widget demo: checkbox, radio, ListView (1000 items), M3 theme, event-driven GPU rendering |
+| [`examples/signals`](examples/signals) | Reactive signals: TextSignal, ContentSignal, CheckedSignal, SelectedSignal, DisabledSignal |
+| [`examples/taskmanager`](examples/taskmanager) | Full task manager: charts, tables, animations, real-time data |
+| [`examples/gallery`](examples/gallery) | Widget gallery: all 22 widgets, 4 design systems (M3/DevTools/Fluent/Cupertino), theme switching |
+| [`examples/ide`](examples/ide) | GoLand-inspired IDE layout: DevTools theme, toolbar, tree, tabs, terminal, SVG icons |
+| [`examples/modular-compositor`](examples/modular-compositor) | Multi-module offscreen rendering: clock + notification compositor ([#75](https://github.com/gogpu/ui/issues/75)) |
+
+Run any example:
 
 ```bash
-cd example/v2-demo
-go run main.go
+cd examples/gallery
+go run .
 ```
 
-## Documentation
+---
 
-- **[Architecture Deep Dive](ARCHITECTURE.md)** — Detailed design decisions, update mechanisms, and internal structure
-- **[Contributing Guide](CONTRIBUTING.md)** — Development setup, code conventions, and PR workflow
-- **[API Reference](pkg/v2/core/)** — Core interfaces: `Widget`, `Element`, `State`, `Engine`, `Theme`, `Animation`
+## API Examples
 
-## Project Structure
+### Primitives
 
+```go
+// Box — universal container
+primitives.Box(children...).
+    Padding(16).
+    PaddingXY(24, 8).
+    Background(theme.Surface).
+    Rounded(8).
+    BorderStyle(1, theme.Outline).
+    ShadowLevel(2).
+    Gap(8)
+
+// Text — static
+primitives.Text("Hello World").
+    FontSize(24).
+    Bold().
+    Color(theme.OnSurface).
+    Align(primitives.TextAlignCenter).
+    MaxLines(2).
+    Ellipsis()
+
+// Text — reactive (auto-updates when signal changes)
+primitives.TextFn(func() string {
+    return fmt.Sprintf("Count: %d", count.Get())
+}).FontSize(18)
+
+// Text — signal binding (auto-updates when signal changes)
+title := state.NewSignal("Hello World")
+primitives.NewText("").ContentSignal(title).FontSize(24)
+
+// Image
+primitives.Image(mySource).
+    Size(48, 48).
+    Cover().
+    Rounded(24).
+    Alt("User avatar")
 ```
-tenon/
-├── tenon.go              # Public API entry: Run(), types, helpers
-├── pkg/
-│   ├── v2/
-│   │   ├── core/         # Engine, Widget, Element, State, Theme, Animation
-│   │   └── components/   # 50+ built-in UI components
-│   └── fonts/            # Font loading and glyph management
-├── yoga/                 # Yoga Flexbox layout engine (Go port)
-├── example/              # Demo applications
-├── ARCHITECTURE.md       # Architecture documentation
-├── CONTRIBUTING.md       # Contribution guidelines
-└── LICENSE               # MIT License
+
+### Slider
+
+```go
+// Basic slider
+s := slider.New(
+    slider.Min(0),
+    slider.Max(100),
+    slider.Value(50),
+    slider.OnChange(func(v float32) { fmt.Println("Value:", v) }),
+)
+
+// Discrete slider with step snapping and marks
+s := slider.New(
+    slider.Min(0), slider.Max(100), slider.Step(10),
+    slider.Marks([]slider.Mark{{Value: 0}, {Value: 50}, {Value: 100}}),
+    slider.PainterOpt(material3.SliderPainter{Theme: m3}),
+)
+
+// Two-way signal binding
+volume := state.NewSignal[float32](75)
+s := slider.New(
+    slider.Min(0), slider.Max(100),
+    slider.ValueSignal(volume),  // reads AND writes back on drag
+)
 ```
 
-## Why Tenon?
+### Dialog
 
-| | Immediate Mode (imgui) | VDOM (React-like) | **Tenon** |
-|---|:---:|:---:|:---:|
-| State → UI | Manual every frame | Diff + patch | Direct signal subscription |
-| Widget rebuild per state change | N/A | Full tree re-render | Auto-tracked, minimal rebuild |
-| Element persistence | Recreated each frame | Reconciled | Persistent, reusable |
-| Performance model | CPU-bound draw calls | Diff overhead | Zero-diff property updates |
-| Go ergonomics | Procedural | Hooks everywhere | Idiomatic Go, struct-based |
+```go
+// Simple alert dialog
+d := dialog.Alert("Error", "File not found.", func() { log.Println("dismissed") })
+d.Show(ctx)
 
-Tenon sits at a unique intersection: it offers the **performance characteristics of fine-grained reactivity** (à la Solid.js, Svelte) with the **ergonomics of Go structs and interfaces**, rendered via a **high-performance 2D engine**.
+// Confirmation dialog
+d := dialog.Confirm("Delete?", "This cannot be undone.",
+    func() { log.Println("canceled") },
+    func() { deleteItem() },
+)
+d.Show(ctx)
+
+// Custom dialog with M3 painter
+d := dialog.New(
+    dialog.Title("Settings"),
+    dialog.Content(settingsWidget),
+    dialog.Actions(
+        dialog.Action{Label: "Cancel", Variant: dialog.VariantTextOnly},
+        dialog.Action{Label: "Save", Variant: dialog.VariantFilled, Default: true,
+            OnClick: func() { saveSettings() }},
+    ),
+    dialog.PainterOpt(material3.DialogPainter{Theme: m3}),
+)
+d.Show(ctx)
+```
+
+### Animation
+
+```go
+// Tween animation with M3 easing
+ctrl := animation.NewController()
+opacity := state.NewSignal[float32](0)
+animation.To(opacity, 1.0).
+    Duration(animation.DurationMedium2).
+    Ease(animation.M3Standard).
+    Start(ctrl)
+
+// Spring physics (critically damped)
+position := state.NewSignal[float32](0)
+animation.SpringTo(position, 200).
+    Stiffness(animation.StiffnessMedium).
+    DampingRatio(animation.DampingNoBouncy).
+    Start(ctrl)
+
+// Color tween (Flutter pattern: float32 engine + Tween[T])
+progress := state.NewSignal[float32](0)
+animation.To(progress, 1.0).Duration(300*time.Millisecond).Start(ctrl)
+colorTween := animation.NewColorTween(startColor, endColor)
+// in Draw: canvas.DrawRect(bounds, colorTween.At(progress.Get()))
+
+// Parallel composition
+animation.Parallel(
+    animation.To(opacity, 1.0).Duration(200*time.Millisecond),
+    animation.To(translateY, 0).Duration(300*time.Millisecond),
+).Start(ctrl)
+```
+
+### ScrollView
+
+```go
+// Basic vertical scrollview
+sv := scrollview.New(longContentWidget,
+    scrollview.DirectionOpt(scrollview.Vertical),
+    scrollview.ScrollbarOpt(scrollview.ScrollbarAuto),
+    scrollview.OnScroll(func(x, y float32) { fmt.Printf("scroll: %.0f\n", y) }),
+)
+
+// 2D scrollview with signal binding
+scrollY := state.NewSignal[float32](0)
+sv := scrollview.New(largeCanvas,
+    scrollview.DirectionOpt(scrollview.Both),
+    scrollview.ScrollYSignal(scrollY), // two-way binding
+    scrollview.PainterOpt(material3.ScrollbarPainter{Theme: m3}),
+)
+```
+
+### TabView
+
+```go
+// Basic tab view
+tv := tabview.New([]tabview.Tab{
+    {Label: "Profile", Content: profileWidget},
+    {Label: "Settings", Content: settingsWidget},
+    {Label: "About", Content: aboutWidget},
+}, tabview.OnSelect(func(idx int) { fmt.Println("Tab:", idx) }))
+
+// Closeable tabs with M3 painter and signal binding
+selected := state.NewSignal[int](0)
+tv := tabview.New(tabs,
+    tabview.Closeable(true),
+    tabview.SelectedSignalOpt(selected),
+    tabview.PainterOpt(material3.TabViewPainter{Theme: m3}),
+    tabview.OnClose(func(idx int) { removeDynamicTab(idx) }),
+)
+```
+
+### Reactive State
+
+```go
+// Create a signal
+name := state.NewSignal("World")
+
+// Computed value (auto-updates)
+greeting := state.NewComputed(func() string {
+    return "Hello, " + name.Get() + "!"
+})
+
+// Bind signal to widget invalidation
+binding := state.Bind(name, ctx)
+defer binding.Unbind()
+
+// Batch multiple changes (single re-render)
+scheduler.Batch(func() {
+    firstName.Set("Alice")
+    lastName.Set("Smith")
+    age.Set(30)
+})
+```
+
+### Widget Signal Bindings
+
+```go
+// Bind signals directly to widget properties
+label := state.NewSignal("Submit")
+disabled := state.NewSignal(false)
+
+btn := button.New(
+    button.TextSignal(label),
+    button.DisabledSignal(disabled),
+    button.OnClick(func() {
+        label.Set("Processing...")
+        disabled.Set(true)
+    }),
+)
+
+// Two-way binding: checkbox state synced with signal
+agreed := state.NewSignal(false)
+cb := checkbox.New(
+    checkbox.CheckedSignal(agreed),
+    checkbox.LabelOpt("I agree to terms"),
+)
+```
+
+### Accessibility
+
+```go
+// Every widget implements a11y.Accessible
+func (b *MyButton) AccessibilityRole() a11y.Role   { return a11y.RoleButton }
+func (b *MyButton) AccessibilityLabel() string      { return b.text }
+func (b *MyButton) AccessibilityActions() []a11y.Action {
+    return []a11y.Action{a11y.ActionClick}
+}
+
+// Accessibility tree with stable node IDs
+root := a11y.NewNode(a11y.RoleWindow, "My Application")
+tree := a11y.NewMemoryTree(root)
+button := a11y.NewNode(a11y.RoleButton, "Save")  // stable uint64 ID
+tree.Insert(root, button)
+```
+
+### Offscreen Rendering
+
+```go
+// Render widgets to image without GPU, window, or app
+r := offscreen.NewRenderer(400, 120)
+r.Render(primitives.Text("Hello, World!").FontSize(24))
+img := r.Image() // *image.RGBA — ready for png.Encode, testing, compositing
+
+// HiDPI with dark theme and white background
+dark := material3.NewDark(widget.Hex(0x00BFA5))
+r := offscreen.NewRenderer(800, 240,
+    offscreen.WithTheme(dark),
+    offscreen.WithScale(2.0),
+    offscreen.WithBackground(widget.ColorWhite),
+)
+r.Render(myWidgetTree)
+```
+
+### Window Integration
+
+```go
+// ui connects to windowing via interfaces (not concrete types)
+uiApp := app.New(
+    app.WithWindowProvider(gogpuApp),    // gpucontext.WindowProvider
+    app.WithPlatformProvider(gogpuApp),  // gpucontext.PlatformProvider
+    app.WithTheme(myTheme),
+)
+
+uiApp.SetRoot(rootWidget)
+
+// Headless mode for testing (no window needed)
+testApp := app.New()  // works without any providers
+testApp.SetRoot(rootWidget)
+testApp.Window().Frame()  // processes layout + draw
+```
+
+---
+
+## Implementation Progress
+
+### Phase 0: Foundation ✅
+
+- [x] Geometry types (Point, Size, Rect, Constraints, Insets)
+- [x] Event system (Mouse, Keyboard, Wheel, Focus, Modifiers)
+- [x] Widget interface, WidgetBase, Context, Canvas
+- [x] Layout engines (Flexbox, Stack, Grid)
+- [x] Canvas implementation (gogpu/gg)
+
+### Phase 1: MVP ✅
+
+- [x] Accessibility foundation (35+ ARIA roles, Accessible interface, Tree)
+- [x] Reactive signals integration (coregx/signals, Binding, Scheduler)
+- [x] Basic primitives (Box, Text, Image with fluent API)
+- [x] Window integration (app package via gpucontext interfaces)
+
+### Phase 1.5: Extensibility ✅
+
+- [x] Widget Registry (third-party registration)
+- [x] Public Layout API (custom algorithms)
+- [x] Theme System + Extensions + Registry
+- [x] Plugin System (bundling, dependency resolution)
+
+### Phase 2: Beta ✅
+
+- [x] Button widget (4 variants, 3 sizes, keyboard activation)
+- [x] Checkbox widget (checked/unchecked/indeterminate, pluggable Painter)
+- [x] Radio group widget (vertical/horizontal, arrow key navigation)
+- [x] TextField widget (cursor, selection, clipboard, validation)
+- [x] Dropdown/Select widget (overlay menu, keyboard nav, scroll)
+- [x] Overlay infrastructure (stack, container, position)
+- [x] Material Design 3 theme (HCT color science, 21 painters)
+- [x] Keyboard navigation (focus management, Tab/Shift+Tab, shortcuts)
+- [x] ThemeScope (theme override for widget subtrees)
+- [x] Event-driven rendering (0% CPU when idle)
+- [x] Reactive signal bindings for all widgets (TextSignal, CheckedSignal, SelectedSignal, DisabledSignal, ContentSignal)
+
+### Phase 3: Release Candidate ✅
+
+- [x] Retained-mode rendering: dirty tracking, DrawTree, DrawStats (SP1)
+- [x] RepaintBoundary: per-widget pixel caching (SP2)
+- [x] scene.Scene integration: tile-parallel rendering via SceneCanvas (SP3)
+- [x] Slider widget (continuous/discrete, horizontal/vertical, M3 painter)
+- [x] Dialog/Modal widget (backdrop, actions, focus trapping, M3 painter)
+- [x] Animation engine (Tween, Spring, CubicBezier, M3 motion tokens)
+- [x] Animation presets (M3 motion tokens) + orchestration (Stagger, Chain, Repeat)
+- [x] Transitions: enter/exit animations (Fade, Slide, Scale)
+- [x] ScrollView widget (vertical/horizontal/both, wheel+keyboard+drag)
+- [x] TabView widget (lazy content, closeable tabs, keyboard nav)
+- [x] ListView widget (virtualized list, recycling, single/multi selection, M3 painter)
+- [x] GridView widget (virtualized 2D grid, auto-fit columns, cell recycling)
+- [x] LineChart widget (real-time, multiple series, rolling window)
+- [x] ProgressBar widget (linear, rounded corners, signal binding)
+- [x] Collapsible section widget (animated expand/collapse)
+- [x] Box HBox/VBox direction support
+- [x] Dirty region tracking (internal/dirty)
+- [x] Performance benchmarks (36 across 5 packages)
+
+### Phase 4: Production (v1.0) — In Progress
+
+- [x] Circular progress indicator (determinate arc + indeterminate spinner)
+- [x] SplitView (resizable split panels, draggable divider)
+- [x] Popover/Tooltip (12 placements, auto-flip, overlay)
+- [x] TreeView (hierarchical, expand/collapse, virtualized)
+- [x] DataTable (sortable columns, fixed header, virtualized rows)
+- [x] Toolbar (icon buttons, separators, spacers)
+- [x] Menu system (MenuBar + ContextMenu, submenus, shortcuts)
+- [x] IDE-style docking system (border layout, tabbed groups)
+- [x] Drag & drop foundation (DragSource, DropTarget, Manager)
+- [x] Fluent Design theme (9 painters, accent colors)
+- [x] Cupertino theme (9 painters, iOS-style)
+- [x] i18n (CLDR plural rules, RTL detection, LocaleSignal)
+- [x] Icon system (vector paths, 10 Material icons, De Casteljau)
+- [x] Font registry (CSS weight matching, W3C spec)
+- [x] Testing utilities (MockCanvas, MockContext, assertions)
+- [x] Dirty region tracking (merge algorithm, partial repaints)
+- [x] Performance benchmarks (36 across 5 packages)
+- [x] Hover tracking (W3C PointerEventSource, HoverTracker, cursor management)
+- [x] ScreenBounds coordinate system (overlay positioning, hit-testing)
+- [x] Event coordinate transforms (ScrollView content-space dispatch)
+- [x] Inter font full Unicode (Cyrillic, Greek, Vietnamese)
+- [x] MeasureText on Canvas (layout calculations without drawing)
+- [x] FocusManager integration in Window (Tab/Shift+Tab navigation)
+- [x] OnTextInput handler (platform character input API)
+- [x] Task Manager example (charts, tables, animations)
+- [x] Widget Gallery example (all widgets, 4 design systems, theme switching)
+- [x] Incremental rendering pipeline (ADR-004): frame skip, persistent pixmap, dirty regions
+- [x] Auto RepaintBoundary in ListView (per-item pixel caching)
+- [x] DrawStats observability (CachedWidgets, DirtyRegionCount)
+- [x] Tracker.Intersects() fast path in RepaintBoundary
+- [x] Centralized ImageCache with LRU eviction (64MB, thread-safe)
+- [x] Offscreen renderer (headless widget → *image.RGBA, no GPU/window)
+- [ ] Platform accessibility adapters (UIA, AT-SPI2, NSAccessibility)
+- [ ] Performance optimization pass
+
+---
+
+## Requirements
+
+| Dependency | Purpose | Status |
+|------------|---------|--------|
+| Go 1.25+ | Language runtime | Required |
+| CGO_ENABLED=0 | Pure Go (no C compiler needed) | Default |
+| [gogpu/gogpu](https://github.com/gogpu/gogpu) | Windowing, input, GPU surface | For examples |
+| [gogpu/gg](https://github.com/gogpu/gg) | 2D graphics rendering | Integrated |
+| [gogpu/gpucontext](https://github.com/gogpu/gpucontext) | Shared interfaces | Integrated |
+| [coregx/signals](https://github.com/coregx/signals) | Reactive state management | Integrated |
+
+> **Note:** The entire ecosystem is pure Go. Do **not** set `CGO_ENABLED=1` — this will cause build errors from the `goffi` package which requires CGO to be disabled.
+
+---
+
+## Installation
+
+```bash
+# UI toolkit (library)
+go get github.com/gogpu/ui@latest
+
+# For runnable applications you also need gogpu (windowing) and gg (rendering):
+go get github.com/gogpu/gogpu@latest
+go get github.com/gogpu/gg@latest
+```
+
+---
+
+## Related Projects
+
+| Project | Description |
+|---------|-------------|
+| [gogpu/gogpu](https://github.com/gogpu/gogpu) | Graphics framework — GPU abstraction, windowing, input |
+| [gogpu/gg](https://github.com/gogpu/gg) | 2D graphics — Canvas API, GPU text |
+| [gogpu/wgpu](https://github.com/gogpu/wgpu) | Pure Go WebGPU — Vulkan, Metal, GLES, Software |
+| [gogpu/naga](https://github.com/gogpu/naga) | Shader compiler — WGSL to SPIR-V, MSL, GLSL |
+
+**Total ecosystem: 800K+ lines of Pure Go** — no CGO, no Rust, no C.
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+**Ways to contribute:**
+- Test the packages, report bugs
+- API feedback and suggestions
+- Documentation improvements
+- Spread the word (Reddit, Hacker News, Dev.to)
+- Code contributions (see open issues)
+
+---
 
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
+
+---
+
+## Star History
+
+<a href="https://star-history.com/#gogpu/ui&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=gogpu/ui&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=gogpu/ui&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=gogpu/ui&type=Date" />
+ </picture>
+</a>
+
+---
+
+<p align="center">
+  <strong>gogpu/ui</strong> — Enterprise-grade GUI for Go<br>
+  <sub>Part of the <a href="https://github.com/gogpu">GoGPU</a> ecosystem</sub>
+</p>
