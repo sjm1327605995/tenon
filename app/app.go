@@ -1,11 +1,15 @@
 package app
 
 import (
+	"time"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/sjm1327605995/tenon/animation"
 	"github.com/sjm1327605995/tenon/canvas"
 	"github.com/sjm1327605995/tenon/event"
 	"github.com/sjm1327605995/tenon/geometry"
+	"github.com/sjm1327605995/tenon/state"
 	"github.com/sjm1327605995/tenon/widget"
 )
 
@@ -13,7 +17,10 @@ import (
 type App struct {
 	root       widget.Widget
 	ctx        *widget.ContextImpl
+	scheduler  *state.Scheduler
+	animCtrl   *animation.Controller
 	screenSize geometry.Size
+	lastFrame  time.Time
 
 	// Input state
 	mousePos       geometry.Point
@@ -27,15 +34,46 @@ type App struct {
 // New creates a new App with the given root widget.
 func New(root widget.Widget) *App {
 	ctx := widget.NewContext()
-	return &App{
-		root: root,
-		ctx:  ctx,
+
+	sched := state.NewScheduler(func(dirty []widget.Widget) {
+		for _, w := range dirty {
+			if w != nil {
+				if s, ok := w.(interface{ SetNeedsRedraw(bool) }); ok {
+					s.SetNeedsRedraw(true)
+				}
+			}
+		}
+	})
+
+	a := &App{
+		root:      root,
+		ctx:       ctx,
+		scheduler: sched,
+		animCtrl:  animation.NewController(),
+		lastFrame: time.Now(),
 	}
+
+	ctx.SetScheduler(sched)
+	ctx.SetOnScheduleAnimation(func() {
+		// Animation requests a frame - ebiten already runs continuously
+	})
+
+	if root != nil {
+		a.mountTree(root)
+	}
+
+	return a
 }
 
 // SetRoot sets a new root widget.
 func (a *App) SetRoot(root widget.Widget) {
+	if a.root != nil {
+		a.unmountTree(a.root)
+	}
 	a.root = root
+	if root != nil {
+		a.mountTree(root)
+	}
 }
 
 // Layout implements ebiten.Game.
@@ -50,6 +88,23 @@ func (a *App) Update() error {
 	if a.root == nil {
 		return nil
 	}
+
+	now := time.Now()
+	dt := now.Sub(a.lastFrame)
+	if dt > 100*time.Millisecond {
+		dt = 100 * time.Millisecond
+	}
+	a.lastFrame = now
+	a.ctx.BeginFrame(now)
+
+	// Tick animations
+	hasActiveAnim := a.animCtrl.Tick(dt)
+	if hasActiveAnim {
+		// Ensure continuous rendering while animations are active
+	}
+
+	// Flush signal changes
+	a.scheduler.Flush()
 
 	// Layout pass
 	constraints := geometry.Constraints{
@@ -88,6 +143,35 @@ func (a *App) Run() error {
 	ebiten.SetWindowTitle("Tenon")
 	ebiten.SetWindowSize(800, 600)
 	return ebiten.RunGame(a)
+}
+
+// mountTree recursively mounts a widget and its children.
+func (a *App) mountTree(w widget.Widget) {
+	if w == nil {
+		return
+	}
+	if m, ok := w.(widget.Lifecycle); ok {
+		m.Mount(a.ctx)
+	}
+	for _, child := range w.Children() {
+		a.mountTree(child)
+	}
+}
+
+// unmountTree recursively unmounts a widget and its children.
+func (a *App) unmountTree(w widget.Widget) {
+	if w == nil {
+		return
+	}
+	for _, child := range w.Children() {
+		a.unmountTree(child)
+	}
+	if m, ok := w.(widget.Lifecycle); ok {
+		m.Unmount()
+	}
+	if c, ok := w.(interface{ CleanupBindings() }); ok {
+		c.CleanupBindings()
+	}
 }
 
 // handleMouseInput processes mouse events.
@@ -245,7 +329,6 @@ func (a *App) handleTouchInput() {
 	// Just released touches
 	releasedIDs := inpututil.AppendJustReleasedTouchIDs(nil)
 	for _, id := range releasedIDs {
-		// Use previous position from last frame (ebiten doesn't give release position)
 		globalPos := a.mousePos // fallback
 		target := a.hitTest(a.root, globalPos)
 		if target != nil {
