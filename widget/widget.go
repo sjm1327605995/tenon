@@ -88,6 +88,13 @@ type Widget interface {
 	//	}
 	Event(ctx Context, e event.Event) bool
 
+	// Bounds returns the widget's bounding rectangle in parent coordinates.
+	Bounds() geometry.Rect
+
+	// SetBounds sets the widget's bounding rectangle.
+	// Called by parent containers after layout to position children.
+	SetBounds(bounds geometry.Rect)
+
 	// Children returns the widget's child widgets.
 	//
 	// Leaf widgets (like labels, buttons) return nil.

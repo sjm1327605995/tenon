@@ -1,4 +1,4 @@
-﻿package transition
+package transition
 
 import (
 	"time"
@@ -372,17 +372,15 @@ func scaleBoundsFromCenter(bounds geometry.Rect, scale float32) geometry.Rect {
 // setChildBounds sets bounds on a child widget via type assertion.
 // This follows the same pattern used by primitives.BoxWidget.
 func setChildBounds(child widget.Widget, bounds geometry.Rect) {
-	if s, ok := child.(interface{ SetBounds(geometry.Rect) }); ok {
-		s.SetBounds(bounds)
-	}
+	child.SetBounds(bounds)
 }
 
 // childBoundsOf returns the child's bounds via type assertion, or
 // constructs bounds from the given size and origin as fallback.
 func childBoundsOf(child widget.Widget, size geometry.Size, origin geometry.Point) geometry.Rect {
-	if b, ok := child.(interface{ Bounds() geometry.Rect }); ok {
-		return b.Bounds()
-	}
+	
+		return child.Bounds()
+	
 	return geometry.FromPointSize(origin, size)
 }
 

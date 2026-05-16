@@ -41,9 +41,7 @@ func (b *Box) Layout(_ widget.Context, constraints geometry.Constraints) geometr
 	b.SetBounds(geometry.FromPointSize(geometry.Pt(0, 0), result))
 	if b.Child != nil {
 		childPos := geometry.Pt(b.Padding.Left, b.Padding.Top)
-		if sb, ok := b.Child.(interface{ SetBounds(geometry.Rect) }); ok {
-			sb.SetBounds(geometry.FromPointSize(childPos, childSize))
-		}
+		b.Child.SetBounds(geometry.FromPointSize(childPos, childSize))
 	}
 	return result
 }

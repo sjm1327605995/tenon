@@ -1,4 +1,4 @@
-﻿package docking
+package docking
 
 import (
 	"github.com/sjm1327605995/tenon/event"
@@ -264,9 +264,7 @@ func (h *Host) Layout(ctx widget.Context, constraints geometry.Constraints) geom
 		centerRect := rects[Center]
 		cc := geometry.Tight(centerRect.Size())
 		h.cfg.centerContent.Layout(ctx, cc)
-		if setter, ok := h.cfg.centerContent.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(centerRect)
-		}
+		h.cfg.centerContent.SetBounds(centerRect)
 	}
 
 	return totalSize
@@ -377,9 +375,7 @@ func (h *Host) layoutZone(ctx widget.Context, z Zone, zoneRect geometry.Rect) {
 
 	cc := geometry.Tight(contentRect.Size())
 	panel.Content().Layout(ctx, cc)
-	if setter, ok := panel.Content().(interface{ SetBounds(geometry.Rect) }); ok {
-		setter.SetBounds(contentRect)
-	}
+	panel.Content().SetBounds(contentRect)
 }
 
 // drawZone renders a single edge zone: background, tab header, border, and content.

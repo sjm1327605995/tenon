@@ -1,4 +1,4 @@
-﻿package listview
+package listview
 
 import (
 	"github.com/sjm1327605995/tenon/event"
@@ -104,9 +104,7 @@ func (vc *virtualContent) Draw(ctx widget.Context, canvas widget.Canvas) {
 		itemBounds := geometry.NewRect(0, y, contentWidth, actualSize.Height)
 
 		// Set widget bounds.
-		if setter, ok := w.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(itemBounds)
-		}
+		w.SetBounds(itemBounds)
 
 		// Paint item background (hover).
 		ips := ItemPaintState{

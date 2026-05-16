@@ -1,4 +1,4 @@
-﻿package gridview
+package gridview
 
 import (
 	"fmt"
@@ -1131,9 +1131,7 @@ func (w *Widget) drawVisibleCells(ctx widget.Context, canvas widget.Canvas) {
 			}
 			cellW.Layout(ctx, cellConstraints)
 
-			if setter, ok := cellW.(interface{ SetBounds(geometry.Rect) }); ok {
-				setter.SetBounds(cellBounds)
-			}
+			cellW.SetBounds(cellBounds)
 
 			cellW.Draw(ctx, canvas)
 		}

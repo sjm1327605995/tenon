@@ -1,4 +1,4 @@
-﻿package listview
+package listview
 
 import (
 	"fmt"
@@ -370,11 +370,8 @@ func (w *Widget) invalidateItemRect(ctx widget.Context, index int) {
 				return
 			}
 		}
-		type bounder interface{ Bounds() geometry.Rect }
-		if b, ok := item.(bounder); ok {
-			ctx.InvalidateRect(b.Bounds())
+			ctx.InvalidateRect(item.Bounds())
 			return
-		}
 	}
 	ctx.InvalidateRect(w.Bounds())
 }

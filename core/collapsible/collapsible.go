@@ -186,9 +186,7 @@ func (w *Widget) Draw(ctx widget.Context, canvas widget.Canvas) {
 
 	// Set bounds and stamp screen origin on header title widget for dirty tracking.
 	if w.headerTitle != nil {
-		if setter, ok := w.headerTitle.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(headerBounds)
-		}
+		w.headerTitle.SetBounds(headerBounds)
 		widget.StampScreenOrigin(w.headerTitle, canvas)
 	}
 
@@ -228,9 +226,7 @@ func (w *Widget) drawContent(ctx widget.Context, canvas widget.Canvas, bounds ge
 		bounds.Min.X, contentTop,
 		w.contentSize.Width, w.contentSize.Height,
 	)
-	if setter, ok := w.cfg.content.(interface{ SetBounds(geometry.Rect) }); ok {
-		setter.SetBounds(contentBounds)
-	}
+	w.cfg.content.SetBounds(contentBounds)
 	widget.StampScreenOrigin(w.cfg.content, canvas)
 	w.cfg.content.Draw(ctx, canvas)
 

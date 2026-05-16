@@ -77,9 +77,7 @@ func (c *Column) Layout(_ widget.Context, constraints geometry.Constraints) geom
 	for i, child := range c.Children_ {
 		if child != nil {
 			rect := childNodes[i].LayoutRect()
-			if sb, ok := child.(interface{ SetBounds(geometry.Rect) }); ok {
-				sb.SetBounds(rect)
-			}
+			child.SetBounds(rect)
 		}
 	}
 
@@ -93,10 +91,7 @@ func (c *Column) Draw(ctx widget.Context, canvas widget.Canvas) {
 	}
 	for _, child := range c.Children_ {
 		if child != nil {
-			var childBounds geometry.Rect
-			if bb, ok := child.(interface{ Bounds() geometry.Rect }); ok {
-				childBounds = bb.Bounds()
-			}
+			childBounds := child.Bounds()
 			canvas.PushTransform(childBounds.Min)
 			widget.DrawChild(child, ctx, canvas)
 			canvas.PopTransform()

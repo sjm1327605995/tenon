@@ -1,4 +1,4 @@
-﻿package splitview
+package splitview
 
 import (
 	"time"
@@ -310,9 +310,7 @@ func (w *Widget) layoutChild(ctx widget.Context, child widget.Widget, rect geome
 		MaxHeight: rect.Height(),
 	}
 	child.Layout(ctx, childConstraints)
-	if setter, ok := child.(interface{ SetBounds(geometry.Rect) }); ok {
-		setter.SetBounds(rect)
-	}
+	child.SetBounds(rect)
 }
 
 // Draw renders both panels and the divider.

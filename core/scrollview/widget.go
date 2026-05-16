@@ -1,4 +1,4 @@
-﻿package scrollview
+package scrollview
 
 import (
 	"github.com/sjm1327605995/tenon/event"
@@ -95,9 +95,7 @@ func (w *Widget) Layout(ctx widget.Context, constraints geometry.Constraints) ge
 	w.contentSize = w.content.Layout(ctx, contentConstraints)
 
 	// Set content bounds at (0, 0) with its natural size.
-	if setter, ok := w.content.(interface{ SetBounds(geometry.Rect) }); ok {
-		setter.SetBounds(geometry.NewRect(0, 0, w.contentSize.Width, w.contentSize.Height))
-	}
+	w.content.SetBounds(geometry.NewRect(0, 0, w.contentSize.Width, w.contentSize.Height))
 
 	return w.viewportSize
 }

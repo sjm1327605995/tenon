@@ -1,4 +1,4 @@
-﻿package dialog
+package dialog
 
 import (
 	"github.com/sjm1327605995/tenon/event"
@@ -294,9 +294,7 @@ func (s *surfaceWidget) Draw(ctx widget.Context, canvas widget.Canvas) {
 			Min: geometry.Pt(dialogBounds.Min.X+contentPadding, dialogBounds.Min.Y+titleAreaHeight),
 			Max: geometry.Pt(dialogBounds.Max.X-contentPadding, dialogBounds.Max.Y-actionAreaHeight),
 		}
-		if setter, ok := d.cfg.content.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(contentBounds)
-		}
+		d.cfg.content.SetBounds(contentBounds)
 		d.cfg.content.Draw(ctx, canvas)
 	}
 }

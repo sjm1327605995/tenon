@@ -114,9 +114,7 @@ func (a *App) Update() error {
 		MaxHeight: a.screenSize.Height,
 	}
 	a.root.Layout(a.ctx, constraints)
-	if sb, ok := a.root.(interface{ SetBounds(geometry.Rect) }); ok {
-		sb.SetBounds(geometry.FromPointSize(geometry.Pt(0, 0), a.screenSize))
-	}
+	a.root.SetBounds(geometry.FromPointSize(geometry.Pt(0, 0), a.screenSize))
 
 	// Input handling
 	a.handleMouseInput()
@@ -377,10 +375,8 @@ func (a *App) hitTest(w widget.Widget, pt geometry.Point) widget.Widget {
 	}
 
 	// Check bounds
-	var bounds geometry.Rect
-	if bb, ok := w.(interface{ Bounds() geometry.Rect }); ok {
-		bounds = bb.Bounds()
-	} else {
+	bounds := w.Bounds()
+	if bounds.IsEmpty() {
 		return nil
 	}
 
@@ -402,10 +398,7 @@ func (a *App) hitTest(w widget.Widget, pt geometry.Point) widget.Widget {
 
 // toLocal converts a global point to widget-local coordinates.
 func (a *App) toLocal(w widget.Widget, globalPt geometry.Point) geometry.Point {
-	var bounds geometry.Rect
-	if bb, ok := w.(interface{ Bounds() geometry.Rect }); ok {
-		bounds = bb.Bounds()
-	}
+	bounds := w.Bounds()
 	return geometry.Pt(globalPt.X-bounds.Min.X, globalPt.Y-bounds.Min.Y)
 }
 

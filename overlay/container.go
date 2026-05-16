@@ -128,12 +128,11 @@ func (c *Container) handleMouseDismiss(e event.Event) bool {
 		return true
 	}
 
-	boundsGetter, ok := c.content.(interface{ Bounds() geometry.Rect })
-	if !ok {
+	if c.content == nil {
 		return false
 	}
 
-	if !boundsGetter.Bounds().Contains(me.Position) {
+	if !c.content.Bounds().Contains(me.Position) {
 		c.Dismiss()
 		return true
 	}

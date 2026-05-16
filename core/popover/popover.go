@@ -1,4 +1,4 @@
-﻿package popover
+package popover
 
 import (
 	"github.com/sjm1327605995/tenon/event"
@@ -325,9 +325,7 @@ func (oc *overlayContent) Layout(ctx widget.Context, constraints geometry.Constr
 	if oc.content != nil {
 		contentConstraints := geometry.Tight(size)
 		oc.content.Layout(ctx, contentConstraints)
-		if setter, ok := oc.content.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(geometry.FromPointSize(oc.Bounds().Min, size))
-		}
+		oc.content.SetBounds(geometry.FromPointSize(oc.Bounds().Min, size))
 	}
 
 	return size
@@ -369,9 +367,7 @@ func (oc *overlayContent) Children() []widget.Widget {
 func (oc *overlayContent) SetBounds(bounds geometry.Rect) {
 	oc.WidgetBase.SetBounds(bounds)
 	if oc.content != nil {
-		if setter, ok := oc.content.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(bounds)
-		}
+		oc.content.SetBounds(bounds)
 	}
 }
 
@@ -381,10 +377,7 @@ func triggerBoundsOf(w widget.Widget) geometry.Rect {
 	if w == nil {
 		return geometry.Rect{}
 	}
-	if bg, ok := w.(interface{ Bounds() geometry.Rect }); ok {
-		return bg.Bounds()
-	}
-	return geometry.Rect{}
+	return w.Bounds()
 }
 
 // triggerScreenBoundsOf returns the screen-space bounds of a trigger widget.

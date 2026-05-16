@@ -95,9 +95,7 @@ func (w *Widget) Layout(ctx widget.Context, constraints geometry.Constraints) ge
 			tab.Content.Layout(ctx, contentConstraints)
 
 			// Set bounds on content widget.
-			if setter, ok := tab.Content.(interface{ SetBounds(geometry.Rect) }); ok {
-				setter.SetBounds(contentBounds)
-			}
+			tab.Content.SetBounds(contentBounds)
 		}
 	}
 

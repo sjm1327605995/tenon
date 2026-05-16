@@ -136,9 +136,7 @@ func (s *Stack) Layout(ctx widget.Context, windowSize geometry.Size) {
 	constraints := geometry.Tight(windowSize)
 	for _, o := range s.overlays {
 		size := o.Layout(ctx, constraints)
-		if setter, ok := o.(interface{ SetBounds(geometry.Rect) }); ok {
-			setter.SetBounds(geometry.NewRect(0, 0, size.Width, size.Height))
-		}
+		o.SetBounds(geometry.NewRect(0, 0, size.Width, size.Height))
 	}
 }
 

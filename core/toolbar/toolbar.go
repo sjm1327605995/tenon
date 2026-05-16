@@ -1,4 +1,4 @@
-﻿package toolbar
+package toolbar
 
 import (
 	"github.com/sjm1327605995/tenon/a11y"
@@ -249,7 +249,7 @@ func (w *Widget) layoutItems(ctx widget.Context, available geometry.Size) {
 			itemW = spacerW
 		case ItemCustom:
 			if item.Widget != nil {
-				itemW = item.Widget.(interface{ Bounds() geometry.Rect }).Bounds().Width()
+				itemW = item.Widget.Bounds().Width()
 			}
 		}
 
@@ -258,9 +258,9 @@ func (w *Widget) layoutItems(ctx widget.Context, available geometry.Size) {
 
 		// Position custom widgets.
 		if item.Kind == ItemCustom && item.Widget != nil {
-			childH := item.Widget.(interface{ Bounds() geometry.Rect }).Bounds().Height()
+			childH := item.Widget.Bounds().Height()
 			cy := (available.Height - childH) / 2
-			item.Widget.(interface{ SetBounds(geometry.Rect) }).SetBounds(
+			item.Widget.SetBounds(
 				geometry.NewRect(x, cy, itemW, childH),
 			)
 		}
@@ -599,7 +599,7 @@ func (w *Widget) hitTest(local geometry.Point) int {
 
 // HitTestPoint returns true if the local-space point hits a toolbar item
 // (button, separator, or custom widget). Returns false for empty gaps
-// between items and spacers �?allowing the parent to treat gaps as drag area.
+// between items and spacers ??allowing the parent to treat gaps as drag area.
 func (w *Widget) HitTestPoint(local geometry.Point) bool {
 	for i, item := range w.cfg.items { //nolint:gocritic
 		if item.Kind == ItemSpacer {

@@ -1,4 +1,4 @@
-﻿package titlebar
+package titlebar
 
 import (
 	"github.com/sjm1327605995/tenon/a11y"
@@ -739,9 +739,7 @@ const a11yLabel = "Title Bar"
 
 // setBounds sets the bounds on a widget that supports it.
 func setBounds(child widget.Widget, bounds geometry.Rect) {
-	if setter, ok := child.(interface{ SetBounds(geometry.Rect) }); ok {
-		setter.SetBounds(bounds)
-	}
+	child.SetBounds(bounds)
 }
 
 // Compile-time interface checks.
