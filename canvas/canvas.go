@@ -185,7 +185,7 @@ func (c *EbitenCanvas) DrawText(s string, bounds geometry.Rect, fontSize float32
 		return
 	}
 
-	face := text.NewGoXFace(font.Face(fontSize))
+	face := text.NewGoXFace(font.Face(fontSize, bold))
 	w, h := text.Measure(s, face, 0)
 
 	x := float64(sr.Min.X)
@@ -207,7 +207,7 @@ func (c *EbitenCanvas) DrawText(s string, bounds geometry.Rect, fontSize float32
 
 // MeasureText returns the width in pixels of the given text string.
 func (c *EbitenCanvas) MeasureText(s string, fontSize float32, bold bool) float32 {
-	face := text.NewGoXFace(font.Face(fontSize))
+	face := text.NewGoXFace(font.Face(fontSize, bold))
 	w, _ := text.Measure(s, face, 0)
 	return float32(w)
 }

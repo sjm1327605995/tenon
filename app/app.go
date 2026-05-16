@@ -65,6 +65,8 @@ func (a *App) Update() error {
 
 	// Input handling
 	a.handleMouseInput()
+	a.handleWheelInput()
+	a.handleTouchInput()
 	a.handleKeyboardInput()
 
 	return nil
@@ -172,6 +174,87 @@ func (a *App) handleMouseInput() {
 
 	a.lastMousePos = a.mousePos
 	a.lastMouseBtn = btnState
+}
+
+// handleWheelInput processes mouse wheel scroll events.
+func (a *App) handleWheelInput() {
+	dx, dy := ebiten.Wheel()
+	if dx == 0 && dy == 0 {
+		return
+	}
+
+	target := a.hoveredWidget
+	if target == nil {
+		target = a.hitTest(a.root, a.mousePos)
+	}
+	if target == nil {
+		return
+	}
+
+	mods := a.modifiers()
+	globalPos := a.mousePos
+	ev := event.NewWheelEvent(
+		geometry.Pt(float32(dx), float32(dy)),
+		a.toLocal(target, globalPos),
+		globalPos,
+		mods,
+	)
+	target.Event(a.ctx, ev)
+}
+
+// handleTouchInput processes touch screen events.
+func (a *App) handleTouchInput() {
+	// Just pressed touches
+	pressedIDs := inpututil.AppendJustPressedTouchIDs(nil)
+	for _, id := range pressedIDs {
+		x, y := ebiten.TouchPosition(id)
+		globalPos := geometry.Pt(float32(x), float32(y))
+		target := a.hitTest(a.root, globalPos)
+		if target != nil {
+			mods := a.modifiers()
+			ev := event.NewTouchEvent(event.TouchPress, int(id),
+				a.toLocal(target, globalPos), globalPos, mods)
+			if target.Event(a.ctx, ev) {
+				a.focusedWidget = target
+			}
+		}
+	}
+
+	// Active touches (move)
+	justPressedSet := make(map[ebiten.TouchID]bool)
+	for _, id := range pressedIDs {
+		justPressedSet[id] = true
+	}
+	for _, id := range ebiten.TouchIDs() {
+		if justPressedSet[id] {
+			continue
+		}
+		x, y := ebiten.TouchPosition(id)
+		if x >= 0 && y >= 0 {
+			globalPos := geometry.Pt(float32(x), float32(y))
+			target := a.hitTest(a.root, globalPos)
+			if target != nil {
+				mods := a.modifiers()
+				ev := event.NewTouchEvent(event.TouchMove, int(id),
+					a.toLocal(target, globalPos), globalPos, mods)
+				target.Event(a.ctx, ev)
+			}
+		}
+	}
+
+	// Just released touches
+	releasedIDs := inpututil.AppendJustReleasedTouchIDs(nil)
+	for _, id := range releasedIDs {
+		// Use previous position from last frame (ebiten doesn't give release position)
+		globalPos := a.mousePos // fallback
+		target := a.hitTest(a.root, globalPos)
+		if target != nil {
+			mods := a.modifiers()
+			ev := event.NewTouchEvent(event.TouchRelease, int(id),
+				a.toLocal(target, globalPos), globalPos, mods)
+			target.Event(a.ctx, ev)
+		}
+	}
 }
 
 // handleKeyboardInput processes keyboard events.

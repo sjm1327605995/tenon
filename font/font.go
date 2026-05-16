@@ -12,29 +12,42 @@ import (
 //go:embed Inter-Regular.ttf
 var interRegular []byte
 
+//go:embed Inter-Bold.ttf
+var interBold []byte
+
 var (
-	once      sync.Once
-	parsed    *opentype.Font
-	faceCache sync.Map // key: float32(size) -> font.Face
+	once         sync.Once
+	parsedRegular *opentype.Font
+	parsedBold    *opentype.Font
+	faceCache    sync.Map // key: "size:bold" -> font.Face
 )
 
-func initFont() {
+func initFonts() {
 	var err error
-	parsed, err = opentype.Parse(interRegular)
+	parsedRegular, err = opentype.Parse(interRegular)
 	if err != nil {
 		panic(fmt.Sprintf("failed to parse Inter-Regular.ttf: %v", err))
 	}
+	parsedBold, err = opentype.Parse(interBold)
+	if err != nil {
+		panic(fmt.Sprintf("failed to parse Inter-Bold.ttf: %v", err))
+	}
 }
 
-// Face returns a font.Face for the given size in pixels.
-func Face(size float32) font.Face {
-	once.Do(initFont)
+// Face returns a font.Face for the given size in pixels and weight.
+func Face(size float32, bold bool) font.Face {
+	once.Do(initFonts)
 
-	if cached, ok := faceCache.Load(size); ok {
+	key := fmt.Sprintf("%.1f:%v", size, bold)
+	if cached, ok := faceCache.Load(key); ok {
 		return cached.(font.Face)
 	}
 
-	face, err := opentype.NewFace(parsed, &opentype.FaceOptions{
+	src := parsedRegular
+	if bold {
+		src = parsedBold
+	}
+	face, err := opentype.NewFace(src, &opentype.FaceOptions{
 		Size:    float64(size),
 		DPI:     72,
 		Hinting: font.HintingFull,
@@ -43,7 +56,6 @@ func Face(size float32) font.Face {
 		panic(fmt.Sprintf("failed to create font face: %v", err))
 	}
 
-	faceCache.Store(size, face)
+	faceCache.Store(key, face)
 	return face
 }
-
