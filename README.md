@@ -17,7 +17,7 @@
 
 ## What is Tenon?
 
-Tenon is a cross-platform UI framework for Go that brings modern reactive programming patterns to desktop application development. Unlike traditional immediate-mode or VDOM-based frameworks, Tenon[...]
+Tenon is a cross-platform UI framework for Go that brings modern reactive programming patterns to desktop application development. Unlike traditional immediate-mode or VDOM-based frameworks, Tenon adopts a **fine-grained reactive architecture**.
 
 - **Widget** describes structure — lightweight, stateful, `Render()` produces the element tree
 - **Element** is the native component — persistent, reusable, holds its own Yoga node
@@ -97,7 +97,7 @@ func main() {
 │  Called on mount & structural changes   │
 ├─────────────────────────────────────────┤
 │  Element (persistent node)              │
-│  *View, *Text, *Button...               │
+���  *View, *Text, *Button...               │
 │  Holds Yoga node, handles draw + events │
 │  Chainable setters apply immediately    │
 ├─────────────────────────────────────────┤
@@ -214,12 +214,13 @@ Explore the [`example/`](example/) directory:
 
 | Example | Description |
 |---------|-------------|
+| [`gallery`](example/gallery) | Complete component showcase with 50+ UI components |
 | [`v2-demo`](example/v2-demo) | Full component gallery with navigation |
 | [`shadcn-gallery`](example/shadcn-gallery) | Shadcn/UI-inspired styling showcase |
 | [`card`](example/card) | Card layout demonstration |
 
 ```bash
-cd example/v2-demo
+cd example/gallery
 go run main.go
 ```
 
