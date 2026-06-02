@@ -9,9 +9,15 @@
 
 ---
 
+## ⚠️ Early Stage Notice
+
+**This project is in early development.** Component APIs and rendering elements may undergo significant changes. The codebase is not yet stable. Use in production with caution, and expect breaking changes in future releases.
+
+---
+
 ## What is Tenon?
 
-Tenon is a cross-platform UI framework for Go that brings modern reactive programming patterns to desktop application development. Unlike traditional immediate-mode or VDOM-based frameworks, Tenon adopts a **fine-grained reactive architecture** where state changes flow directly to native elements — no diffing overhead, no unnecessary rebuilds.
+Tenon is a cross-platform UI framework for Go that brings modern reactive programming patterns to desktop application development. Unlike traditional immediate-mode or VDOM-based frameworks, Tenon[...]
 
 - **Widget** describes structure — lightweight, stateful, `Render()` produces the element tree
 - **Element** is the native component — persistent, reusable, holds its own Yoga node
@@ -250,7 +256,7 @@ tenon/
 | Performance model | CPU-bound draw calls | Diff overhead | Zero-diff property updates |
 | Go ergonomics | Procedural | Hooks everywhere | Idiomatic Go, struct-based |
 
-Tenon sits at a unique intersection: it offers the **performance characteristics of fine-grained reactivity** (à la Solid.js, Svelte) with the **ergonomics of Go structs and interfaces**, rendered via a **high-performance 2D engine**.
+Tenon sits at a unique intersection: it offers the **performance characteristics of fine-grained reactivity** (à la Solid.js, Svelte) with the **ergonomics of Go structs and interfaces**, rendering via a high-performance 2D engine.
 
 ## License
 
