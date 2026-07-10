@@ -1,492 +1,275 @@
 package main
 
 import (
-	"image/color"
+	"fmt"
 	"time"
 
-	"github.com/sjm1327605995/tenon/pkg/fonts"
-	"github.com/sjm1327605995/tenon/components"
-	"github.com/sjm1327605995/tenon/internal/core"
-	"github.com/sjm1327605995/tenon/pkg/debug"
-	"github.com/sjm1327605995/tenon/widgets"
-	"github.com/sjm1327605995/tenon/yoga"
+	"github.com/sjm1327605995/tenon/pkg/shadcn"
+	ui "github.com/sjm1327605995/tenon/pkg/ui"
 )
 
-// demoCard wraps content in a styled card for the gallery.
-func demoCard(title string, content core.Element) core.Element {
-	card := components.NewCard().
-		SetTitle(title).
-		AddContent(content)
-	return card
-
+func section(title string, body ...*ui.Node) *ui.Node {
+	return shadcn.Card(
+		shadcn.CardHeader(shadcn.CardTitle(title)),
+		shadcn.CardContent(body...),
+		ui.Div(ui.Style(ui.Height(24))),
+	)
 }
 
-// demoSection creates a labeled section.
-func demoSection(label string, children ...core.Element) core.Element {
-	v := components.NewView()
-	v.SetFlexDirection(yoga.FlexDirectionColumn)
-	v.SetGap(yoga.GutterAll, 8)
-	v.SetMargin(yoga.EdgeBottom, 24)
-	title := components.NewText(label).SetFontSize(20).SetColor(core.GetTheme().TextColor)
-	v.Add(title)
-	for _, c := range children {
-		v.Add(c)
+func rowN(children ...*ui.Node) *ui.Node {
+	return ui.Div(append([]*ui.Node{ui.Style(ui.Row, ui.Gap(12), ui.ItemsCenter)}, children...)...)
+}
+
+func App(_ struct{}) *ui.Node {
+	dark, setDark := ui.UseState(false)
+	check, setCheck := ui.UseState(true)
+	sw, setSw := ui.UseState(false)
+	radio, setRadio := ui.UseState("A")
+	vol, setVol := ui.UseState(float32(50))
+	text, setText := ui.UseState("")
+	tab, setTab := ui.UseState(0)
+	toggle, setToggle := ui.UseState(false)
+	open, setOpen := ui.UseState(false)
+	sel, setSel := ui.UseState("")
+	note, setNote := ui.UseState("")
+	date, setDate := ui.UseState(time.Time{})
+	cmdOpen, setCmdOpen := ui.UseState(false)
+	sheetOpen, setSheetOpen := ui.UseState(false)
+	page, setPage := ui.UseState(1)
+	align, setAlign := ui.UseState("居中")
+	collapse, setCollapse := ui.UseState(false)
+
+	theme := ui.LightTheme
+	if dark {
+		theme = ui.DarkTheme
 	}
-	return v
-}
 
-// ========== Pages ==========
+	return ui.ThemeProvider(theme,
+		ui.Div(
+			ui.Style(ui.Column, ui.Width(720), ui.Height(760), ui.Bg(theme.Background),
+				ui.TextColor(theme.Foreground), ui.Padding(24), ui.Gap(16)),
 
-type LayoutPage struct{ core.BaseWidget }
+			// 顶栏
+			ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.JustifyBetween),
+				ui.Text("shadcn/ui 组件库", ui.FontSize(24)),
+				rowN(
+					shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeSecondary}, ui.Text("Tenon")),
+					shadcn.Switch(shadcn.SwitchProps{Checked: dark, OnChange: setDark}),
+					shadcn.Label("暗色"),
+				),
+			),
 
-func NewLayoutPage() *LayoutPage {
-	p := &LayoutPage{}
-	p.Init(p)
-	return p
-}
+			ui.ScrollView(
+				ui.Style(ui.Column, ui.Gap(16), ui.Grow(1)),
 
-func (p *LayoutPage) Render() core.Element {
-	// Card demo
-	cardDemo := components.NewCard().
-		SetTitle("Payment Method").
-		SetDescription("Add a new payment method to your account.").
-		AddContent(
-			components.NewTextInput().SetPlaceholder("Card number"),
-			components.NewTextInput().SetPlaceholder("Name on card"),
-		).
-		SetFooter(
-			components.NewButton("Cancel").SetVariant(components.ButtonOutline),
-			components.NewButton("Save Card"),
-		)
+				section("Button",
+					rowN(
+						shadcn.Button(shadcn.ButtonProps{}, ui.Text("Default")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Secondary}, ui.Text("Secondary")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Destructive}, ui.Text("Destructive")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline}, ui.Text("Outline")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Ghost}, ui.Text("Ghost")),
+					),
+				),
 
-	// Accordion demo
-	acc := components.NewAccordion([]components.AccordionItem{
-		{Title: "Is it accessible?", Content: func() core.Element {
-			return components.NewText("Yes. It adheres to the WAI-ARIA design pattern.").SetColor(core.GetTheme().TextColor)
-		}},
-		{Title: "Is it styled?", Content: func() core.Element {
-			return components.NewText("Yes. It comes with default styles that matches the other components.").SetColor(core.GetTheme().TextColor)
-		}},
-		{Title: "Is it animated?", Content: func() core.Element {
-			return components.NewText("Yes. It's animated by default, but you can disable it.").SetColor(core.GetTheme().TextColor)
-		}},
-	})
+				section("Badge",
+					rowN(
+						shadcn.Badge(shadcn.BadgeProps{}, ui.Text("Default")),
+						shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeSecondary}, ui.Text("Secondary")),
+						shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeDestructive}, ui.Text("Destructive")),
+						shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeOutline}, ui.Text("Outline")),
+					),
+				),
 
-	// Collapsible demo
-	coll := components.NewCollapsible(
-		"What are the terms and conditions?",
-		components.NewText("By using this service, you agree to our terms and conditions.").SetColor(core.GetTheme().TextColor),
+				section("Form",
+					rowN(
+						shadcn.Checkbox(shadcn.CheckboxProps{Checked: check, OnChange: setCheck}),
+						shadcn.Label("接受条款"),
+						shadcn.Switch(shadcn.SwitchProps{Checked: sw, OnChange: setSw}),
+						shadcn.Label("通知"),
+					),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.RadioGroup(shadcn.RadioGroupProps{Value: radio, Options: []string{"A", "B", "C"}, OnChange: setRadio}),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.Input(shadcn.InputProps{Value: text, OnChange: setText, Placeholder: "输入点什么…"}),
+				),
+
+				section("Slider & Progress",
+					rowN(
+						shadcn.Slider(shadcn.SliderProps{Value: vol, Min: 0, Max: 100, OnChange: setVol}),
+						ui.Text(fmt.Sprintf("%.0f", vol), ui.FontSize(14)),
+					),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.Progress(vol/100),
+				),
+
+				section("Tabs & Toggle",
+					shadcn.Tabs(shadcn.TabsProps{Tabs: []string{"账户", "密码", "通知"}, Active: tab, OnChange: setTab}),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.Toggle(shadcn.ToggleProps{Pressed: toggle, OnChange: setToggle}, ui.Text("加粗")),
+				),
+
+				section("Alert",
+					shadcn.Alert(shadcn.AlertProps{},
+						shadcn.AlertTitle("提示"),
+						shadcn.AlertDescription("这是一条默认样式的提示信息。"),
+					),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.Alert(shadcn.AlertProps{Variant: shadcn.AlertDestructive},
+						shadcn.AlertTitle("错误"),
+						shadcn.AlertDescription("出问题了，请稍后重试。"),
+					),
+				),
+
+				section("Display",
+					rowN(
+						shadcn.Avatar("孙", 44),
+						shadcn.Avatar("AI", 44),
+						shadcn.Skeleton(120, 16),
+						shadcn.Skeleton(80, 16),
+					),
+					ui.Div(ui.Style(ui.Height(12))),
+					shadcn.Separator(shadcn.SeparatorProps{}),
+				),
+
+				section("Overlays（锚定浮层）",
+					rowN(
+						shadcn.Select(shadcn.SelectProps{Value: sel, Options: []string{"苹果", "香蕉", "橙子"},
+							OnChange: setSel, Placeholder: "选择水果"}),
+						shadcn.Popover(shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline}, ui.Text("Popover")),
+							ui.Text("这是一个锚定在按钮下方的浮层。", ui.FontSize(13)),
+						),
+						shadcn.DropdownMenu(shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Secondary}, ui.Text("菜单")),
+							[]shadcn.MenuItem{
+								{Label: "个人资料", OnSelect: func() {}},
+								{Label: "设置", OnSelect: func() {}},
+								{Label: "退出", OnSelect: func() {}},
+							}),
+						shadcn.Tooltip("悬停提示", shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeOutline}, ui.Text("Tooltip"))),
+					),
+				),
+
+				section("Textarea",
+					shadcn.Textarea(shadcn.TextareaProps{Value: note, OnChange: setNote, Placeholder: "多行文本，Enter 换行…", Rows: 3}),
+				),
+
+				section("Table",
+					shadcn.Table(
+						shadcn.TableRow(shadcn.TableHead("名称"), shadcn.TableHead("角色"), shadcn.TableHead("状态")),
+						shadcn.TableRow(shadcn.TableCell(ui.Text("孙江萌")), shadcn.TableCell(ui.Text("管理员")), shadcn.TableCell(shadcn.Badge(shadcn.BadgeProps{}, ui.Text("在线")))),
+						shadcn.TableRow(shadcn.TableCell(ui.Text("AI 助手")), shadcn.TableCell(ui.Text("成员")), shadcn.TableCell(shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeSecondary}, ui.Text("离线")))),
+					),
+				),
+
+				section("Accordion",
+					shadcn.Accordion([]shadcn.AccordionItemData{
+						{Title: "这是什么？", Content: []*ui.Node{ui.Text("一个基于 tenon/pkg/ui 的 shadcn 风格组件库。", ui.FontSize(13))}},
+						{Title: "支持主题吗？", Content: []*ui.Node{ui.Text("支持，通过 ThemeProvider 切换明暗。", ui.FontSize(13))}},
+						{Title: "带动画吗？", Content: []*ui.Node{ui.Text("展开/收起有高度过渡动画。", ui.FontSize(13))}},
+					}),
+				),
+
+				section("Breadcrumb / Pagination / ToggleGroup",
+					shadcn.Breadcrumb([]string{"首页", "组件", "按钮"}, func(int) {}),
+					ui.Div(ui.Style(ui.Height(10))),
+					rowN(
+						shadcn.Pagination(shadcn.PaginationProps{Page: page, Total: 5, OnChange: setPage}),
+						shadcn.ToggleGroup(shadcn.ToggleGroupProps{Value: align, Options: []string{"左", "居中", "右"}, OnChange: setAlign}),
+					),
+				),
+
+				section("Collapsible",
+					shadcn.Collapsible(collapse, func() { setCollapse(!collapse) },
+						rowN(ui.Text("高级选项", ui.FontSize(15)), ui.Text("▾", ui.FontSize(12))),
+						ui.Text("这里是折叠内容，点击标题展开或收起。", ui.FontSize(13)),
+					),
+				),
+
+				section("NavigationMenu",
+					shadcn.NavigationMenu([]shadcn.NavItem{
+						{Label: "首页", OnSelect: func() {}},
+						{Label: "产品", Items: []shadcn.MenuItem{{Label: "概览"}, {Label: "定价"}, {Label: "文档"}}},
+						{Label: "关于", OnSelect: func() {}},
+					}),
+				),
+
+				section("Carousel",
+					shadcn.Carousel(shadcn.CarouselProps{Width: 320, Height: 130, Slides: []*ui.Node{
+						ui.Div(ui.Style(ui.Width(320), ui.Height(130), ui.Bg(ui.Hex("#ef4444")), ui.ItemsCenter, ui.JustifyCenter), ui.Text("Slide 1", ui.FontSize(20), ui.TextColor(ui.White))),
+						ui.Div(ui.Style(ui.Width(320), ui.Height(130), ui.Bg(ui.Hex("#22c55e")), ui.ItemsCenter, ui.JustifyCenter), ui.Text("Slide 2", ui.FontSize(20), ui.TextColor(ui.White))),
+						ui.Div(ui.Style(ui.Width(320), ui.Height(130), ui.Bg(ui.Hex("#3b82f6")), ui.ItemsCenter, ui.JustifyCenter), ui.Text("Slide 3", ui.FontSize(20), ui.TextColor(ui.White))),
+					}}),
+				),
+
+				section("Resizable",
+					shadcn.Resizable(shadcn.ResizableProps{Width: 420, Height: 120,
+						Left:  ui.Div(ui.Style(ui.Grow(1), ui.ItemsCenter, ui.JustifyCenter), ui.Text("左栏", ui.FontSize(14))),
+						Right: ui.Div(ui.Style(ui.Grow(1), ui.ItemsCenter, ui.JustifyCenter), ui.Text("右栏（拖动中间分隔条）", ui.FontSize(13))),
+					}),
+				),
+
+				section("BarChart & HoverCard",
+					shadcn.BarChart(shadcn.BarChartProps{Width: 320, Height: 140,
+						Data: []float32{40, 75, 55, 90, 30, 65}, Labels: []string{"一", "二", "三", "四", "五", "六"}}),
+					ui.Div(ui.Style(ui.Height(10))),
+					shadcn.HoverCard(
+						shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeOutline}, ui.Text("悬停查看")),
+						ui.Text("HoverCard", ui.FontSize(15)),
+						ui.Text("悬停触发的信息卡片，移入卡片本身也保持展开。", ui.FontSize(13)),
+					),
+				),
+
+				section("Calendar",
+					shadcn.Calendar(shadcn.CalendarProps{Value: date, OnChange: setDate}),
+					ui.Div(ui.Style(ui.Height(8))),
+					ui.Text(fmt.Sprintf("已选：%s", func() string {
+						if date.IsZero() {
+							return "无"
+						}
+						return date.Format("2006-01-02")
+					}()), ui.FontSize(13)),
+				),
+
+				section("Dialog / Sheet / Command / Toast",
+					rowN(
+						shadcn.Button(shadcn.ButtonProps{OnClick: func() { setOpen(true) }}, ui.Text("对话框")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Secondary, OnClick: func() { setSheetOpen(true) }}, ui.Text("抽屉")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() { setCmdOpen(true) }}, ui.Text("命令面板")),
+						shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Ghost, OnClick: func() {
+							shadcn.Toast("已保存", "你的更改已成功保存。")
+						}}, ui.Text("通知")),
+					),
+				),
+			),
+
+			shadcn.Dialog(shadcn.DialogProps{Open: open, OnClose: func() { setOpen(false) }},
+				shadcn.DialogTitle("确认操作"),
+				shadcn.DialogDescription("这是一个通过 Portal 渲染的模态对话框。"),
+				ui.Div(ui.Style(ui.Row, ui.Gap(8), ui.JustifyEnd),
+					shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() { setOpen(false) }}, ui.Text("取消")),
+					shadcn.Button(shadcn.ButtonProps{OnClick: func() { setOpen(false) }}, ui.Text("确认")),
+				),
+			),
+
+			shadcn.Sheet(shadcn.SheetProps{Open: sheetOpen, OnClose: func() { setSheetOpen(false) }},
+				shadcn.SheetTitle("设置"),
+				shadcn.SheetDescription("从右侧滑入的抽屉面板。"),
+				shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() { setSheetOpen(false) }}, ui.Text("关闭")),
+			),
+
+			shadcn.Command(shadcn.CommandProps{Open: cmdOpen, OnClose: func() { setCmdOpen(false) },
+				Items: []shadcn.CommandItem{
+					{Label: "新建文件", OnSelect: func() { shadcn.Toast("新建文件", "") }},
+					{Label: "打开设置", OnSelect: func() { setSheetOpen(true) }},
+					{Label: "切换主题", OnSelect: func() { setDark(!dark) }},
+					{Label: "退出", OnSelect: func() {}},
+				}}),
+
+			shadcn.Toaster(),
+		),
 	)
-
-	// AspectRatio demo
-	ar := components.NewAspectRatio(16.0 / 9.0)
-	arBox := components.NewView()
-	arBox.SetBackgroundColor(core.GetTheme().MutedColor)
-	arBox.SetFlexDirection(yoga.FlexDirectionColumn)
-	arBox.SetJustifyContent(yoga.JustifyCenter)
-	arBox.SetAlignItems(yoga.AlignCenter)
-	arBox.Add(components.NewText("16:9 Aspect Ratio").SetColor(core.GetTheme().MutedForegroundColor))
-	ar.SetChild(arBox)
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			demoSection("Card", demoCard("Card Component", &cardDemo.View)),
-			demoSection("Accordion", demoCard("Accordion Component", acc)),
-			demoSection("Collapsible", demoCard("Collapsible Component", coll)),
-			demoSection("Aspect Ratio", demoCard("Aspect Ratio Component", ar)),
-		)
-}
-
-type FormsPage struct{ core.BaseWidget }
-
-func NewFormsPage() *FormsPage {
-	p := &FormsPage{}
-	p.Init(p)
-	return p
-}
-
-func (p *FormsPage) Render() core.Element {
-	// Button variants
-	btnRow := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionRow).
-		SetGap(yoga.GutterAll, 8).
-		SetAlignItems(yoga.AlignCenter)
-	btnRow.Add(
-		components.NewButton("Default"),
-		components.NewButton("Secondary").SetVariant(components.ButtonSecondary),
-		components.NewButton("Outline").SetVariant(components.ButtonOutline),
-		components.NewButton("Ghost").SetVariant(components.ButtonGhost),
-		components.NewButton("Destructive").SetVariant(components.ButtonDestructive),
-	)
-
-	// Input & Textarea
-	inputGroup := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 8)
-	inputGroup.Add(
-		components.NewLabel("Email"),
-		components.NewTextInput().SetPlaceholder("Enter your email"),
-		components.NewLabel("Message"),
-		components.NewTextarea().SetRows(4).SetPlaceholder("Type your message here..."),
-	)
-
-	// Checkbox & Radio & Switch
-	controls := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 8)
-	controls.Add(
-		components.NewCheckbox("Accept terms and conditions"),
-		components.NewRadio("Select this option"),
-		components.NewSwitch(),
-	)
-
-	// Select
-	selectEl := components.NewSelect()
-	selectEl.SetOptions([]string{"Apple", "Banana", "Cherry", "Date"})
-	selectEl.SetPlaceholder("Select a fruit...")
-
-	// Toggle & ToggleGroup
-	tg := components.NewToggleGroup([]string{"Bold", "Italic", "Underline"})
-	tg.SetSingle(false)
-
-	// Slider
-	slider := components.NewSlider(0, 100)
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			demoSection("Button", demoCard("Button Variants", btnRow)),
-			demoSection("Input & Textarea", demoCard("Form Inputs", inputGroup)),
-			demoSection("Checkbox / Radio / Switch", demoCard("Form Controls", controls)),
-			demoSection("Select", demoCard("Select Component", selectEl)),
-			demoSection("Toggle Group", demoCard("Toggle Group", tg)),
-			demoSection("Slider", demoCard("Slider Component", slider)),
-		)
-}
-
-type NavigationPage struct{ core.BaseWidget }
-
-func NewNavigationPage() *NavigationPage {
-	p := &NavigationPage{}
-	p.Init(p)
-	return p
-}
-
-func (p *NavigationPage) Render() core.Element {
-	// Breadcrumb
-	bc := components.NewBreadcrumb([]components.BreadcrumbItem{
-		{Label: "Home", IsActive: false},
-		{Label: "Products", IsActive: false},
-		{Label: "Laptops", IsActive: true},
-	})
-
-	// Menubar
-	mb := components.NewMenubar([]components.MenubarItem{
-		{Label: "File"},
-		{Label: "Edit"},
-		{Label: "View"},
-		{Label: "Help"},
-	})
-
-	// Pagination
-	pg := components.NewPagination(20)
-
-	// Tabs
-	tabs := components.NewTab([]components.TabItem{
-		{Label: "Account", Content: func() core.Element {
-			return components.NewText("Account settings content.").SetColor(core.GetTheme().TextColor)
-		}},
-		{Label: "Password", Content: func() core.Element {
-			return components.NewText("Password settings content.").SetColor(core.GetTheme().TextColor)
-		}},
-		{Label: "Notifications", Content: func() core.Element {
-			return components.NewText("Notification settings content.").SetColor(core.GetTheme().TextColor)
-		}},
-	})
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			demoSection("Breadcrumb", demoCard("Breadcrumb Component", bc)),
-			demoSection("Menubar", demoCard("Menubar Component", mb)),
-			demoSection("Pagination", demoCard("Pagination Component", pg)),
-			demoSection("Tabs", demoCard("Tabs Component", tabs)),
-		)
-}
-
-type OverlaysPage struct {
-	core.BaseWidget
-	alertDialog *components.AlertDialog
-	drawer      *components.Drawer
-	sheet       *components.Sheet
-}
-
-func NewOverlaysPage() *OverlaysPage {
-	p := &OverlaysPage{}
-	p.Init(p)
-	return p
-}
-
-func (p *OverlaysPage) Render() core.Element {
-	// AlertDialog
-	p.alertDialog = components.NewAlertDialog()
-	p.alertDialog.SetTitle("Are you absolutely sure?").
-		SetDescription("This action cannot be undone. This will permanently delete your account and remove your data from our servers.").
-		SetActionText("Continue").
-		SetCancelText("Cancel")
-
-	alertBtn := components.NewButton("Show Alert Dialog")
-	alertBtn.SetOnClick(func() { p.alertDialog.Open() })
-
-	// Popover
-	pop := components.NewPopover("Open popover")
-	pop.AddContent(
-		components.NewText("This is a popover content.").SetColor(core.GetTheme().TextColor),
-		components.NewButton("Close").SetVariant(components.ButtonGhost).SetOnClick(func() { pop.Close() }),
-	)
-
-	// HoverCard
-	hc := components.NewHoverCard(components.NewButton("Hover me").SetVariant(components.ButtonLink))
-	hc.AddContent(
-		components.NewText("@nextjs").SetFontSize(14).SetColor(core.GetTheme().TextColor),
-		components.NewText("The React Framework for the Web.").SetFontSize(12).SetColor(core.GetTheme().MutedForegroundColor),
-	)
-
-	// Drawer
-	p.drawer = components.NewDrawer(components.DrawerRight)
-	p.drawer.Panel().Add(
-		components.NewText("Drawer Content").SetFontSize(18).SetColor(core.GetTheme().TextColor),
-		components.NewText("You can put any content here.").SetFontSize(14).SetColor(core.GetTheme().MutedForegroundColor),
-	)
-	drawerBtn := components.NewButton("Open Drawer").SetVariant(components.ButtonOutline)
-	drawerBtn.SetOnClick(func() { p.drawer.Open() })
-
-	// Sheet
-	p.sheet = components.NewSheet(components.SheetBottom)
-	p.sheet.Panel().Add(
-		components.NewText("Sheet Content").SetFontSize(18).SetColor(core.GetTheme().TextColor),
-		components.NewText("This is a sheet panel.").SetFontSize(14).SetColor(core.GetTheme().MutedForegroundColor),
-	)
-	sheetBtn := components.NewButton("Open Sheet").SetVariant(components.ButtonOutline)
-	sheetBtn.SetOnClick(func() { p.sheet.Open() })
-
-	// Tooltip
-	ttBtn := components.NewButton("Hover for Tooltip")
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			demoSection("Alert Dialog", demoCard("Alert Dialog", alertBtn)),
-			demoSection("Popover", demoCard("Popover", pop)),
-			demoSection("Hover Card", demoCard("Hover Card", hc)),
-			demoSection("Drawer", demoCard("Drawer", drawerBtn)),
-			demoSection("Sheet", demoCard("Sheet", sheetBtn)),
-			demoSection("Tooltip", demoCard("Tooltip", ttBtn)),
-			p.alertDialog,
-			p.drawer,
-			p.sheet,
-		)
-}
-
-type FeedbackPage struct{ core.BaseWidget }
-
-func NewFeedbackPage() *FeedbackPage {
-	p := &FeedbackPage{}
-	p.Init(p)
-	return p
-}
-
-func (p *FeedbackPage) Render() core.Element {
-	// Alert variants
-	alertDefault := components.NewAlert("Heads up!").
-		SetDescription("You can add components to your app using the CLI.")
-	alertDestructive := components.NewAlert("Error").
-		SetDescription("Your session has expired. Please log in again.").
-		SetVariant(components.AlertDestructive)
-
-	// Progress
-	pb := components.NewProgressBar().SetProgress(0.6)
-
-	// Skeleton
-	skel := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 8)
-	skel.Add(
-		components.NewSkeleton().SetWidth(200),
-		components.NewSkeleton().SetWidth(150),
-		components.NewSkeleton().SetWidth(180),
-	)
-
-	// Toast
-	toastManager := components.NewToastManager()
-	toastBtn := components.NewButton("Show Toast").SetVariant(components.ButtonOutline)
-	toastBtn.SetOnClick(func() {
-		toastManager.Show("Event has been created.", 3000)
-	})
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			func() core.Element {
-				alertWrap := components.NewView().SetFlexDirection(yoga.FlexDirectionColumn).SetGap(yoga.GutterAll, 8)
-				alertWrap.Add(alertDefault, alertDestructive)
-				return demoSection("Alert", demoCard("Alert Variants", alertWrap))
-			}(),
-			demoSection("Progress", demoCard("Progress Bar", pb)),
-			demoSection("Skeleton", demoCard("Skeleton Placeholder", skel)),
-			func() core.Element {
-				toastWrap := components.NewView().SetFlexDirection(yoga.FlexDirectionColumn).SetGap(yoga.GutterAll, 8)
-				toastWrap.Add(toastBtn, toastManager)
-				return demoSection("Toast", demoCard("Toast Notification", toastWrap))
-			}(),
-		)
-}
-
-type DataDisplayPage struct{ core.BaseWidget }
-
-func NewDataDisplayPage() *DataDisplayPage {
-	p := &DataDisplayPage{}
-	p.Init(p)
-	return p
-}
-
-func (p *DataDisplayPage) Render() core.Element {
-	// Avatar
-	avatars := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionRow).
-		SetGap(yoga.GutterAll, 8).
-		SetAlignItems(yoga.AlignCenter)
-	avatars.Add(
-		components.NewAvatar("JD").SetSize(40),
-		components.NewAvatar("AB").SetSize(48),
-		components.NewAvatar("CD").SetSize(56),
-	)
-
-	// Badge variants
-	badges := components.NewView().
-		SetFlexDirection(yoga.FlexDirectionRow).
-		SetGap(yoga.GutterAll, 8).
-		SetAlignItems(yoga.AlignCenter)
-	badges.Add(
-		components.NewBadge("default").SetVariant(components.BadgeDefault),
-		components.NewBadge("secondary").SetVariant(components.BadgeSecondary),
-		components.NewBadge("outline").SetVariant(components.BadgeOutline),
-		components.NewBadge("destructive").SetVariant(components.BadgeDestructive),
-	)
-
-	// Calendar
-	cal := components.NewCalendar().SetDate(time.Now())
-
-	// Table
-	tbl := components.NewTable()
-	tbl.SetHeaders([]string{"Invoice", "Status", "Method", "Amount"})
-	tbl.AddRow([]string{"INV001", "Paid", "Credit Card", "$250.00"})
-	tbl.AddRow([]string{"INV002", "Pending", "PayPal", "$150.00"})
-	tbl.AddRow([]string{"INV003", "Unpaid", "Bank Transfer", "$350.00"})
-	tbl.AddRow([]string{"INV004", "Paid", "Credit Card", "$450.00"})
-
-	// Carousel
-	items := []core.Element{
-		components.NewView().SetBackgroundColor(color.RGBA{R: 255, G: 200, B: 200, A: 255}).SetHeight(150).SetWidthPercent(100),
-		components.NewView().SetBackgroundColor(color.RGBA{R: 200, G: 255, B: 200, A: 255}).SetHeight(150).SetWidthPercent(100),
-		components.NewView().SetBackgroundColor(color.RGBA{R: 200, G: 200, B: 255, A: 255}).SetHeight(150).SetWidthPercent(100),
-	}
-	carousel := components.NewCarousel(items)
-
-	return components.NewView().
-		SetFlexDirection(yoga.FlexDirectionColumn).
-		SetGap(yoga.GutterAll, 16).
-		SetPadding(yoga.EdgeAll, 24).
-		Add(
-			demoSection("Avatar", demoCard("Avatar Component", avatars)),
-			demoSection("Badge", demoCard("Badge Variants", badges)),
-			demoSection("Calendar", demoCard("Calendar Component", cal)),
-			demoSection("Table", demoCard("Table Component", tbl)),
-			demoSection("Carousel", demoCard("Carousel Component", carousel)),
-		)
-}
-
-// ========== App ==========
-
-type GalleryApp struct {
-	core.BaseWidget
-	page    *core.State[string]
-	sidebar *components.Sidebar
-}
-
-func NewGalleryApp() *GalleryApp {
-	a := &GalleryApp{page: core.NewState("layout")}
-	a.Init(a)
-	return a
-}
-
-func (a *GalleryApp) Render() core.Element {
-	// Sidebar
-	a.sidebar = components.NewSidebar([]components.SidebarNavItem{
-		{Label: "Components", Children: []components.SidebarNavItem{
-			{Label: "Layout", Page: "layout"},
-			{Label: "Forms", Page: "forms"},
-			{Label: "Navigation", Page: "navigation"},
-			{Label: "Overlays", Page: "overlays"},
-			{Label: "Feedback", Page: "feedback"},
-			{Label: "Data Display", Page: "data-display"},
-		}},
-	})
-	a.sidebar.SetSelected(a.page.Get())
-	a.sidebar.SetOnSelect(func(page string) {
-		a.page.Set(page)
-	})
-
-	// Main content
-	content := widgets.NewSwitch(a.page).
-		Case("layout", func() core.Element { return NewLayoutPage().Render() }).
-		Case("forms", func() core.Element { return NewFormsPage().Render() }).
-		Case("navigation", func() core.Element { return NewNavigationPage().Render() }).
-		Case("overlays", func() core.Element { return NewOverlaysPage().Render() }).
-		Case("feedback", func() core.Element { return NewFeedbackPage().Render() }).
-		Case("data-display", func() core.Element { return NewDataDisplayPage().Render() }).
-		Default(func() core.Element {
-			return components.NewText("Select a page from the sidebar").SetColor(core.GetTheme().TextColor)
-		})
-
-	// Scrollable main area - wrap in a flex container to prevent overflow
-	scroll := components.NewScrollView()
-	scroll.SetFlexGrow(1)
-	scroll.SetHeightPercent(100)
-	scroll.Content().Add(content.Render())
-
-	// Root layout
-	root := components.NewView()
-	root.SetWidthPercent(100)
-	root.SetHeightPercent(100)
-	root.SetFlexDirection(yoga.FlexDirectionRow)
-	root.SetBackgroundColor(core.GetTheme().BackgroundColor)
-	root.Add(a.sidebar, scroll)
-
-	return root
 }
 
 func main() {
-	if err := fonts.InitDefaultFont(); err != nil {
-		panic("failed to init font: " + err.Error())
-	}
-	if err := fonts.LoadFontFromFile(fonts.FontFamilySans, "font/OPPOSans-Medium.ttf"); err == nil {
-		fonts.SetDefaultFontFamily(fonts.FontFamilySans)
-	}
-
-	core.SetTheme(core.DefaultShadcnLightTheme())
-
-	app := NewGalleryApp()
-	debug.RunWithDebug(app, 1200, 800, 8765)
+	ui.Run(ui.Use(App, struct{}{}))
 }
