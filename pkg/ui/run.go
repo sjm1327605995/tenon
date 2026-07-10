@@ -409,46 +409,65 @@ func (g *game) updatePress() {
 }
 
 // handleKeyboardNav 处理 Tab 焦点切换、Enter/Space 激活、Esc 失焦。
+// 决策逻辑抽到 focusNext/fireEscape/activateFocused，供无窗口的测试驱动复用。
 func (g *game) handleKeyboardNav() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		var list []*renderNode
-		collectFocusables(g.rootRN, &list)
-		for _, pf := range g.portals {
-			if pf.overlayRoot != nil {
-				collectFocusables(pf.overlayRoot, &list)
-			}
-		}
-		var cur *renderNode
-		if g.focusedFiber != nil {
-			cur = g.focusedFiber.rnode
-		}
-		fwd := !ebiten.IsKeyPressed(ebiten.KeyShift)
-		if n := nextFocus(list, cur, fwd); n != nil {
-			g.focusedFiber = n.owner
-			if n.kind == rnInput {
-				n.caretPos = len(n.value)
-			}
-		}
+		g.focusNext(!ebiten.IsKeyPressed(ebiten.KeyShift))
 	}
-
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		// 最上层浮层优先响应 Esc；无浮层时才用于取消聚焦
-		if n := len(g.escStack); n > 0 {
-			(*g.escStack[n-1].fn)()
-		} else {
-			g.focusedFiber = nil
-		}
+		g.fireEscape()
 	}
-
 	// Enter/Space 激活聚焦的可点击元素（输入框不拦截，交给文本编辑）
-	if g.focusedFiber != nil && !g.focusedFiber.unmounted {
-		rn := g.focusedFiber.rnode
-		if rn != nil && rn.kind != rnInput && rn.onClick != nil {
-			if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-				rn.onClick()
-			}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		g.activateFocused()
+	}
+}
+
+// focusNext 把焦点移到 Tab 顺序中的下一个（forward）或上一个可聚焦元素（含浮层），
+// 环形回绕；返回新的焦点节点，无可聚焦元素时返回 nil。
+func (g *game) focusNext(forward bool) *renderNode {
+	var list []*renderNode
+	collectFocusables(g.rootRN, &list)
+	for _, pf := range g.portals {
+		if pf.overlayRoot != nil {
+			collectFocusables(pf.overlayRoot, &list)
 		}
 	}
+	var cur *renderNode
+	if g.focusedFiber != nil {
+		cur = g.focusedFiber.rnode
+	}
+	n := nextFocus(list, cur, forward)
+	if n != nil {
+		g.focusedFiber = n.owner
+		if n.kind == rnInput {
+			n.caretPos = len(n.value)
+		}
+	}
+	return n
+}
+
+// fireEscape 触发 Esc：最上层浮层优先响应，无浮层时取消聚焦。
+func (g *game) fireEscape() {
+	if n := len(g.escStack); n > 0 {
+		(*g.escStack[n-1].fn)()
+	} else {
+		g.focusedFiber = nil
+	}
+}
+
+// activateFocused 用 Enter/Space 激活当前聚焦的可点击元素（输入框除外，交给文本编辑）。
+// 返回是否触发了 onClick。
+func (g *game) activateFocused() bool {
+	if g.focusedFiber == nil || g.focusedFiber.unmounted {
+		return false
+	}
+	rn := g.focusedFiber.rnode
+	if rn != nil && rn.kind != rnInput && rn.onClick != nil {
+		rn.onClick()
+		return true
+	}
+	return false
 }
 
 // updateDrag 按住左键时逐帧把屏幕位移交给拖拽目标，松开则结束。

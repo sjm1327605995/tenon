@@ -44,6 +44,12 @@ type StyleProps struct {
 	rotate         float32 // 角度
 	transX, transY float32
 
+	// 阴影（box-shadow）
+	shadowColor              Color
+	shadowX, shadowY         float32
+	shadowBlur, shadowSpread float32
+	hasShadow                bool
+
 	animateLayout bool
 
 	// 文本
@@ -137,6 +143,17 @@ func Scale(v float32) StyleOpt    { return func(s *StyleProps) { s.scale = v } }
 func Rotate(deg float32) StyleOpt { return func(s *StyleProps) { s.rotate = deg } }
 func TranslateXY(x, y float32) StyleOpt {
 	return func(s *StyleProps) { s.transX, s.transY = x, y }
+}
+
+// Shadow 设置投影（box-shadow）：颜色、水平/垂直偏移、模糊半径、扩散。offY 正值向下。
+// 叶子与容器均可用；柔和边缘由分层近似实现。
+func Shadow(c Color, offX, offY, blur, spread float32) StyleOpt {
+	return func(s *StyleProps) {
+		s.shadowColor = c
+		s.shadowX, s.shadowY = offX, offY
+		s.shadowBlur, s.shadowSpread = blur, spread
+		s.hasShadow = c.A > 0
+	}
 }
 
 // Animated 开启布局动画：当该元素的布局位置变化时，从旧位置平滑滑到新位置（FLIP）。

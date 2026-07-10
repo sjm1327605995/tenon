@@ -76,6 +76,31 @@ func fillRoundRect(dst *ebiten.Image, x, y, w, h, r float32, c Color) {
 	dst.DrawTriangles(vs, is, whiteImage(), op)
 }
 
+// fillShadow 近似 box-shadow：以偏移+扩散为基准，向外叠加若干半透明圆角矩形，
+// 得到中心接近目标不透明度、向外柔和衰减的投影。offY 正值向下。
+func fillShadow(dst *ebiten.Image, x, y, w, h, r, offX, offY, blur, spread float32, c Color) {
+	if c.transparent() || w <= 0 || h <= 0 {
+		return
+	}
+	bx, by := x+offX-spread, y+offY-spread
+	bw, bh := w+spread*2, h+spread*2
+	br := r + spread
+	if br < 0 {
+		br = 0
+	}
+	if blur <= 0 {
+		fillRoundRect(dst, bx, by, bw, bh, br, c)
+		return
+	}
+	const layers = 5
+	la := c.Alpha(1.0 / float32(layers)) // 各层等 alpha，重叠处向中心累积、向外衰减
+	for i := layers; i >= 1; i-- {
+		g := blur * float32(i) / float32(layers)
+		fillRoundRect(dst, bx-g, by-g, bw+g*2, bh+g*2, br+g, la)
+	}
+	fillRoundRect(dst, bx, by, bw, bh, br, la)
+}
+
 // ebitenDrawLine 画一条直线（用于输入光标）。
 func ebitenDrawLine(dst *ebiten.Image, x0, y0, x1, y1 float32, c Color) {
 	vector.StrokeLine(dst, x0, y0, x1, y1, 1, c, false)

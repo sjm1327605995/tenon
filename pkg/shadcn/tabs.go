@@ -15,14 +15,16 @@ func Tabs(p TabsProps) *ui.Node { return ui.Use(tabs, p) }
 
 func tabs(p TabsProps) *ui.Node {
 	th := ui.UseTheme()
-	kids := []*ui.Node{ui.Style(ui.Row, ui.Gap(4), ui.Padding(4), ui.Radius(th.Radius), ui.Bg(th.Muted))}
+	// shadcn v4: list bg-muted rounded-lg p-[3px]；trigger rounded-md, active bg-background shadow-sm。
+	kids := []*ui.Node{ui.Style(ui.Row, ui.ItemsCenter, ui.Gap(4), ui.Padding(3),
+		ui.Radius(radiusLg(th)), ui.Bg(th.Muted))}
 	for i, label := range p.Tabs {
 		active := i == p.Active
 		idx := i
-		st := []ui.StyleOpt{ui.PaddingXY(14, 6), ui.Radius(th.Radius - 2), ui.ItemsCenter, ui.JustifyCenter}
+		st := []ui.StyleOpt{ui.PaddingXY(10, 6), ui.Radius(radiusMd(th)), ui.ItemsCenter, ui.JustifyCenter}
 		fg := th.MutedForeground
 		if active {
-			st = append(st, ui.Bg(th.Background))
+			st = append(st, ui.Bg(th.Background), shadowSm())
 			fg = th.Foreground
 		}
 		kids = append(kids, ui.Button(
@@ -32,7 +34,7 @@ func tabs(p TabsProps) *ui.Node {
 					p.OnChange(idx)
 				}
 			}),
-			ui.Text(label, ui.FontSize(13), ui.TextColor(fg)),
+			ui.Text(label, ui.FontSize(14), ui.TextColor(fg)),
 		))
 	}
 	return ui.Div(kids...)
@@ -54,13 +56,14 @@ func Toggle(p ToggleProps, children ...*ui.Node) *ui.Node {
 func toggle(p ToggleProps) *ui.Node {
 	th := ui.UseTheme()
 	hovered, _, ia := ui.UseInteraction()
-	st := []ui.StyleOpt{ui.Height(36), ui.PaddingXY(12, 0), ui.Radius(th.Radius),
+	// shadcn v4: h-9 min-w-9 rounded-md px-2；hover bg-muted；on bg-accent text-accent-foreground。
+	st := []ui.StyleOpt{ui.Height(36), ui.MinWidth(36), ui.PaddingXY(8, 0), ui.Radius(radiusMd(th)),
 		ui.ItemsCenter, ui.JustifyCenter, ui.TextColor(th.Foreground)}
 	switch {
 	case p.Pressed:
 		st = append(st, ui.Bg(th.Accent), ui.TextColor(th.AccentForeground))
 	case hovered:
-		st = append(st, ui.Bg(ui.Mix(th.Background, th.Accent, 0.5)))
+		st = append(st, ui.Bg(th.Muted))
 	}
 	attrs := []*ui.Node{
 		ui.Style(st...),
@@ -87,13 +90,16 @@ func ToggleGroup(p ToggleGroupProps) *ui.Node { return ui.Use(toggleGroup, p) }
 
 func toggleGroup(p ToggleGroupProps) *ui.Node {
 	th := ui.UseTheme()
-	kids := []*ui.Node{ui.Style(ui.Row, ui.Gap(2), ui.Padding(2), ui.Radius(th.Radius), ui.Bg(th.Muted))}
+	// shadcn v4 outline: 连成一体的带边框分组，选中项 bg-accent。
+	kids := []*ui.Node{ui.Style(ui.Row, ui.ItemsCenter, ui.Radius(radiusMd(th)),
+		ui.Border(1, th.Border), ui.Clip)}
 	for _, opt := range p.Options {
 		o := opt
 		active := opt == p.Value
-		st := []ui.StyleOpt{ui.PaddingXY(14, 6), ui.Radius(th.Radius - 2), ui.ItemsCenter, ui.JustifyCenter}
+		st := []ui.StyleOpt{ui.Height(36), ui.PaddingXY(12, 0), ui.ItemsCenter, ui.JustifyCenter,
+			ui.TextColor(th.Foreground)}
 		if active {
-			st = append(st, ui.Bg(th.Background))
+			st = append(st, ui.Bg(th.Accent), ui.TextColor(th.AccentForeground))
 		}
 		kids = append(kids, ui.Button(
 			ui.Style(st...),
@@ -102,7 +108,7 @@ func toggleGroup(p ToggleGroupProps) *ui.Node {
 					p.OnChange(o)
 				}
 			}),
-			ui.Text(opt, ui.FontSize(13), ui.TextColor(th.Foreground)),
+			ui.Text(opt, ui.FontSize(14)),
 		))
 	}
 	return ui.Div(kids...)

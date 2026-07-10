@@ -194,6 +194,28 @@ Run with `go run ./example/<name>`:
 | `hooks-text` | wrapping + style inheritance |
 | `hooks-kit` | component kit: Checkbox/Switch/Radio/Slider/Progress/Badge/Avatar/Spinner/Tabs/Card |
 
+## Testing
+
+`ui.Mount` gives a **headless harness** — the real reconcile → layout → hit-test → event path, without an Ebiten window — so you can assert behavior, not just that a constructor returned non-nil:
+
+```go
+h := ui.Mount(Use(Counter, struct{}{}), 300, 100) // or ui.MountDefault(node)
+
+h.Root().ByText("+").Click()          // fires the nearest onClick, bubbling like a real click
+if !h.Root().ByText("1").Exists() {   // re-query after state changes the tree
+    t.Fatal("counter did not increment")
+}
+```
+
+`Mount` returns a `*Harness`; `Root()` (and `Overlays()` for `Portal` content) return a `*Query` you traverse and drive:
+
+- **Find** — `ByText`, `AllByText`, `ByKind`, `ByPlaceholder`, `Clickables`, or `Find`/`FindAll(pred)`. A miss returns an empty `Query`; read/action methods on it are safe no-ops, so chains never panic (guard with `Exists()`).
+- **Read** — `Text`, `AllText`, `Value`, `Placeholder`, `Kind`, `Bounds`, `Focusable`, `Clickable`, `IsFocused`, `Children`.
+- **Drive a node** (each settles the tree) — `Click`, `Hover(bool)`, `Press(bool)`, `Drag(dx,dy)`, `ScrollBy(dy)`, `Focus().Type("…")`, `Backspace(n)`, `Clear`, `SetValue`.
+- **Drive the app** — `Harness.ClickAt(x,y)`; keyboard: `Tab`/`ShiftTab` (returns the newly `Focused()` node), `Enter` (activate focused), `Escape` (topmost `UseEscape` or clear focus); `Resize`; and `Step(dtMs)` to advance `UseTween`/`UseTransition`/`UseElapsed`. `Overlays()` returns `Portal` content (dialogs, popovers, tooltips) for querying and driving.
+
+`Query` handles are snapshots; host nodes are reused across re-renders, but after an action that adds/removes/replaces nodes, re-query from `Root()`. See `harness_test.go` (engine) and `pkg/shadcn/behavior_test.go` (a downstream consumer testing real clicks/toggles).
+
 ## Notes & limits
 
 - **Incremental layout**: yoga child links are only rebuilt when a node's children actually change, so paint-only updates (color/hover/opacity/transform) keep yoga's cache valid and `CalculateLayout` is a no-op. On window resize, only size-dependent subtrees recompute; fixed-size subtrees are reused. Idle frames run no layout at all.

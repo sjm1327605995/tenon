@@ -14,10 +14,11 @@ func Checkbox(p CheckboxProps) *ui.Node { return ui.Use(checkbox, p) }
 
 func checkbox(p CheckboxProps) *ui.Node {
 	th := ui.UseTheme()
-	st := []ui.StyleOpt{ui.Width(18), ui.Height(18), ui.Radius(4), ui.ItemsCenter,
-		ui.JustifyCenter, ui.Border(1, th.Primary)}
+	// shadcn v4: size-4 rounded-[4px] border border-input shadow-xs；checked bg/border-primary。
+	st := []ui.StyleOpt{ui.Width(16), ui.Height(16), ui.Radius(4), ui.ItemsCenter,
+		ui.JustifyCenter, ui.Border(1, th.Input), shadowXs()}
 	if p.Checked {
-		st = append(st, ui.Bg(th.Primary))
+		st = append(st, ui.Bg(th.Primary), ui.Border(1, th.Primary))
 	}
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
@@ -31,7 +32,7 @@ func checkbox(p CheckboxProps) *ui.Node {
 		}))
 	}
 	if p.Checked {
-		kids = append(kids, ui.Text("✓", ui.FontSize(13), ui.TextColor(th.PrimaryForeground)))
+		kids = append(kids, ui.Text("✓", ui.FontSize(11), ui.TextColor(th.PrimaryForeground)))
 	}
 	return ui.Div(kids...)
 }
@@ -52,8 +53,9 @@ func switchC(p SwitchProps) *ui.Node {
 	if p.Checked {
 		target = 1
 	}
+	// shadcn v4: track w-8 h-[1.15rem] rounded-full；thumb size-4；unchecked bg-input / checked bg-primary。
 	x := ui.UseTween(target, 140, ui.EaseOut)
-	st := []ui.StyleOpt{ui.Width(40), ui.Height(22), ui.Radius(11), ui.JustifyStart,
+	st := []ui.StyleOpt{ui.Width(32), ui.Height(18), ui.Radius(radiusFull), ui.JustifyStart,
 		ui.ItemsCenter, ui.Bg(ui.Mix(th.Input, th.Primary, x))}
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
@@ -66,8 +68,8 @@ func switchC(p SwitchProps) *ui.Node {
 			}
 		}))
 	}
-	thumb := ui.Div(ui.Style(ui.Width(16), ui.Height(16), ui.Radius(8), ui.Bg(th.Background),
-		ui.Absolute, ui.Top(3), ui.Left(3+x*18)))
+	thumb := ui.Div(ui.Style(ui.Width(14), ui.Height(14), ui.Radius(radiusFull), ui.Bg(th.Background),
+		ui.Absolute, ui.Top(2), ui.Left(2+x*14)))
 	return ui.Div(append(attrs, thumb)...)
 }
 
@@ -87,9 +89,12 @@ func radioGroup(p RadioGroupProps) *ui.Node {
 	for _, opt := range p.Options {
 		o := opt
 		selected := opt == p.Value
+		// shadcn v4: size-4 rounded-full border-input；selected border-primary + 内点 size-2 primary。
+		border := th.Input
 		var dot *ui.Node
 		if selected {
-			dot = ui.Div(ui.Style(ui.Width(9), ui.Height(9), ui.Radius(5), ui.Bg(th.Primary)))
+			border = th.Primary
+			dot = ui.Div(ui.Style(ui.Width(8), ui.Height(8), ui.Radius(radiusFull), ui.Bg(th.Primary)))
 		}
 		kids = append(kids, ui.Div(
 			ui.Style(ui.Row, ui.Gap(8), ui.ItemsCenter),
@@ -98,7 +103,7 @@ func radioGroup(p RadioGroupProps) *ui.Node {
 					p.OnChange(o)
 				}
 			}),
-			ui.Div(ui.Style(ui.Width(18), ui.Height(18), ui.Radius(9), ui.Border(1, th.Primary),
+			ui.Div(ui.Style(ui.Width(16), ui.Height(16), ui.Radius(radiusFull), ui.Border(1, border),
 				ui.ItemsCenter, ui.JustifyCenter), dot),
 			ui.Text(opt, ui.FontSize(14)),
 		))

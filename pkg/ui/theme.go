@@ -26,7 +26,7 @@ var LightTheme = Theme{
 	Accent: Hex("#f4f4f5"), AccentForeground: Hex("#18181b"),
 	Destructive: Hex("#ef4444"), DestructiveForeground: Hex("#fafafa"),
 	Border: Hex("#e4e4e7"), Input: Hex("#e4e4e7"), Ring: Hex("#a1a1aa"),
-	Radius: 8,
+	Radius: 10,
 }
 
 // DarkTheme 是默认深色主题（shadcn zinc 风格）。
@@ -40,7 +40,7 @@ var DarkTheme = Theme{
 	Accent: Hex("#27272a"), AccentForeground: Hex("#fafafa"),
 	Destructive: Hex("#7f1d1d"), DestructiveForeground: Hex("#fafafa"),
 	Border: Hex("#27272a"), Input: Hex("#27272a"), Ring: Hex("#d4d4d8"),
-	Radius: 8,
+	Radius: 10,
 }
 
 var themeContext = CreateContext(LightTheme)

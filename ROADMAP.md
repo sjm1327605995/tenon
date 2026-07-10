@@ -29,16 +29,18 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 - `pkg/shadcn`: ~41 shadcn/ui-style components on a theme + interaction foundation.
 
 **Tooling**
-- 28 engine tests; per-package READMEs + godoc; runnable examples.
+- 30+ engine tests; per-package READMEs + godoc; runnable examples.
+- `ui.Mount` headless test harness (mount + drive click/hover/press/drag/type, query the render tree) — `pkg/shadcn` uses it for real behavior tests.
 
 ## In progress / next (priority order)
 
 1. **Font weights & richer text** — real bold/italic (load or synthesize), rich-text spans in one `Text`, IME preedit/composition, multi-line selection highlight. *(Biggest remaining gap for text-heavy apps.)*
-2. **Component behavior tests** — expose a test-mount helper from `pkg/ui` so `pkg/shadcn` can assert real click/input/hover behavior, not just construction.
-3. **Accessibility** — arrow-key navigation inside menus/lists, focus trapping in modals; an accessibility tree.
-4. **Performance at scale** — benchmark suite; list virtualization for large data; sub-tree-scoped `resolveInherited`.
-5. **Rendering extras** — box-shadow, gradients, `Img` object-fit, integrate `pkg/svg` for icons.
-6. **Native integration** — OS clipboard binding, native file/context menus; (multi-window is bounded by Ebiten).
+2. **Accessibility** — arrow-key navigation inside menus/lists, focus trapping in modals; an accessibility tree.
+3. **Performance at scale** — benchmark suite; list virtualization for large data; sub-tree-scoped `resolveInherited`.
+4. **Rendering extras** — box-shadow, gradients, `Img` object-fit, integrate `pkg/svg` for icons.
+5. **Native integration** — OS clipboard binding, native file/context menus; (multi-window is bounded by Ebiten).
+
+**Recently done:** a headless test-mount helper (`ui.Mount`) now lets `pkg/shadcn` and app code assert real click/input/hover behavior, not just construction.
 
 ## Non-goals (for now)
 

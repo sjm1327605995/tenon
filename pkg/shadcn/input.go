@@ -14,9 +14,11 @@ func Input(p InputProps) *ui.Node { return ui.Use(input, p) }
 
 func input(p InputProps) *ui.Node {
 	th := ui.UseTheme()
+	// shadcn v4: h-9 rounded-md border border-input px-3 py-1 text-sm shadow-xs。
 	st := []ui.StyleOpt{
-		ui.Height(38), ui.PaddingXY(12, 0), ui.Radius(th.Radius), ui.ItemsCenter,
-		ui.Bg(th.Background), ui.Border(1, th.Input), ui.TextColor(th.Foreground), ui.FontSize(14),
+		ui.Height(36), ui.PaddingXY(12, 0), ui.Radius(radiusMd(th)), ui.ItemsCenter,
+		ui.Bg(th.Background), ui.Border(1, th.Input), ui.TextColor(th.Foreground),
+		ui.FontSize(14), shadowXs(),
 	}
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
@@ -46,10 +48,15 @@ func textarea(p TextareaProps) *ui.Node {
 	if rows <= 0 {
 		rows = 3
 	}
+	// shadcn v4: min-h-16 rounded-md border px-3 py-2 text-sm shadow-xs。
+	minH := float32(rows)*22 + 16
+	if minH < 64 {
+		minH = 64
+	}
 	st := []ui.StyleOpt{
-		ui.Width(280), ui.MinHeight(float32(rows)*22 + 16), ui.PaddingXY(12, 8),
-		ui.Radius(th.Radius), ui.Bg(th.Background), ui.Border(1, th.Input),
-		ui.TextColor(th.Foreground), ui.FontSize(14),
+		ui.Width(280), ui.MinHeight(minH), ui.PaddingXY(12, 8),
+		ui.Radius(radiusMd(th)), ui.Bg(th.Background), ui.Border(1, th.Input),
+		ui.TextColor(th.Foreground), ui.FontSize(14), shadowXs(),
 	}
 	return ui.Input(ui.Style(st...), ui.Multiline(),
 		ui.Value(p.Value), ui.Placeholder(p.Placeholder), ui.OnChange(p.OnChange))

@@ -95,6 +95,12 @@ type renderNode struct {
 	rotate         float32
 	transX, transY float32
 
+	// 投影（box-shadow）
+	shadowColor              Color
+	shadowX, shadowY         float32
+	shadowBlur, shadowSpread float32
+	hasShadow                bool
+
 	// 布局动画（FLIP）：位置变化时的残余偏移，逐帧衰减到 0
 	animatedLayout     bool
 	hasPrevPos         bool
@@ -399,6 +405,11 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.scale = s.scale
 	rn.rotate = s.rotate
 	rn.transX, rn.transY = s.transX*k, s.transY*k
+
+	rn.hasShadow = s.hasShadow
+	rn.shadowColor = s.shadowColor
+	rn.shadowX, rn.shadowY = s.shadowX*k, s.shadowY*k
+	rn.shadowBlur, rn.shadowSpread = s.shadowBlur*k, s.shadowSpread*k
 	if s.clip {
 		rn.clip = true
 	}
@@ -490,6 +501,10 @@ func paintLayer(dst *ebiten.Image, rn *renderNode) {
 func paintNode(dst *ebiten.Image, rn *renderNode) {
 	b := rn.bounds
 	o := rn.opacity
+	if rn.hasShadow {
+		fillShadow(dst, b.X, b.Y, b.W, b.H, rn.radius,
+			rn.shadowX, rn.shadowY, rn.shadowBlur, rn.shadowSpread, rn.shadowColor.Alpha(o))
+	}
 	switch rn.kind {
 	case rnBox, rnScroll:
 		fillRoundRect(dst, b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))

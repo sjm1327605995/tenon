@@ -22,17 +22,18 @@ func Alert(p AlertProps, children ...*ui.Node) *ui.Node {
 
 func alert(p AlertProps) *ui.Node {
 	th := ui.UseTheme()
-	fg, border := th.Foreground, th.Border
+	// shadcn v4: rounded-lg border px-4 py-3 text-sm bg-card；destructive 用 text-destructive。
+	fg, border := th.CardForeground, th.Border
 	if p.Variant == AlertDestructive {
 		fg, border = th.Destructive, th.Destructive
 	}
-	base := ui.Style(ui.Column, ui.Gap(6), ui.Padding(16), ui.Radius(th.Radius),
-		ui.Border(1, border), ui.Bg(th.Background), ui.TextColor(fg))
+	base := ui.Style(ui.Column, ui.Gap(4), ui.PaddingXY(16, 12), ui.Radius(radiusLg(th)),
+		ui.Border(1, border), ui.Bg(th.Card), ui.TextColor(fg))
 	return ui.Div(append([]*ui.Node{base}, p.children...)...)
 }
 
-// AlertTitle 继承 Alert 前景色。
-func AlertTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(15)) }
+// AlertTitle 继承 Alert 前景色（text-sm font-medium）。
+func AlertTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(14)) }
 
 // AlertDescription 使用弱化前景色。
 func AlertDescription(text string) *ui.Node { return ui.Use(mutedText, text) }

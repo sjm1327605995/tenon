@@ -46,55 +46,64 @@ func button(p ButtonProps) *ui.Node {
 	th := ui.UseTheme()
 	hovered, pressed, ia := ui.UseInteraction()
 
-	// 基础 + 尺寸
+	// 基础：rounded-md, text-sm, gap-2（font-medium 暂无字重支持）。
 	style := []ui.StyleOpt{
-		ui.Row, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(8), ui.Radius(th.Radius),
+		ui.Row, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(8),
+		ui.Radius(radiusMd(th)), ui.FontSize(14),
 	}
+	// 尺寸（Tailwind: h-9 px-4 / h-8 px-3 / h-10 px-6 / size-9），高度固定，垂直居中。
 	switch p.Size {
 	case SizeSm:
-		style = append(style, ui.PaddingXY(12, 6), ui.FontSize(13), ui.Height(32))
+		style = append(style, ui.Height(32), ui.PaddingXY(12, 0), ui.Gap(6))
 	case SizeLg:
-		style = append(style, ui.PaddingXY(24, 10), ui.FontSize(16), ui.Height(44))
+		style = append(style, ui.Height(40), ui.PaddingXY(24, 0))
 	case SizeIcon:
 		style = append(style, ui.Width(36), ui.Height(36))
 	default:
-		style = append(style, ui.PaddingXY(16, 8), ui.FontSize(14), ui.Height(38))
+		style = append(style, ui.Height(36), ui.PaddingXY(16, 0))
 	}
 
-	// 变体配色
+	// 变体配色 + hover（bg-*/90|80 用 alpha-over-背景 近似）。
+	active := hovered && !p.Disabled
 	bg, fg, border := th.Primary, th.PrimaryForeground, ui.Transparent
 	bordered := false
+	var shadow ui.StyleOpt
 	switch p.Variant {
 	case Destructive:
-		bg, fg = th.Destructive, th.DestructiveForeground
+		bg, fg = th.Destructive, ui.White
+		if active {
+			bg = over(th.Destructive, th.Background, 0.9)
+		}
 	case Outline:
 		bg, fg, border, bordered = th.Background, th.Foreground, th.Border, true
+		shadow = shadowXs()
+		if active {
+			bg, fg = th.Accent, th.AccentForeground
+		}
 	case Secondary:
 		bg, fg = th.Secondary, th.SecondaryForeground
+		if active {
+			bg = over(th.Secondary, th.Background, 0.8)
+		}
 	case Ghost:
 		bg, fg = ui.Transparent, th.Foreground
-	case Link:
-		bg, fg = ui.Transparent, th.Primary
-	}
-
-	// hover 态
-	active := hovered && !p.Disabled
-	switch p.Variant {
-	case Ghost, Outline:
 		if active {
 			bg, fg = th.Accent, th.AccentForeground
 		}
 	case Link:
-		// 链接变体保持透明
-	default:
+		bg, fg = ui.Transparent, th.Primary // hover:underline 暂无下划线支持
+	default: // Default
 		if active {
-			bg = ui.Mix(bg, th.Background, 0.12)
+			bg = over(th.Primary, th.Background, 0.9)
 		}
 	}
 
 	style = append(style, ui.Bg(bg), ui.TextColor(fg))
 	if bordered {
 		style = append(style, ui.Border(1, border))
+	}
+	if shadow != nil {
+		style = append(style, shadow)
 	}
 	if pressed && !p.Disabled {
 		style = append(style, ui.Scale(0.97))
