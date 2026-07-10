@@ -33,6 +33,7 @@ log.txt
 *.err
 *_test.png
 
+.claude
 # Debug snapshots
 _debug_snapshot/
 declarative-demo

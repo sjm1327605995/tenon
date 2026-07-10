@@ -56,27 +56,26 @@ go run cmd/demo/main.go
 
 - Add tests for new features and bug fixes
 - Ensure all tests pass before submitting PRs
-- Tests are located alongside source files (e.g., `pkg/core/engine_test.go`)
+- Tests are located alongside source files (e.g., `pkg/ui/engine_test.go`)
 
 ```bash
 # Run all tests
 go test ./...
 
 # Run specific package tests with verbose output
-go test ./pkg/core/ -v
+go test ./pkg/ui/ -v
 go test ./yoga/ -v
 ```
 
 ## 🏗️ Project Structure
 
-When adding new features, please respect the existing architecture:
+When adding new features, please respect the existing architecture (see [ARCHITECTURE.md](ARCHITECTURE.md)):
 
-- `pkg/core/` — Framework core (engine, component interfaces, hooks)
-- `pkg/components/` — Built-in UI components (View, Text, Button, etc.)
-- `pkg/fonts/` — Font management
-- `internal/renderer/` — Render backend (Ebiten integration)
+- `pkg/ui/` — Framework core: elements, hooks, reconciler, layout, rendering, input
+- `pkg/shadcn/` — shadcn/ui-style component library built on `pkg/ui`
+- `pkg/font/` — Font management
 - `yoga/` — Yoga layout engine (Go port, minimize changes)
-- `cmd/demo/` — Example application
+- `example/` — Runnable example programs (`hooks-*`, `shadcn-*`)
 
 ## 📝 Documentation
 
