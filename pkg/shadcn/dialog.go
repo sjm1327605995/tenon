@@ -32,6 +32,7 @@ func dialog(p DialogProps) *ui.Node {
 		ui.OnClick(func() {}), // 吞掉点击，避免冒泡关闭
 	}, p.children...)
 	return ui.Portal(
+		ui.TrapFocus(), // 模态：键盘焦点限制在对话框内
 		ui.Div(
 			ui.Style(ui.Grow(1), ui.ItemsCenter, ui.JustifyCenter,
 				ui.Bg(ui.Color{R: 0, G: 0, B: 0, A: 140}), ui.Opacity(prog)),
@@ -46,6 +47,6 @@ func dialog(p DialogProps) *ui.Node {
 }
 
 // DialogTitle / DialogDescription 便捷文本。
-func DialogTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(18)) }
+func DialogTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(18), ui.Semibold) }
 
 func DialogDescription(text string) *ui.Node { return ui.Use(mutedText, text) }

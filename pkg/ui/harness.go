@@ -57,6 +57,23 @@ func (h *Harness) Root() *Query {
 	return &Query{rn: rootRenderNode(h.g.rootFiber), h: h}
 }
 
+// Paint runs a full paint pass through a recording backend and returns the
+// ordered draw operations (main tree first, then Portal overlays). It renders
+// nothing to a GPU — use it to assert *what* a component draws (fills, text,
+// borders, clips, focus ring…) headlessly, i.e. golden-style paint tests.
+func (h *Harness) Paint() []PaintOp {
+	rp := &recordPainter{}
+	if rn := rootRenderNode(h.g.rootFiber); rn != nil {
+		paint(rp, rn)
+	}
+	for _, pf := range h.g.portals {
+		if pf.overlayRoot != nil {
+			paint(rp, pf.overlayRoot)
+		}
+	}
+	return rp.ops
+}
+
 // Overlays returns a Query per live Portal overlay (dialogs, dropdowns,
 // tooltips…), in paint order (last is topmost). Portals live outside the main
 // tree, so Root().Find does not reach them — search these instead.
@@ -127,6 +144,16 @@ func (h *Harness) Tab() *Query {
 // ShiftTab moves focus to the previous focusable element (Shift+Tab).
 func (h *Harness) ShiftTab() *Query {
 	h.g.focusNext(false)
+	h.settle()
+	return h.Focused()
+}
+
+// Arrow moves focus within the nearest matching ArrowNav group (roving focus),
+// like pressing an arrow key: orient picks vertical (Up/Down) or horizontal
+// (Left/Right); forward = Down/Right. Returns the newly focused node (unchanged
+// if no matching group contains focus). Settles afterward.
+func (h *Harness) Arrow(orient NavOrient, forward bool) *Query {
+	h.g.moveFocusInGroup(forward, orient)
 	h.settle()
 	return h.Focused()
 }

@@ -67,5 +67,5 @@ func Label(text string) *ui.Node { return ui.Use(labelC, text) }
 
 func labelC(text string) *ui.Node {
 	th := ui.UseTheme()
-	return ui.Text(text, ui.FontSize(14), ui.TextColor(th.Foreground))
+	return ui.Text(text, ui.FontSize(14), ui.Medium, ui.TextColor(th.Foreground))
 }

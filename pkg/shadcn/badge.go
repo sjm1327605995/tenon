@@ -38,7 +38,7 @@ func badge(p BadgeProps) *ui.Node {
 	st := []ui.StyleOpt{
 		ui.Row, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(4),
 		ui.PaddingXY(8, 2), ui.Radius(radiusMd(th)),
-		ui.Bg(bg), ui.TextColor(fg), ui.FontSize(12),
+		ui.Bg(bg), ui.TextColor(fg), ui.FontSize(12), ui.Medium,
 	}
 	if bordered {
 		st = append(st, ui.Border(1, border))

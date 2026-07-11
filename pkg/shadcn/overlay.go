@@ -182,9 +182,11 @@ func dropdown(p dropdownProps) *ui.Node {
 			setOpen(false)
 		}))
 	}
+	// 上下方向键在菜单项间移动焦点（ArrowNav 属性会落到浮层面板的 Div 上）
+	content := append([]*ui.Node{ui.ArrowNav(ui.NavVertical)}, rows...)
 	return ui.Fragment(
 		ui.Div(ref, ui.OnClick(func() { setOpen(!open) }), p.trigger),
 		ui.If(open, floatPanel(th, rect, func() { setOpen(false) },
-			[]ui.StyleOpt{ui.Column, ui.Padding(4), ui.MinWidth(max(rect.W, 160))}, rows...)),
+			[]ui.StyleOpt{ui.Column, ui.Padding(4), ui.MinWidth(max(rect.W, 160))}, content...)),
 	)
 }

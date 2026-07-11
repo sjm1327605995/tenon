@@ -36,7 +36,7 @@ func layoutAll(g *game) {
 	g.rootRN = rootRenderNode(g.rootFiber)
 	relink(g.rootFiber)
 	if g.rootRN != nil {
-		resolveInherited(g.rootRN, Black, false, 16, false)
+		resolveInherited(g.rootRN, inhText{})
 		g.rootRN.yn.CalculateLayout(float32(g.w), float32(g.h), yoga.DirectionLTR)
 		computeBounds(g.rootRN, 0, 0)
 	}

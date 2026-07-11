@@ -28,6 +28,7 @@ type Node struct {
 	// text
 	text      string
 	textStyle StyleProps
+	runs      []textRun // 富文本：多段混排样式（RichText）
 
 	// component
 	fnPtr      uintptr
@@ -42,6 +43,7 @@ type Node struct {
 
 	// attr
 	applyAttr func(*hostProps)
+	trap      bool // TrapFocus()：作为 Portal 属性时标记该浮层为焦点陷阱（模态）
 }
 
 // hostProps 是把某个 host 元素的所有属性归拢后的结果。
@@ -62,6 +64,10 @@ type hostProps struct {
 	onPress     func(bool)
 	onDrag      func(dx, dy float32)
 	measure     *measureHook
+
+	// 方向键导航组（ArrowNav）：组内可聚焦项用方向键移动焦点
+	navGroup  bool
+	navOrient NavOrient
 
 	// img
 	src string
@@ -124,6 +130,9 @@ func grouped(t nodeType, args []*Node) *Node {
 			if a.key != "" {
 				n.key = a.key
 			}
+			if a.trap {
+				n.trap = true
+			}
 			continue
 		}
 		n.kids = append(n.kids, a)
@@ -138,6 +147,30 @@ func Text(s string, opts ...StyleOpt) *Node {
 		o(&st)
 	}
 	return &Node{typ: typeText, text: s, textStyle: st}
+}
+
+// RichText 在单个文本节点内混排多段不同样式的文字（富文本 span）。
+// 每个子节点用 Text(...) 描述一段，其文字与样式（颜色/字号/字重/斜体）被收集为一段 run；
+// 整体作为一个段落统一折行、按基线对齐，未显式设置的样式继承自容器。
+//
+//	ui.RichText(
+//	    ui.Text("Hello "),
+//	    ui.Text("world", ui.Bold, ui.TextColor(ui.Hex("#ef4444"))),
+//	    ui.Text(" 你好", ui.FontSize(20)),
+//	)
+func RichText(spans ...*Node) *Node {
+	rt := &Node{typ: typeText}
+	for _, s := range spans {
+		if s == nil || s.typ != typeText {
+			continue
+		}
+		if len(s.runs) > 0 { // 允许嵌套 RichText：展平其 runs
+			rt.runs = append(rt.runs, s.runs...)
+			continue
+		}
+		rt.runs = append(rt.runs, textRun{text: s.text, style: s.textStyle})
+	}
+	return rt
 }
 
 // ---- 属性构造器 ----

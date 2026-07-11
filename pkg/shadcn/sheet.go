@@ -51,6 +51,7 @@ func sheet(p SheetProps) *ui.Node {
 	}, nil...)
 
 	return ui.Portal(
+		ui.TrapFocus(), // 模态：键盘焦点限制在抽屉内
 		ui.Div(
 			ui.Style(ui.Grow(1), ui.Row, justify, ui.Bg(ui.Color{R: 0, G: 0, B: 0, A: uint8(140 * prog)})),
 			ui.OnClick(func() {

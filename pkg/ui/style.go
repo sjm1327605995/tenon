@@ -57,6 +57,10 @@ type StyleProps struct {
 	fontSize    float32
 	hasColor    bool
 	hasFontSize bool
+	weight      int // 400 常规 / 700 粗体
+	hasWeight   bool
+	italic      bool
+	hasItalic   bool
 }
 
 // StyleOpt 是作用于 StyleProps 的选项。
@@ -174,6 +178,17 @@ func TextColor(c Color) StyleOpt { return func(s *StyleProps) { s.color, s.hasCo
 func FontSize(v float32) StyleOpt {
 	return func(s *StyleProps) { s.fontSize, s.hasFontSize = v, true }
 }
+
+// FontWeight 设置字重（400 常规、500 中等、600 半粗、700 粗体…）；>=600 时启用（合成）粗体。
+func FontWeight(w int) StyleOpt { return func(s *StyleProps) { s.weight, s.hasWeight = w, true } }
+
+// Bold / Medium / Semibold 是常用字重的便捷别名。
+func Bold(s *StyleProps)     { s.weight, s.hasWeight = 700, true }
+func Semibold(s *StyleProps) { s.weight, s.hasWeight = 600, true }
+func Medium(s *StyleProps)   { s.weight, s.hasWeight = 500, true }
+
+// Italic 启用（合成）斜体。
+func Italic(s *StyleProps) { s.italic, s.hasItalic = true, true }
 
 // ---- 组合 ----
 

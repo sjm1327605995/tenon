@@ -46,10 +46,10 @@ func button(p ButtonProps) *ui.Node {
 	th := ui.UseTheme()
 	hovered, pressed, ia := ui.UseInteraction()
 
-	// 基础：rounded-md, text-sm, gap-2（font-medium 暂无字重支持）。
+	// 基础：rounded-md, text-sm, font-medium, gap-2。
 	style := []ui.StyleOpt{
 		ui.Row, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(8),
-		ui.Radius(radiusMd(th)), ui.FontSize(14),
+		ui.Radius(radiusMd(th)), ui.FontSize(14), ui.Medium,
 	}
 	// 尺寸（Tailwind: h-9 px-4 / h-8 px-3 / h-10 px-6 / size-9），高度固定，垂直居中。
 	switch p.Size {

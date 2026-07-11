@@ -17,7 +17,8 @@ func tabs(p TabsProps) *ui.Node {
 	th := ui.UseTheme()
 	// shadcn v4: list bg-muted rounded-lg p-[3px]；trigger rounded-md, active bg-background shadow-sm。
 	kids := []*ui.Node{ui.Style(ui.Row, ui.ItemsCenter, ui.Gap(4), ui.Padding(3),
-		ui.Radius(radiusLg(th)), ui.Bg(th.Muted))}
+		ui.Radius(radiusLg(th)), ui.Bg(th.Muted)),
+		ui.ArrowNav(ui.NavHorizontal)} // 左右方向键在标签间移动焦点（WAI-ARIA tabs）
 	for i, label := range p.Tabs {
 		active := i == p.Active
 		idx := i

@@ -47,6 +47,76 @@ func TestButtonSizes(t *testing.T) {
 	}
 }
 
+// TestButtonPaintsBackgroundAndLabel uses the recording painter (ui.Harness.Paint)
+// to assert a Button actually renders a filled background + its label text —
+// a headless golden-style paint check, beyond construction/layout.
+func TestButtonPaintsBackgroundAndLabel(t *testing.T) {
+	h := ui.MountDefault(Button(ButtonProps{}, ui.Text("Save")))
+	ops := h.Paint()
+
+	var rects, labels int
+	for _, op := range ops {
+		switch op.Kind {
+		case "rect":
+			if op.Rect.W > 0 && op.Rect.H > 0 {
+				rects++
+			}
+		case "text":
+			if op.Text == "Save" {
+				labels++
+			}
+		}
+	}
+	if rects == 0 || labels != 1 {
+		t.Fatalf("button paint: rects=%d label=%d; want >=1 / 1\n%+v", rects, labels, ops)
+	}
+}
+
+// Tabs 用左右方向键在标签间移动焦点（ArrowNav）。
+func TestTabsArrowNav(t *testing.T) {
+	h := ui.MountDefault(Tabs(TabsProps{Tabs: []string{"A", "B", "C"}, Active: 0, OnChange: func(int) {}}))
+	label := func(s string) *ui.Query {
+		return h.Root().Find(func(q *ui.Query) bool { return q.Clickable() && q.AllText() == s })
+	}
+	label("A").Focus()
+	if got := h.Arrow(ui.NavHorizontal, true).AllText(); got != "B" {
+		t.Fatalf("Right -> %q want B", got)
+	}
+	if got := h.Arrow(ui.NavHorizontal, false).AllText(); got != "A" {
+		t.Fatalf("Left -> %q want A", got)
+	}
+	if got := h.Arrow(ui.NavHorizontal, false).AllText(); got != "C" { // 环形回绕
+		t.Fatalf("Left wrap -> %q want C", got)
+	}
+}
+
+// 打开的 Dialog 应把键盘焦点困在对话框内（不 Tab 到背景按钮）。
+func TestDialogTrapsFocus(t *testing.T) {
+	app := func(_ struct{}) *ui.Node {
+		noop := func() {}
+		return ui.Div(
+			Button(ButtonProps{OnClick: noop}, ui.Text("bg")),
+			Dialog(DialogProps{Open: true},
+				Button(ButtonProps{OnClick: noop}, ui.Text("ok")),
+				Button(ButtonProps{OnClick: noop}, ui.Text("cancel")),
+			),
+		)
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	h.Step(200) // 让进场过渡完成，浮层挂载
+
+	seen := map[string]bool{}
+	for i := 0; i < 4; i++ {
+		seen[h.Tab().AllText()] = true
+	}
+	if seen["bg"] {
+		t.Fatalf("focus escaped dialog to background: %v", seen)
+	}
+	if !seen["ok"] || !seen["cancel"] {
+		t.Fatalf("dialog buttons not reachable: %v", seen)
+	}
+}
+
 func TestCheckboxTogglesControlledState(t *testing.T) {
 	app := func(_ struct{}) *ui.Node {
 		checked, set := ui.UseState(false)

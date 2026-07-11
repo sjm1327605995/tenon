@@ -50,22 +50,38 @@ type renderNode struct {
 	onClick     func()
 
 	// text / input
-	text  string
-	face  *text.GoTextFace
-	color Color
-	lineH float64
+	text       string
+	runs       []textRun // 富文本：非空时按多段混排绘制/测量
+	runsRev    int       // 富文本解析版本（resolveRuns 改动字体时自增），用于排版缓存失效
+	wc         wrapCache // 折行缓存（纯文本）
+	rc         richCache // 排版缓存（富文本）
+	face       *text.GoTextFace
+	color      Color
+	lineH      float64
+	fauxBold   bool
+	fauxItalic bool
 
 	// 文本样式继承
-	explicitColor bool // 本节点显式设置了颜色
-	ownColor      Color
-	explicitSize  bool // 本节点显式设置了字号
-	ownSize       float32
-	effSize       float32 // 生效字号（逻辑，含继承）
-	effScale      float32 // 上次取字体所用的 uiScale
-	inhColor      Color   // box 向下传递的颜色
-	hasInhColor   bool
-	inhSize       float32 // box 向下传递的字号
-	hasInhSize    bool
+	explicitColor  bool // 本节点显式设置了颜色
+	ownColor       Color
+	explicitSize   bool // 本节点显式设置了字号
+	ownSize        float32
+	explicitWeight bool
+	ownWeight      int
+	explicitItalic bool
+	ownItalic      bool
+	effSize        float32 // 生效字号（逻辑，含继承）
+	effScale       float32 // 上次取字体所用的 uiScale
+	effWeight      int
+	effItalic      bool
+	inhColor       Color // box 向下传递的颜色
+	hasInhColor    bool
+	inhSize        float32 // box 向下传递的字号
+	hasInhSize     bool
+	inhWeight      int
+	hasInhWeight   bool
+	inhItalic      bool
+	hasInhItalic   bool
 
 	// input
 	value       string
@@ -74,11 +90,18 @@ type renderNode struct {
 	onChange    func(string)
 	caretPos    int
 	selAnchor   int // 选区另一端；等于 caretPos 表示无选区
-	onHover     func(bool)
-	onPress     func(bool)
-	onDrag      func(dx, dy float32)
-	measure     *measureHook
-	focusable   bool
+
+	// IME 预编辑（未提交的组字串），仅聚焦输入框绘制期有效；不进入 value/onChange。
+	preedit      string
+	preeditAt    int // 预编辑串在 value 中的插入字节位置
+	preeditCaret int // 光标在预编辑串内的字节偏移
+	onHover      func(bool)
+	onPress      func(bool)
+	onDrag       func(dx, dy float32)
+	measure      *measureHook
+	focusable    bool
+	navGroup     bool // ArrowNav：本节点是方向键导航组
+	navOrient    NavOrient
 
 	// image
 	imgSrc string
@@ -138,18 +161,22 @@ func newBoxRenderNode() *renderNode {
 	return &renderNode{yn: yoga.NewNode(), kind: rnBox, opacity: 1, scale: 1}
 }
 
-func newTextRenderNode(s string, st StyleProps) *renderNode {
-	rn := &renderNode{yn: yoga.NewNode(), kind: rnText, text: s, opacity: 1, scale: 1}
+func newTextRenderNode(s string, st StyleProps, runs []textRun) *renderNode {
+	rn := &renderNode{yn: yoga.NewNode(), kind: rnText, text: s, runs: runs, opacity: 1, scale: 1}
 	rn.applyTextStyle(st)
 	rn.yn.SetMeasureFunc(func(_ *yoga.Node, w float32, wm yoga.MeasureMode, _ float32, _ yoga.MeasureMode) yoga.Size {
-		if rn.face == nil || rn.text == "" {
-			return yoga.Size{}
-		}
 		avail := float32(0)
 		if wm == yoga.MeasureModeExactly || wm == yoga.MeasureModeAtMost {
 			avail = w
 		}
-		lines, mw := wrapForWidth(rn.text, rn.face, rn.lineH, avail)
+		if len(rn.runs) > 0 {
+			_, mw, h := rn.richLayout(avail)
+			return yoga.Size{Width: mw, Height: h}
+		}
+		if rn.face == nil || rn.text == "" {
+			return yoga.Size{}
+		}
+		lines, mw := rn.wrapped(avail)
 		return yoga.Size{Width: mw, Height: float32(len(lines)) * float32(rn.lineH)}
 	})
 	return rn
@@ -210,65 +237,106 @@ func (rn *renderNode) applyTextStyle(st StyleProps) {
 	rn.ownColor = st.color
 	rn.explicitSize = st.hasFontSize
 	rn.ownSize = st.fontSize
+	rn.explicitWeight = st.hasWeight
+	rn.ownWeight = st.weight
+	rn.explicitItalic = st.hasItalic
+	rn.ownItalic = st.italic
 	if rn.effSize == 0 { // 初始回退，保证在 resolve 前也有可用字体
-		rn.setEffectiveText(Black, 16)
+		rn.setEffectiveText(Black, 16, 400, false)
 	}
 }
 
-// setEffectiveText 应用最终生效的颜色/字号（字号在物理像素下取字体，保证高分屏清晰）。
-func (rn *renderNode) setEffectiveText(c Color, size float32) {
+// setEffectiveText 应用最终生效的颜色/字号/字重/斜体（在物理像素下取字体，保证高分屏清晰）。
+func (rn *renderNode) setEffectiveText(c Color, size float32, weight int, italic bool) {
 	if size <= 0 {
 		size = 16
 	}
+	if weight <= 0 {
+		weight = 400
+	}
 	rn.color = c
-	if rn.effSize != size || rn.effScale != uiScale || rn.face == nil {
-		rn.effSize = size
-		rn.effScale = uiScale
+	if rn.effSize != size || rn.effScale != uiScale || rn.effWeight != weight || rn.effItalic != italic || rn.face == nil {
+		rn.effSize, rn.effScale, rn.effWeight, rn.effItalic = size, uiScale, weight, italic
 		px := size * uiScale
 		rn.lineH = float64(px) * 1.3
-		if ff, err := font.GetDefaultFontFace(px); err == nil {
+		if ff, err := font.GetDefaultFace(px, font.FontWeight(weight), italic); err == nil {
 			rn.face = ff.Face
+			rn.fauxBold = ff.FauxBold
+			rn.fauxItalic = ff.FauxItalic
 		}
 		rn.yn.MarkDirty()
 	}
 }
 
-// resolveInherited 自顶向下解析文本继承：box 贡献/透传 color 与 font-size，
-// 文本/输入节点若未显式设置则采用继承值。须在测量（CalculateLayout）之前调用。
-func resolveInherited(rn *renderNode, inC Color, hasC bool, inS float32, hasS bool) {
+// inhText 是文本继承上下文（自顶向下传递）。
+type inhText struct {
+	color              Color
+	size               float32
+	weight             int
+	hasColor, hasSize  bool
+	hasWeight, hasItal bool
+	italic             bool
+}
+
+// resolveInherited 自顶向下解析文本继承（颜色/字号/字重/斜体）；文本/输入节点未显式设置时采用继承值。
+// 须在测量（CalculateLayout）之前调用。
+func resolveInherited(rn *renderNode, ctx inhText) {
 	switch rn.kind {
 	case rnText, rnInput:
+		if rn.kind == rnText && len(rn.runs) > 0 {
+			rn.resolveRuns(ctx)
+			return
+		}
 		c := Black
 		if rn.explicitColor {
 			c = rn.ownColor
-		} else if hasC {
-			c = inC
+		} else if ctx.hasColor {
+			c = ctx.color
 		}
 		s := float32(16)
 		if rn.explicitSize {
 			s = rn.ownSize
-		} else if hasS {
-			s = inS
+		} else if ctx.hasSize {
+			s = ctx.size
 		}
-		rn.setEffectiveText(c, s)
+		w := 400
+		if rn.explicitWeight {
+			w = rn.ownWeight
+		} else if ctx.hasWeight {
+			w = ctx.weight
+		}
+		it := false
+		if rn.explicitItalic {
+			it = rn.ownItalic
+		} else if ctx.hasItal {
+			it = ctx.italic
+		}
+		rn.setEffectiveText(c, s, w, it)
 	default:
-		cC, cHasC := inC, hasC
 		if rn.hasInhColor {
-			cC, cHasC = rn.inhColor, true
+			ctx.color, ctx.hasColor = rn.inhColor, true
 		}
-		cS, cHasS := inS, hasS
 		if rn.hasInhSize {
-			cS, cHasS = rn.inhSize, true
+			ctx.size, ctx.hasSize = rn.inhSize, true
+		}
+		if rn.hasInhWeight {
+			ctx.weight, ctx.hasWeight = rn.inhWeight, true
+		}
+		if rn.hasInhItalic {
+			ctx.italic, ctx.hasItal = rn.inhItalic, true
 		}
 		for _, ch := range rn.children {
-			resolveInherited(ch, cC, cHasC, cS, cHasS)
+			resolveInherited(ch, ctx)
 		}
 	}
 }
 
-func (rn *renderNode) setText(s string, st StyleProps) {
-	changed := rn.text != s
+func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
+	changed := rn.text != s || !runsEqual(rn.runs, runs)
 	rn.text = s
+	if changed {
+		rn.runs = runs // 未变化时保留旧 runs（含已解析的字体缓存）
+	}
 	rn.applyTextStyle(st)
 	if changed {
 		rn.yn.MarkDirty()
@@ -304,6 +372,8 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 	rn.onPress = hp.onPress
 	rn.onDrag = hp.onDrag
 	rn.measure = hp.measure
+	rn.navGroup = hp.navGroup
+	rn.navOrient = hp.navOrient
 	rn.focusable = rn.kind == rnInput || hp.onClick != nil
 	switch rn.kind {
 	case rnInput:
@@ -414,11 +484,15 @@ func syncYoga(rn *renderNode, s StyleProps) {
 		rn.clip = true
 	}
 
-	// 容器可通过 TextColor/FontSize 为后代文本设定继承值
+	// 容器可通过 TextColor/FontSize/FontWeight/Italic 为后代文本设定继承值
 	rn.hasInhColor = s.hasColor
 	rn.inhColor = s.color
 	rn.hasInhSize = s.hasFontSize
 	rn.inhSize = s.fontSize
+	rn.hasInhWeight = s.hasWeight
+	rn.inhWeight = s.weight
+	rn.hasInhItalic = s.hasItalic
+	rn.inhItalic = s.italic
 
 	rn.animatedLayout = s.animateLayout
 	if s.animateLayout && activeGame != nil {
@@ -465,89 +539,80 @@ func computeBounds(rn *renderNode, ox, oy float32) {
 }
 
 // paint 是绘制入口；需要变换/整组透明度时先合成到离屏图层再变换绘制。
-func paint(dst *ebiten.Image, rn *renderNode) {
+func paint(p painter, rn *renderNode) {
 	if rn.needsLayer() {
-		paintLayer(dst, rn)
+		paintLayer(p, rn)
 		return
 	}
-	paintNode(dst, rn)
+	paintNode(p, rn)
 }
 
-// paintLayer 把子树合成到全屏尺寸的离屏图层，再围绕中心做 scale/rotate/translate
-// 及整组透明度，最后绘制回 dst（SubImage 裁剪仍然有效）。
-func paintLayer(dst *ebiten.Image, rn *renderNode) {
-	if activeGame == nil {
-		paintNode(dst, rn)
-		return
-	}
-	layer := acquireLayer(activeGame.w, activeGame.h)
+// paintLayer 把子树合成到独立图层，再围绕中心做 scale/rotate/translate 及整组透明度合回。
+func paintLayer(p painter, rn *renderNode) {
 	o := rn.opacity
 	rn.opacity = 1 // 组透明度在合成时统一施加，内部按不透明绘制
-	paintNode(layer, rn)
+	p.BeginLayer()
+	paintNode(p, rn)
 	rn.opacity = o
 
 	b := rn.bounds
-	cx, cy := float64(b.X+b.W/2), float64(b.Y+b.H/2)
-	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-	op.GeoM.Translate(-cx, -cy)
-	op.GeoM.Scale(float64(rn.scale), float64(rn.scale))
-	op.GeoM.Rotate(float64(rn.rotate) * math.Pi / 180)
-	op.GeoM.Translate(cx+float64(rn.effTransX()), cy+float64(rn.effTransY()))
-	op.ColorScale.ScaleAlpha(o)
-	dst.DrawImage(layer, op)
-	releaseLayer(layer)
+	p.EndLayer(layerTransform{
+		cx: b.X + b.W/2, cy: b.Y + b.H/2,
+		scale: rn.scale, rotate: rn.rotate,
+		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
+	})
 }
 
-func paintNode(dst *ebiten.Image, rn *renderNode) {
+func paintNode(p painter, rn *renderNode) {
 	b := rn.bounds
 	o := rn.opacity
 	if rn.hasShadow {
-		fillShadow(dst, b.X, b.Y, b.W, b.H, rn.radius,
+		p.Shadow(b.X, b.Y, b.W, b.H, rn.radius,
 			rn.shadowX, rn.shadowY, rn.shadowBlur, rn.shadowSpread, rn.shadowColor.Alpha(o))
 	}
 	switch rn.kind {
 	case rnBox, rnScroll:
-		fillRoundRect(dst, b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))
+		p.FillRect(b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))
 		if rn.borderW > 0 {
-			strokeRoundRect(dst, b.X, b.Y, b.W, b.H, rn.radius, rn.borderW, rn.borderColor.Alpha(o))
+			p.StrokeRect(b.X, b.Y, b.W, b.H, rn.radius, rn.borderW, rn.borderColor.Alpha(o))
 		}
 	case rnInput:
-		paintInput(dst, rn)
+		paintInput(p, rn)
 	case rnText:
-		lines, _ := wrapForWidth(rn.text, rn.face, rn.lineH, b.W)
+		if len(rn.runs) > 0 {
+			paintRichText(p, rn, o)
+			break
+		}
+		lines, _ := rn.wrapped(b.W)
 		for i, ln := range lines {
-			drawText(dst, ln, rn.face, rn.color.Alpha(o), b.X, b.Y+float32(i)*float32(rn.lineH))
+			p.DrawText(ln, rn.face, rn.color.Alpha(o), b.X, b.Y+float32(i)*float32(rn.lineH), rn.fauxBold, rn.fauxItalic)
 		}
 	case rnImage:
 		if rn.img != nil {
-			ib := rn.img.Bounds()
-			op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
-			op.GeoM.Scale(float64(b.W)/float64(ib.Dx()), float64(b.H)/float64(ib.Dy()))
-			op.GeoM.Translate(float64(b.X), float64(b.Y))
-			op.ColorScale.ScaleAlpha(o)
-			dst.DrawImage(rn.img, op)
+			p.DrawImage(rn.img, b, o)
 		}
 	}
 
-	// 裁剪：把子节点画进自身矩形的 SubImage（共享坐标系，自动裁掉越界部分）。
-	childDst := dst
+	// 裁剪：把子节点画进自身矩形（越界部分被裁掉）。
 	if rn.clip {
-		ir := image.Rect(int(b.X), int(b.Y), int(b.X+b.W), int(b.Y+b.H))
-		if ir.Dx() > 0 && ir.Dy() > 0 {
-			childDst = dst.SubImage(ir).(*ebiten.Image)
+		p.PushClip(b)
+		for _, c := range rn.children {
+			paint(p, c)
 		}
-	}
-	for _, c := range rn.children {
-		paint(childDst, c)
+		p.PopClip()
+	} else {
+		for _, c := range rn.children {
+			paint(p, c)
+		}
 	}
 
 	if rn.scroll && rn.contentH > b.H {
-		drawScrollbar(dst, rn)
+		drawScrollbar(p, rn)
 	}
 
 	// 键盘焦点环
 	if rn.focusable && isFocused(rn) {
-		strokeRoundRect(dst, b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
+		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
 	}
 }
 
@@ -567,7 +632,7 @@ func acquireLayer(w, h int) *ebiten.Image {
 
 func releaseLayer(im *ebiten.Image) { layerPool = append(layerPool, im) }
 
-func drawScrollbar(dst *ebiten.Image, rn *renderNode) {
+func drawScrollbar(p painter, rn *renderNode) {
 	b := rn.bounds
 	track := b.H
 	thumb := track * b.H / rn.contentH
@@ -580,84 +645,130 @@ func drawScrollbar(dst *ebiten.Image, rn *renderNode) {
 		t = rn.scrollY / maxScroll
 	}
 	ty := b.Y + t*(track-thumb)
-	fillRoundRect(dst, b.X+b.W-6, ty, 4, thumb, 2, Color{0, 0, 0, 90})
+	p.FillRect(b.X+b.W-6, ty, 4, thumb, 2, Color{0, 0, 0, 90})
 }
 
-func paintInput(dst *ebiten.Image, rn *renderNode) {
+func paintInput(p painter, rn *renderNode) {
 	b := rn.bounds
-	fillRoundRect(dst, b.X, b.Y, b.W, b.H, rn.radius, rn.bg)
+	p.FillRect(b.X, b.Y, b.W, b.H, rn.radius, rn.bg)
 	if rn.borderW > 0 {
-		strokeRoundRect(dst, b.X, b.Y, b.W, b.H, rn.radius, rn.borderW, rn.borderColor)
+		p.StrokeRect(b.X, b.Y, b.W, b.H, rn.radius, rn.borderW, rn.borderColor)
 	}
 	padL := rn.yn.LayoutPadding(yoga.EdgeLeft)
 	padT := rn.yn.LayoutPadding(yoga.EdgeTop)
 	tx := b.X + padL
-	usePlaceholder := rn.value == "" && rn.placeholder != ""
 	lineH := float32(rn.lineH)
+
+	// 组字（IME 预编辑）时把未提交串插入到 caret 处仅用于显示，不进入 value。
+	val := rn.value
+	caret := clampi(rn.caretPos, 0, len(val))
+	preLo, preHi := -1, -1
+	if isFocused(rn) && rn.preedit != "" {
+		at := clampi(rn.preeditAt, 0, len(val))
+		val = val[:at] + rn.preedit + val[at:]
+		preLo, preHi = at, at+len(rn.preedit)
+		caret = clampi(at+rn.preeditCaret, 0, len(val))
+	}
+	usePlaceholder := val == "" && rn.placeholder != ""
+	selLo := clampi(min(rn.selAnchor, rn.caretPos), 0, len(rn.value))
+	selHi := clampi(max(rn.selAnchor, rn.caretPos), 0, len(rn.value))
+	hasSel := preLo < 0 && selLo != selHi
 
 	if rn.multiline {
 		ty := b.Y + padT
-		display := rn.value
-		col := rn.color
+		avail := b.W - padL*2
 		if usePlaceholder {
-			display, col = rn.placeholder, Gray
-		}
-		lines, _ := wrapForWidth(display, rn.face, rn.lineH, b.W-padL*2)
-		for i, ln := range lines {
-			drawText(dst, ln, rn.face, col, tx, ty+float32(i)*lineH)
-		}
-		if isFocused(rn) && caretVisible() && !usePlaceholder {
-			prefix := rn.value[:min(rn.caretPos, len(rn.value))]
-			plines, _ := wrapForWidth(prefix, rn.face, rn.lineH, b.W-padL*2)
-			row := len(plines) - 1
-			cx := tx
-			if row >= 0 {
-				w, _ := text.Measure(plines[row], rn.face, rn.lineH)
-				cx += float32(w)
-			} else {
-				row = 0
+			for i, sp := range wrapSpans(rn.placeholder, rn.face, rn.lineH, avail) {
+				p.DrawText(sp.text, rn.face, Gray, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
 			}
-			cy := ty + float32(row)*lineH
-			ebitenDrawLine(dst, cx, cy, cx, cy+lineH, rn.color)
+			return
+		}
+		spans := wrapSpans(val, rn.face, rn.lineH, avail)
+		if hasSel {
+			paintSpanRange(p, spans, selLo, selHi, rn.face, rn.lineH, tx, ty, lineH, false)
+		}
+		if preLo >= 0 { // 预编辑下划线
+			paintSpanRange(p, spans, preLo, preHi, rn.face, rn.lineH, tx, ty, lineH, true)
+		}
+		for i, sp := range spans {
+			p.DrawText(sp.text, rn.face, rn.color, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
+		}
+		if isFocused(rn) && caretVisible() {
+			for i, sp := range spans {
+				if caret <= sp.end {
+					cx := sp.xInSpan(caret, rn.face, rn.lineH, tx)
+					cy := ty + float32(i)*lineH
+					p.Line(cx, cy, cx, cy+lineH, rn.color)
+					break
+				}
+			}
 		}
 		return
 	}
 
 	ty := b.Y + (b.H-lineH)/2
 
-	// 选区高亮（单行）
-	if rn.face != nil && rn.selAnchor != rn.caretPos {
-		a, c := min(rn.selAnchor, rn.caretPos), max(rn.selAnchor, rn.caretPos)
-		a = clampi(a, 0, len(rn.value))
-		c = clampi(c, 0, len(rn.value))
-		wa, _ := text.Measure(rn.value[:a], rn.face, rn.lineH)
-		wc, _ := text.Measure(rn.value[:c], rn.face, rn.lineH)
-		fillRoundRect(dst, tx+float32(wa), ty, float32(wc-wa), lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
+	if hasSel && rn.face != nil {
+		wa, _ := text.Measure(val[:selLo], rn.face, rn.lineH)
+		wc, _ := text.Measure(val[:selHi], rn.face, rn.lineH)
+		p.FillRect(tx+float32(wa), ty, float32(wc-wa), lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
+	}
+	if preLo >= 0 && rn.face != nil { // 预编辑下划线
+		wa, _ := text.Measure(val[:preLo], rn.face, rn.lineH)
+		wc, _ := text.Measure(val[:preHi], rn.face, rn.lineH)
+		p.Line(tx+float32(wa), ty+lineH-1, tx+float32(wc), ty+lineH-1, rn.color)
 	}
 
 	if usePlaceholder {
-		drawText(dst, rn.placeholder, rn.face, Gray, tx, ty)
+		p.DrawText(rn.placeholder, rn.face, Gray, tx, ty, rn.fauxBold, rn.fauxItalic)
 	} else {
-		drawText(dst, rn.value, rn.face, rn.color, tx, ty)
+		p.DrawText(val, rn.face, rn.color, tx, ty, rn.fauxBold, rn.fauxItalic)
 	}
 	if isFocused(rn) && caretVisible() {
 		cx := tx
-		if rn.face != nil && rn.caretPos > 0 {
-			w, _ := text.Measure(rn.value[:min(rn.caretPos, len(rn.value))], rn.face, rn.lineH)
+		if rn.face != nil && caret > 0 {
+			w, _ := text.Measure(val[:caret], rn.face, rn.lineH)
 			cx += float32(w)
 		}
-		ebitenDrawLine(dst, cx, ty, cx, ty+lineH, rn.color)
+		p.Line(cx, ty, cx, ty+lineH, rn.color)
 	}
 }
 
-func drawText(dst *ebiten.Image, s string, face *text.GoTextFace, c Color, x, y float32) {
+// paintSpanRange 逐行为字节区间 [lo,hi) 绘制高亮块或底部下划线（多行输入用）。
+func paintSpanRange(p painter, spans []wrapSpan, lo, hi int, face *text.GoTextFace, lineH float64, tx, ty, lh float32, underline bool) {
+	for i, sp := range spans {
+		a, c := max(lo, sp.start), min(hi, sp.end)
+		if a >= c {
+			continue
+		}
+		x0 := sp.xInSpan(a, face, lineH, tx)
+		x1 := sp.xInSpan(c, face, lineH, tx)
+		y := ty + float32(i)*lh
+		if underline {
+			p.Line(x0, y+lh-1, x1, y+lh-1, Color{R: 30, G: 30, B: 30, A: 255})
+		} else {
+			p.FillRect(x0, y, x1-x0, lh, 0, Color{R: 59, G: 130, B: 246, A: 90})
+		}
+	}
+}
+
+func drawText(dst *ebiten.Image, s string, face *text.GoTextFace, c Color, x, y float32, fauxBold, fauxItalic bool) {
 	if face == nil || s == "" {
 		return
 	}
-	op := &text.DrawOptions{}
-	op.GeoM.Translate(float64(x), float64(y))
-	op.ColorScale.ScaleWithColor(c)
-	text.Draw(dst, s, face, op)
+	draw := func(dx float64) {
+		op := &text.DrawOptions{}
+		if fauxItalic {
+			op.GeoM.Skew(-0.21, 0) // 合成斜体：错切
+		}
+		op.GeoM.Translate(float64(x)+dx, float64(y))
+		op.ColorScale.ScaleWithColor(c)
+		text.Draw(dst, s, face, op)
+	}
+	draw(0)
+	if fauxBold { // 合成粗体：叠一层微偏移使笔画变粗
+		draw(face.Size * 0.045)
+	}
 }
 
 func caretVisible() bool { return (time.Now().UnixMilli()/500)%2 == 0 }
@@ -697,6 +808,61 @@ func (rn *renderNode) caretFromX(px float32) int {
 		prevIdx, prevW = i, float32(w)
 	}
 	return len(rn.value)
+}
+
+// caretFromPoint 把绝对屏幕点映射到多行输入内的字节偏移。
+func (rn *renderNode) caretFromPoint(px, py float32) int {
+	if rn.face == nil || rn.value == "" {
+		return 0
+	}
+	padL := rn.yn.LayoutPadding(yoga.EdgeLeft)
+	padT := rn.yn.LayoutPadding(yoga.EdgeTop)
+	spans := wrapSpans(rn.value, rn.face, rn.lineH, rn.bounds.W-padL*2)
+	row := int((py - (rn.bounds.Y + padT)) / float32(rn.lineH))
+	if row < 0 {
+		row = 0
+	}
+	if row >= len(spans) {
+		row = len(spans) - 1
+	}
+	return spans[row].offsetInSpan(px-(rn.bounds.X+padL), rn.face, rn.lineH)
+}
+
+// caretRect 返回 caret 处的屏幕矩形（物理像素），用于放置 IME 候选窗。
+func (rn *renderNode) caretRect(caret int) image.Rectangle {
+	b := rn.bounds
+	padL := rn.yn.LayoutPadding(yoga.EdgeLeft)
+	lineH := float32(rn.lineH)
+	caret = clampi(caret, 0, len(rn.value))
+	var cx, cy float32
+	if rn.multiline {
+		padT := rn.yn.LayoutPadding(yoga.EdgeTop)
+		tx := b.X + padL
+		cx, cy = tx, b.Y+padT
+		for i, sp := range wrapSpans(rn.value, rn.face, rn.lineH, b.W-padL*2) {
+			if caret <= sp.end {
+				cx = sp.xInSpan(caret, rn.face, rn.lineH, tx)
+				cy = b.Y + padT + float32(i)*lineH
+				break
+			}
+		}
+	} else {
+		cx = b.X + padL
+		if rn.face != nil && caret > 0 {
+			w, _ := text.Measure(rn.value[:caret], rn.face, rn.lineH)
+			cx += float32(w)
+		}
+		cy = b.Y + (b.H-lineH)/2
+	}
+	return image.Rect(int(cx), int(cy), int(cx)+1, int(cy+lineH))
+}
+
+// caretAt 根据单行/多行选择合适的光标定位方式。
+func (rn *renderNode) caretAt(px, py float32) int {
+	if rn.multiline {
+		return rn.caretFromPoint(px, py)
+	}
+	return rn.caretFromX(px)
 }
 
 func isFocused(rn *renderNode) bool {

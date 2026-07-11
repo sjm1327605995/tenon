@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"time"
-	"unicode/utf8"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/exp/textinput"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/sjm1327605995/tenon/pkg/font"
@@ -50,19 +52,54 @@ type game struct {
 	pressedNode          *renderNode
 	inputSelecting       bool
 
+	// 多击检测（双击选词 / 三击选全部）
+	lastClickAt            time.Time
+	lastClickX, lastClickY int
+	clickCount             int
+
 	portals  []*Fiber
 	escStack []*escEntry
 
 	laidOutW, laidOutH int
 	boundsDirty        bool
 	hasLayoutAnim      bool
+
+	// IME（输入法组字）：exp/textinput.Field 承接文本录入，编辑期作为真值，
+	// 提交后回流到受控 value/onChange。imeComposing 为真时正在组字（预编辑）。
+	imeField     textinput.Field
+	imeComposing bool
+
+	// 按需重绘：无变化时复用 frameCache，仅做一次整屏 blit，跳过昂贵的树遍历/重折行。
+	frameCache  *ebiten.Image
+	needsPaint  bool
+	lastFocused *Fiber
+	lastCaretOn bool
+
+	// 性能 HUD（F12 切换 / ui.ShowStats 默认开）
+	showHUD                 bool
+	statPaint, statLayout   int // 当前 1s 窗口累计
+	hudPaintPS, hudLayoutPS int
+	hudPaintMs              float64
+	hudWindow               time.Time
 }
+
+// ShowStats 为真时启动即显示性能 HUD（重绘/布局次数、帧耗时）；运行时按 F12 也可切换。
+var ShowStats bool
+
+// FrameSync 控制逻辑帧率（TPS）。默认 true：让 Update 跟随显示器刷新率
+// （ebiten.SyncWithFPS），高刷屏（120/144Hz）上动画更顺；动画基于墙钟 dt，速度不随刷新率变化。
+// 设为 false 则固定 60 TPS（可预测、更省电）。想要其它固定值可自行调用 ebiten.SetTPS。
+// 仅在 Run 启动时读取一次。
+var FrameSync = true
 
 // Run 启动应用；root 通常是一个 Use(...) 组件节点。
 func Run(root *Node) {
 	initFont()
-	g := &game{root: root, w: 800, h: 600}
+	g := &game{root: root, w: 800, h: 600, showHUD: ShowStats}
 	activeGame = g
+	if FrameSync {
+		ebiten.SetTPS(ebiten.SyncWithFPS) // 逻辑跟随刷新率；动画 dt-based，速度不变、步数随刷新率增多
+	}
 	ebiten.SetWindowSize(g.w, g.h)
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("Tenon UI")
@@ -79,6 +116,7 @@ func (g *game) Update() error {
 	}
 	g.lastFrame = now
 
+	paint := false
 	if g.rootFiber == nil {
 		g.rootFiber = reconcile(nil, nil, g.root)
 		g.needsLayout = true
@@ -93,34 +131,69 @@ func (g *game) Update() error {
 		}
 	}
 
+	// needsLayout 汇聚了所有 re-render/动画/滚动/窗口变化（flushDirty 必置位），是主重绘信号。
 	if g.needsLayout {
 		g.rootRN = rootRenderNode(g.rootFiber)
 		g.layout()
 		g.needsLayout = false
+		g.statLayout++
+		paint = true
 	}
 
-	g.tickLayoutAnim(dt)
+	if g.tickLayoutAnim(dt) { // FLIP 残余偏移直接改绘制数据、不经 re-render
+		paint = true
+	}
 	g.flushEffects()
+
+	// 不经 re-render、直接改绘制数据的交互，需单独触发重绘
+	if g.inputSelecting || g.imeComposing {
+		paint = true
+	}
+	if g.focusedFiber != g.lastFocused { // 焦点环直接在 paintNode 里画
+		g.lastFocused = g.focusedFiber
+		paint = true
+	}
+	if on := caretVisible(); on != g.lastCaretOn { // 光标闪烁（唯一纯计时器信号）
+		g.lastCaretOn = on
+		if f := g.focusedFiber; f != nil && f.rnode != nil && f.rnode.kind == rnInput {
+			paint = true
+		}
+	}
+	// 注：所有输入事件都已汇入上面的信号 —— 悬停/滚动/点击经 needsLayout（onHover/scroll/onClick→state），
+	// 焦点/选区/IME 各有显式标志。故无需"光标移动即重绘"的兜底（那只会在静态界面上空转）。
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		g.showHUD = !g.showHUD
+		paint = true
+	}
+	if paint {
+		g.needsPaint = true
+	}
 	return nil
 }
 
 // tickLayoutAnim 逐帧推进布局动画：检测位置变化注入残余偏移，并指数衰减到 0。
-func (g *game) tickLayoutAnim(dt float32) {
+// tickLayoutAnim 推进 FLIP 布局动画；返回是否仍有节点在移动（供按需重绘判断）。
+func (g *game) tickLayoutAnim(dt float32) bool {
 	if dt <= 0 || !g.hasLayoutAnim {
-		return
+		return false
 	}
 	decay := float32(math.Exp(-float64(dt) / 70))
+	active := false
 	if g.rootRN != nil {
-		walkLayoutAnim(g.rootRN, decay)
+		active = walkLayoutAnim(g.rootRN, decay) || active
 	}
 	for _, pf := range g.portals {
 		if pf.overlayRoot != nil {
-			walkLayoutAnim(pf.overlayRoot, decay)
+			active = walkLayoutAnim(pf.overlayRoot, decay) || active
 		}
 	}
+	return active
 }
 
-func walkLayoutAnim(rn *renderNode, decay float32) {
+// walkLayoutAnim 返回子树内是否还有非零残余偏移（仍在动画中）。
+func walkLayoutAnim(rn *renderNode, decay float32) bool {
+	active := false
 	if rn.animatedLayout {
 		if rn.hasPrevPos {
 			rn.offX += rn.prevPosX - rn.bounds.X
@@ -136,23 +209,69 @@ func walkLayoutAnim(rn *renderNode, decay float32) {
 		}
 		rn.prevPosX, rn.prevPosY = rn.bounds.X, rn.bounds.Y
 		rn.hasPrevPos = true
+		if rn.offX != 0 || rn.offY != 0 {
+			active = true
+		}
 	}
 	for _, c := range rn.children {
-		walkLayoutAnim(c, decay)
+		active = walkLayoutAnim(c, decay) || active
 	}
+	return active
 }
 
 func (g *game) Draw(screen *ebiten.Image) {
-	screen.Fill(Color{247, 248, 250, 255})
-	if g.rootRN != nil {
-		paint(screen, g.rootRN)
+	b := screen.Bounds()
+	if g.frameCache == nil || g.frameCache.Bounds().Dx() != b.Dx() || g.frameCache.Bounds().Dy() != b.Dy() {
+		g.frameCache = ebiten.NewImage(b.Dx(), b.Dy())
+		g.needsPaint = true
 	}
-	// 浮层绘制在主树之上（按树序，靠后者更上层）
-	for _, pf := range g.portals {
-		if pf.overlayRoot != nil {
-			paint(screen, pf.overlayRoot)
+	repainted := g.needsPaint
+	if g.needsPaint { // 仅在有视觉变化时重走整棵树/重折行，画进缓存帧
+		t0 := time.Now()
+		g.frameCache.Fill(Color{247, 248, 250, 255})
+		p := newEbitenPainter(g.frameCache, b.Dx(), b.Dy())
+		if g.rootRN != nil {
+			paint(p, g.rootRN)
 		}
+		for _, pf := range g.portals { // 浮层绘制在主树之上（按树序，靠后者更上层）
+			if pf.overlayRoot != nil {
+				paint(p, pf.overlayRoot)
+			}
+		}
+		g.hudPaintMs = float64(time.Since(t0).Microseconds()) / 1000
+		g.needsPaint = false
+		g.statPaint++
 	}
+	screen.DrawImage(g.frameCache, nil) // 无变化时只做这一次 blit
+	g.rollStats()
+	if g.showHUD {
+		g.drawHUD(screen, repainted)
+	}
+}
+
+// rollStats 每秒快照一次重绘/布局计数，供 HUD 显示。
+func (g *game) rollStats() {
+	now := time.Now()
+	if g.hudWindow.IsZero() {
+		g.hudWindow = now
+		return
+	}
+	if now.Sub(g.hudWindow) >= time.Second {
+		g.hudPaintPS, g.hudLayoutPS = g.statPaint, g.statLayout
+		g.statPaint, g.statLayout = 0, 0
+		g.hudWindow = now
+	}
+}
+
+func (g *game) drawHUD(screen *ebiten.Image, repainted bool) {
+	state := "cached"
+	if repainted {
+		state = "PAINT"
+	}
+	fillRoundRect(screen, 6, 6, 210, 70, 6, Color{0, 0, 0, 175})
+	msg := fmt.Sprintf("FPS %.0f   TPS %.0f\nrepaint %d/s   layout %d/s\nthis frame: %s   %.2fms\nF12 to hide",
+		ebiten.ActualFPS(), ebiten.ActualTPS(), g.hudPaintPS, g.hudLayoutPS, state, g.hudPaintMs)
+	ebitenutil.DebugPrintAt(screen, msg, 12, 10)
 }
 
 // SuperSample 是相对物理像素的超采样倍率：在更高分辨率渲染再由 Ebiten 缩放显示，
@@ -257,7 +376,7 @@ func (g *game) layout() {
 		return
 	}
 	relink(g.rootFiber) // 增量：仅结构变化时改动 yoga 链接
-	resolveInherited(g.rootRN, Black, false, 16, false)
+	resolveInherited(g.rootRN, inhText{})
 
 	windowChanged := g.w != g.laidOutW || g.h != g.laidOutH
 	if g.rootRN.yn.IsDirty() || windowChanged {
@@ -292,7 +411,7 @@ func (g *game) layoutPortals(windowChanged bool) {
 		root.yn.StyleSetWidth(float32(g.w))
 		root.yn.StyleSetHeight(float32(g.h))
 		root.yn.StyleSetFlexDirection(yoga.FlexDirectionColumn)
-		resolveInherited(root, Black, false, 16, false)
+		resolveInherited(root, inhText{})
 		if root.yn.IsDirty() || windowChanged {
 			root.yn.CalculateLayout(float32(g.w), float32(g.h), yoga.DirectionLTR)
 			computeBounds(root, 0, 0)
@@ -338,14 +457,34 @@ func (g *game) handleInput() {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
 		n := g.hitTop(float32(x), float32(y))
-		// 聚焦：命中 input 则聚焦并把光标定位到点击处、开始选区拖拽
+		// 聚焦：命中 input 则聚焦；单击定位光标并开始拖选，双击选词，三击选全部
 		if n != nil && n.kind == rnInput {
 			g.focusedFiber = n.owner
-			c := n.caretFromX(float32(x))
-			n.caretPos, n.selAnchor = c, c
-			g.inputSelecting = true
+			c := n.caretAt(float32(x), float32(y))
+			now := time.Now()
+			if iabs(x-g.lastClickX) < 4 && iabs(y-g.lastClickY) < 4 && now.Sub(g.lastClickAt) < 400*time.Millisecond {
+				g.clickCount++
+			} else {
+				g.clickCount = 1
+			}
+			if g.clickCount > 3 {
+				g.clickCount = 1
+			}
+			g.lastClickAt, g.lastClickX, g.lastClickY = now, x, y
+			switch g.clickCount {
+			case 2: // 双击选词
+				n.selAnchor, n.caretPos = wordAt(n.value, c)
+				g.inputSelecting = false
+			case 3: // 三击选全部
+				n.selAnchor, n.caretPos = 0, len(n.value)
+				g.inputSelecting = false
+			default:
+				n.caretPos, n.selAnchor = c, c
+				g.inputSelecting = true
+			}
 		} else {
 			g.focusedFiber = nil
+			g.clickCount = 0
 		}
 		// 按压开始：向上找第一个 onPress
 		for c := n; c != nil; c = c.parent {
@@ -378,6 +517,13 @@ func (g *game) handleInput() {
 	g.editFocusedInput()
 }
 
+func iabs(v int) int {
+	if v < 0 {
+		return -v
+	}
+	return v
+}
+
 // updateInputSelection 在聚焦输入框上拖动鼠标时扩展选区（单行）。
 func (g *game) updateInputSelection() {
 	if !g.inputSelecting {
@@ -388,11 +534,11 @@ func (g *game) updateInputSelection() {
 		return
 	}
 	f := g.focusedFiber
-	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.multiline {
+	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput {
 		return
 	}
-	x, _ := ebiten.CursorPosition()
-	f.rnode.caretPos = f.rnode.caretFromX(float32(x)) // anchor 不动 -> 形成选区
+	x, y := ebiten.CursorPosition()
+	f.rnode.caretPos = f.rnode.caretAt(float32(x), float32(y)) // anchor 不动 -> 形成选区
 }
 
 // updatePress 在左键松开时结束按压态并回调 onPress(false)。
@@ -414,6 +560,17 @@ func (g *game) handleKeyboardNav() {
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		g.focusNext(!ebiten.IsKeyPressed(ebiten.KeyShift))
 	}
+	// 方向键：在导航组内移动焦点（输入框聚焦时 moveFocusInGroup 自动放行给光标）
+	switch {
+	case inpututil.IsKeyJustPressed(ebiten.KeyDown):
+		g.moveFocusInGroup(true, NavVertical)
+	case inpututil.IsKeyJustPressed(ebiten.KeyUp):
+		g.moveFocusInGroup(false, NavVertical)
+	case inpututil.IsKeyJustPressed(ebiten.KeyRight):
+		g.moveFocusInGroup(true, NavHorizontal)
+	case inpututil.IsKeyJustPressed(ebiten.KeyLeft):
+		g.moveFocusInGroup(false, NavHorizontal)
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		g.fireEscape()
 	}
@@ -427,10 +584,14 @@ func (g *game) handleKeyboardNav() {
 // 环形回绕；返回新的焦点节点，无可聚焦元素时返回 nil。
 func (g *game) focusNext(forward bool) *renderNode {
 	var list []*renderNode
-	collectFocusables(g.rootRN, &list)
-	for _, pf := range g.portals {
-		if pf.overlayRoot != nil {
-			collectFocusables(pf.overlayRoot, &list)
+	if scope := g.trapScope(); scope != nil {
+		collectFocusables(scope, &list) // 模态：焦点只在浮层内循环
+	} else {
+		collectFocusables(g.rootRN, &list)
+		for _, pf := range g.portals {
+			if pf.overlayRoot != nil {
+				collectFocusables(pf.overlayRoot, &list)
+			}
 		}
 	}
 	var cur *renderNode
@@ -490,13 +651,28 @@ func (g *game) updateDrag() {
 	}
 }
 
-// editFocusedInput 处理聚焦输入框的键盘编辑：文本输入、选区、剪切/复制/粘贴/全选（受控回流）。
+// editFocusedInput 处理聚焦输入框的键盘编辑：IME 组字、文本输入、选区、剪切/复制/粘贴/全选（受控回流）。
 func (g *game) editFocusedInput() {
 	f := g.focusedFiber
 	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput {
+		if g.imeField.IsFocused() {
+			g.imeField.Blur()
+		}
+		g.imeComposing = false
 		return
 	}
 	rn := f.rnode
+	if !g.imeField.IsFocused() {
+		g.imeField.Focus()
+		g.imeComposing = false
+		c := clampi(rn.caretPos, 0, len(rn.value))
+		g.imeField.SetTextAndSelection(rn.value, c, c)
+	}
+	// IME 优先：组字或提交时消费本帧输入，跳过下面的手动编辑。
+	if g.handleIME(rn) {
+		return
+	}
+
 	val := rn.value
 	caret := clampi(rn.caretPos, 0, len(val))
 	anchor := clampi(rn.selAnchor, 0, len(val))
@@ -561,18 +737,23 @@ func (g *game) editFocusedInput() {
 		if hasSel() {
 			delSel()
 		} else if caret > 0 {
-			_, sz := utf8.DecodeLastRuneInString(val[:caret])
-			val = val[:caret-sz] + val[caret:]
-			caret -= sz
-			anchor = caret
+			prev := prevGraphemeBoundary(val, caret) // Ctrl 删整词，否则删一个字素簇
+			if ctrl {
+				prev = prevWordBoundary(val, caret)
+			}
+			val = val[:prev] + val[caret:]
+			caret, anchor = prev, prev
 		}
 	}
 	if repeatKey(ebiten.KeyDelete) {
 		if hasSel() {
 			delSel()
 		} else if caret < len(val) {
-			_, sz := utf8.DecodeRuneInString(val[caret:])
-			val = val[:caret] + val[caret+sz:]
+			next := nextGraphemeBoundary(val, caret)
+			if ctrl {
+				next = nextWordBoundary(val, caret)
+			}
+			val = val[:caret] + val[next:]
 			anchor = caret
 		}
 	}
@@ -580,8 +761,11 @@ func (g *game) editFocusedInput() {
 		if hasSel() && !shift {
 			caret = selLo()
 		} else if caret > 0 {
-			_, sz := utf8.DecodeLastRuneInString(val[:caret])
-			caret -= sz
+			if ctrl {
+				caret = prevWordBoundary(val, caret)
+			} else {
+				caret = prevGraphemeBoundary(val, caret)
+			}
 		}
 		afterMove()
 	}
@@ -589,8 +773,11 @@ func (g *game) editFocusedInput() {
 		if hasSel() && !shift {
 			caret = selHi()
 		} else if caret < len(val) {
-			_, sz := utf8.DecodeRuneInString(val[caret:])
-			caret += sz
+			if ctrl {
+				caret = nextWordBoundary(val, caret)
+			} else {
+				caret = nextGraphemeBoundary(val, caret)
+			}
 		}
 		afterMove()
 	}
@@ -618,6 +805,68 @@ func (g *game) editFocusedInput() {
 	}
 }
 
+// handleIME 用 exp/textinput.Field 承接文本录入与输入法组字：
+//   - 组字中：把预编辑串写入 rn.preedit 供绘制，不触发 onChange；
+//   - 提交/普通字符：读回 Field 文本，经 onChange 回流到受控 value；
+//   - 编辑期 Field 是真值，非组字时每帧从受控 value 同步回 Field。
+//
+// 返回是否已消费本帧输入（true 时调用方应跳过手动键盘编辑）。
+// 在不支持输入法的平台上 Field 会话为空操作，始终返回 false，回退到 AppendInputChars。
+func (g *game) handleIME(rn *renderNode) bool {
+	val := rn.value
+	caret := clampi(rn.caretPos, 0, len(val))
+	anchor := clampi(rn.selAnchor, 0, len(val))
+	lo, hi := min(anchor, caret), max(anchor, caret)
+
+	if !g.imeComposing {
+		fs, fe := g.imeField.Selection()
+		if g.imeField.Text() != val || fs != lo || fe != hi {
+			g.imeField.SetTextAndSelection(val, lo, hi)
+		}
+	}
+
+	handled, err := g.imeField.HandleInputWithBounds(rn.caretRect(caret))
+	if err != nil {
+		g.imeComposing = false
+		rn.preedit = ""
+		return false
+	}
+
+	if n := g.imeField.UncommittedTextLengthInBytes(); n > 0 { // 正在组字
+		g.imeComposing = true
+		fs, _ := g.imeField.Selection()
+		rendered := g.imeField.TextForRendering()
+		end := fs + n
+		if end > len(rendered) {
+			end = len(rendered)
+		}
+		rn.preedit = rendered[fs:end]
+		rn.preeditAt = clampi(fs, 0, len(rn.value))
+		if cs, _, ok := g.imeField.CompositionSelection(); ok {
+			rn.preeditCaret = cs
+		} else {
+			rn.preeditCaret = n
+		}
+		rn.caretPos, rn.selAnchor = rn.preeditAt, rn.preeditAt // 组字期间选区折叠到插入点
+		return true
+	}
+
+	// 未组字
+	rn.preedit = ""
+	wasComposing := g.imeComposing
+	g.imeComposing = false
+	if handled || wasComposing {
+		nv := g.imeField.Text()
+		fs, _ := g.imeField.Selection()
+		if nv != val && rn.onChange != nil {
+			rn.onChange(nv)
+		}
+		rn.caretPos, rn.selAnchor = clampi(fs, 0, len(nv)), clampi(fs, 0, len(nv))
+		return true
+	}
+	return false
+}
+
 // updateHover 计算光标下的悬停链，触发 enter/leave 回调（回调内一般 setState 驱动重渲染）。
 func (g *game) updateHover() {
 	x, y := ebiten.CursorPosition()
@@ -640,8 +889,35 @@ func (g *game) updateHover() {
 	g.hovered = now
 }
 
-// repeatKey 在按下瞬间触发，长按后按固定间隔重复。
+// 长按重复用墙钟计时（与 TPS 脱钩）：首触发后延迟 repeatDelay，再每 repeatInterval 重复一次。
+// 这样在任意刷新率 / SyncWithFPS 下退格、方向键的重复速度都一致。
+const (
+	repeatDelay    = 450 * time.Millisecond
+	repeatInterval = 33 * time.Millisecond // ~30 次/秒
+)
+
+// keyNextRepeat 记录每个键下次允许重复触发的时刻。
+var keyNextRepeat = map[ebiten.Key]time.Time{}
+
+// repeatKey 在按下瞬间触发一次，长按后按固定的时间间隔重复（不依赖 tick 数）。
 func repeatKey(k ebiten.Key) bool {
-	d := inpututil.KeyPressDuration(k)
-	return d == 1 || (d >= 30 && (d-30)%3 == 0)
+	if inpututil.IsKeyJustPressed(k) {
+		keyNextRepeat[k] = time.Now().Add(repeatDelay)
+		return true
+	}
+	if !ebiten.IsKeyPressed(k) {
+		delete(keyNextRepeat, k)
+		return false
+	}
+	next, ok := keyNextRepeat[k]
+	if !ok { // 聚焦时键已被按住：先建立计时，不立即触发
+		keyNextRepeat[k] = time.Now().Add(repeatDelay)
+		return false
+	}
+	now := time.Now()
+	if now.Before(next) {
+		return false
+	}
+	keyNextRepeat[k] = now.Add(repeatInterval)
+	return true
 }

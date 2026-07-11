@@ -30,6 +30,7 @@ type Fiber struct {
 
 	// portal（独立浮层布局根）
 	overlayRoot *renderNode
+	portalTrap  bool // TrapFocus()：该浮层限制键盘焦点在内部（模态）
 
 	dirty     bool
 	queued    bool
@@ -84,6 +85,7 @@ func mountFiber(parent *Fiber, n *Node) *Fiber {
 		f.children = mountList(f, n.kids)
 	case typePortal:
 		f.overlayRoot = newBoxRenderNode()
+		f.portalTrap = n.trap
 		f.children = mountList(f, n.kids)
 	case typeHost:
 		f.tag = n.tag
@@ -92,7 +94,7 @@ func mountFiber(parent *Fiber, n *Node) *Fiber {
 		applyHostProps(f.rnode, buildHostProps(n))
 		f.children = mountList(f, n.kids)
 	case typeText:
-		f.rnode = newTextRenderNode(n.text, n.textStyle)
+		f.rnode = newTextRenderNode(n.text, n.textStyle, cloneRuns(n.runs))
 		f.rnode.owner = f
 	}
 	return f
@@ -133,12 +135,13 @@ func updateFiber(f *Fiber, n *Node) {
 		}
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeFragment, typePortal:
+		f.portalTrap = n.trap
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeHost:
 		applyHostProps(f.rnode, buildHostProps(n))
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeText:
-		f.rnode.setText(n.text, n.textStyle)
+		f.rnode.setText(n.text, n.textStyle, cloneRuns(n.runs))
 	}
 }
 

@@ -29,8 +29,8 @@ func CardFooter(children ...*ui.Node) *ui.Node {
 	return ui.Div(append([]*ui.Node{ui.Style(ui.Row, ui.Gap(8), ui.ItemsCenter, ui.PaddingXY(24, 0))}, children...)...)
 }
 
-// CardTitle 继承 Card 前景色（font-semibold，字重暂无支持）。
-func CardTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(16)) }
+// CardTitle 继承 Card 前景色（text-base font-semibold）。
+func CardTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(16), ui.Semibold) }
 
 // CardDescription 使用弱化前景色。
 func CardDescription(text string) *ui.Node { return ui.Use(mutedText, text) }

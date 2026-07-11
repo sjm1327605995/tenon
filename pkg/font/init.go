@@ -83,6 +83,16 @@ func GetDefaultFontFace(size float32) (*FontFace, error) {
 	return fontManager.GetDefaultFontFace(size)
 }
 
+// GetDefaultFace 获取默认字体族在指定字重/斜体下的字体面（便捷函数）。
+func GetDefaultFace(size float32, weight FontWeight, italic bool) (*FontFace, error) {
+	return GetFontManager().GetDefaultFace(size, weight, italic)
+}
+
+// LoadFontVariant 注册字体族的粗体/斜体变体（便捷函数）。
+func LoadFontVariant(family FontFamily, bold, italic bool, data []byte) error {
+	return GetFontManager().LoadFontVariant(family, bold, italic, data)
+}
+
 // ListLoadedFonts 列出已加载的字体（便捷函数）
 func ListLoadedFonts() []FontFamily {
 	fontManager := GetFontManager()

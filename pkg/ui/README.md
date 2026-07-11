@@ -82,7 +82,7 @@ Helpers: `If(cond, node)` conditional; nil children are ignored.
 - **Appearance**: `Bg(Color)`, `Radius`, `Border(w, Color)`, `Opacity`, `Clip`
 - **Position**: `Absolute`, `Top/Right/Bottom/Left`
 - **Transform** (around center): `Scale`, `Rotate(deg)`, `TranslateXY`
-- **Text** (inherited by descendants): `TextColor(Color)`, `FontSize`
+- **Text** (inherited by descendants): `TextColor(Color)`, `FontSize`, `FontWeight(int)` / `Bold` / `Semibold` / `Medium`, `Italic`
 - **Animation**: `Animated` (FLIP — slides to new position when its layout moves)
 
 Colors: `Hex("#rrggbb"|"#rrggbbaa")`, `Color{R,G,B,A}`, `c.Alpha(f)`, plus `White/Black/Red/Green/Blue/Gray/...`.

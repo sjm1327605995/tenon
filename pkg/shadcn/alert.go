@@ -33,7 +33,7 @@ func alert(p AlertProps) *ui.Node {
 }
 
 // AlertTitle 继承 Alert 前景色（text-sm font-medium）。
-func AlertTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(14)) }
+func AlertTitle(text string) *ui.Node { return ui.Text(text, ui.FontSize(14), ui.Medium) }
 
 // AlertDescription 使用弱化前景色。
 func AlertDescription(text string) *ui.Node { return ui.Use(mutedText, text) }

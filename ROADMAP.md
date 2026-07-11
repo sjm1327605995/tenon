@@ -8,6 +8,9 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 - Three-tree model (Node → Fiber → renderNode), reconciliation (function-pointer + key identity), keyed lists, Fragment, Portal.
 - Hooks: `UseState`, `UseReducer`, `UseEffect`, `UseMemo`, `UseCallback`, `UseRef`, `UseContext`; `Memo` (shallow-prop bailout); stable setters.
 - Local re-render (only the setState'd component); incremental layout (paint-only changes don't recompute; resize recomputes only size-dependent subtrees; idle frames do no layout).
+- On-demand repaint: frames repaint only on real visual change (re-render / animation / FLIP / selection / IME / focus / caret blink); otherwise a cached frame is blitted. Idle drops to **0 repaints & 0 layouts/s** (verified) while the loop still runs at refresh rate. Perf HUD via `ui.ShowStats` / F12 (repaint & layout per-second, frame paint cost).
+- Text-shaping cache: per-node memoization of `wrapForWidth` / `layoutRuns` (keyed by text/font/width), so repaints and re-layouts of unchanged text skip re-shaping — cache hit `~2ns`, `0 allocs` vs `~7.6µs`, `22 allocs` uncached (benchmarked).
+- Refresh-rate adaptive: animation is wall-clock `dt`-based (speed constant across 60/120/144Hz); `ui.FrameSync` (default on) ties logic TPS to the display refresh via `SyncWithFPS` so high-refresh screens get more animation steps; long-press key-repeat is time-based (TPS-independent).
 - `ui.Post` for thread-safe updates from background goroutines.
 
 **Layout**
@@ -15,32 +18,33 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 
 **Rendering**
 - `ebiten/vector` rounded rects / borders, `text/v2` text, images; supersampling AA; HiDPI (device-scale) rendering.
+- Paint goes through a `painter` backend interface (draw primitives + clip + layer), so the render walk is backend-agnostic — an ebiten backend for the window, a recording backend for headless golden tests (and room for a future Skia backend).
 
 **Animation**
 - `UseTween` + easings; `UseTransition` (enter/exit); FLIP layout animation; transforms (scale/rotate/translate, hit-test aware); per-node and group opacity.
 
 **Input & text**
-- Click (bubbling), hover, drag, wheel scroll; keyboard: Tab focus nav, Enter/Space activate, Esc stack; press state.
-- Controlled `Input` with caret, multi-line (`Multiline`), selection (Shift+arrows/drag/Ctrl+A) and cut/copy/paste (pluggable clipboard).
-- Text wrapping (latin word-break + CJK), style inheritance, embedded CJK font, anchored overlays (`UseMeasure`).
+- Click (bubbling), hover, drag, wheel scroll; keyboard: Tab focus nav, Enter/Space activate, Esc stack; press state. Modal focus trapping (`Portal(TrapFocus(), …)`) — Tab stays inside the top modal; wired into shadcn Dialog/Sheet. Roving arrow-key navigation (`ArrowNav(NavVertical/NavHorizontal)`) inside menus/lists/tabs — wired into shadcn Tabs (←→) and DropdownMenu (↑↓).
+- Controlled `Input` with caret, multi-line (`Multiline`), selection (Shift+arrows/drag/Ctrl+A, double-click word, triple-click all) and cut/copy/paste (pluggable clipboard); IME composition (`exp/textinput`) with underlined preedit at the caret. Grapheme-aware caret/backspace/delete and word-wise nav/delete (Ctrl+←→/Backspace) via `rivo/uniseg` — emoji, combining marks, ZWJ sequences move & delete as one unit.
+- Text wrapping via Unicode line-breaking (UAX#14, `rivo/uniseg`) — hyphen breaks, CJK per-char, closing punctuation never at line start, non-breaking spaces; style inheritance, font weights/italic, rich-text spans (`RichText`), embedded CJK font, anchored overlays (`UseMeasure`).
 
 **Components**
 - Base kit (Checkbox/Switch/Radio/Slider/Progress/Spinner/Badge/Avatar/Divider/Card/Tabs).
 - `pkg/shadcn`: ~41 shadcn/ui-style components on a theme + interaction foundation.
 
 **Tooling**
-- 30+ engine tests; per-package READMEs + godoc; runnable examples.
+- 40+ engine tests incl. headless **golden paint tests** (`Harness.Paint()` → `[]PaintOp` via the recording backend) + wrap/measure benchmarks; per-package READMEs + godoc; runnable examples.
 - `ui.Mount` headless test harness (mount + drive click/hover/press/drag/type, query the render tree) — `pkg/shadcn` uses it for real behavior tests.
 
 ## In progress / next (priority order)
 
-1. **Font weights & richer text** — real bold/italic (load or synthesize), rich-text spans in one `Text`, IME preedit/composition, multi-line selection highlight. *(Biggest remaining gap for text-heavy apps.)*
-2. **Accessibility** — arrow-key navigation inside menus/lists, focus trapping in modals; an accessibility tree.
-3. **Performance at scale** — benchmark suite; list virtualization for large data; sub-tree-scoped `resolveInherited`.
-4. **Rendering extras** — box-shadow, gradients, `Img` object-fit, integrate `pkg/svg` for icons.
+1. **BiDi text** — right-to-left / mixed-direction (Arabic, Hebrew) via `x/text/unicode/bidi`. Deferred deliberately: it's an all-or-nothing change touching visual reordering, caret/selection, and hit-testing, so it needs its own careful pass rather than being bolted onto the LTR path.
+2. **Accessibility** — ~~focus trapping in modals~~ **done** (`TrapFocus()`); ~~arrow-key navigation inside menus/lists~~ **done** (`ArrowNav`, roving focus). Still: an accessibility tree for screen readers (needs AccessKit/platform APIs).
+3. **Performance at scale** — list virtualization for large data; sub-tree-scoped `resolveInherited`.
+4. **Rendering extras** — gradients, `Img` object-fit, integrate `pkg/svg` for icons.
 5. **Native integration** — OS clipboard binding, native file/context menus; (multi-window is bounded by Ebiten).
 
-**Recently done:** a headless test-mount helper (`ui.Mount`) now lets `pkg/shadcn` and app code assert real click/input/hover behavior, not just construction.
+**Recently done:** the text layer is now feature-complete — font weights/italic, rich-text spans (`RichText`), and IME composition (`exp/textinput`, underlined preedit) join wrapping, style inheritance, and multi-line selection. A headless test-mount helper (`ui.Mount`) lets `pkg/shadcn` and app code assert real click/input/hover behavior.
 
 ## Non-goals (for now)
 

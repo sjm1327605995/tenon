@@ -2,11 +2,433 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/sjm1327605995/tenon/pkg/font"
 	"github.com/sjm1327605995/tenon/yoga"
 )
+
+func TestMultilineSpans(t *testing.T) {
+	_ = font.InitDefaultFont()
+	ff, err := font.GetDefaultFace(16, 400, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 含 \n 时无论宽度都按行分割，且字节偏移正确
+	spans := wrapSpans("ab\ncd", ff.Face, 16*1.3, 0)
+	if len(spans) != 2 {
+		t.Fatalf("spans=%d want 2", len(spans))
+	}
+	if spans[0].text != "ab" || spans[0].start != 0 || spans[0].end != 2 {
+		t.Fatalf("span0=%+v want {ab 0 2}", spans[0])
+	}
+	if spans[1].text != "cd" || spans[1].start != 3 || spans[1].end != 5 {
+		t.Fatalf("span1=%+v want {cd 3 5}", spans[1])
+	}
+	// 行内偏移映射：行首 x 应回到该行起始字节
+	if off := spans[1].offsetInSpan(0, ff.Face, 16*1.3); off != 3 {
+		t.Fatalf("offsetInSpan(0)=%d want 3", off)
+	}
+}
+
+func TestFontWeight(t *testing.T) {
+	g := newGame()
+	g.rootFiber = reconcile(nil, nil, Div(Style(Bold), // 容器设粗体 -> 后代继承
+		Text("inherits-bold"),
+		Text("explicit-normal", FontWeight(400)),
+		Text("italic", Italic),
+	))
+	layoutAll(g)
+	root := g.rootRN
+
+	if w, f := root.children[0].effWeight, root.children[0].fauxBold; w != 700 || !f {
+		t.Fatalf("inherited bold: weight=%d faux=%v want 700/true", w, f)
+	}
+	if w, f := root.children[1].effWeight, root.children[1].fauxBold; w != 400 || f {
+		t.Fatalf("explicit normal: weight=%d faux=%v want 400/false", w, f)
+	}
+	if !root.children[2].fauxItalic {
+		t.Fatal("italic text should be faux-italic (no italic variant registered)")
+	}
+}
+
+func TestRichTextRuns(t *testing.T) {
+	g := newGame()
+	// 容器设红色 -> 未显式设色的 run 继承；显式设色/字重的 run 覆盖。
+	g.mountRoot(Div(Style(TextColor(Hex("#ff0000"))),
+		RichText(
+			Text("plain "),
+			Text("bold", Bold),
+			Text(" big", FontSize(32)),
+		),
+	))
+	rt := g.rootRN.children[0]
+	if rt.kind != rnText || len(rt.runs) != 3 {
+		t.Fatalf("rich text node: kind=%v runs=%d want text/3", rt.kind, len(rt.runs))
+	}
+	// 继承颜色
+	if rt.runs[0].color != Hex("#ff0000") {
+		t.Fatalf("run0 color=%v want inherited red", rt.runs[0].color)
+	}
+	// 字重覆盖 -> 合成粗体
+	if !rt.runs[1].fauxBold {
+		t.Fatal("run1 should be faux-bold")
+	}
+	// 字号覆盖 -> 更大的 lineH 与 ascent
+	if rt.runs[2].lineH <= rt.runs[0].lineH {
+		t.Fatalf("run2 lineH=%v should exceed run0 lineH=%v", rt.runs[2].lineH, rt.runs[0].lineH)
+	}
+	// 混排行高取行内最大值，节点高度应等于该行高（单行）
+	if rt.bounds.H < float32(rt.runs[2].lineH) {
+		t.Fatalf("rich node height=%v should be >= max run lineH=%v", rt.bounds.H, rt.runs[2].lineH)
+	}
+}
+
+func TestRichTextLayoutBaseline(t *testing.T) {
+	_ = font.InitDefaultFont()
+	uiScale = 1
+	runs := []textRun{
+		{text: "A ", style: styleWith(FontSize(16))},
+		{text: "B", style: styleWith(FontSize(32))},
+	}
+	(&renderNode{runs: runs}).resolveRuns(inhText{})
+	lines, maxW, h := layoutRuns(runs, 0)
+	if len(lines) != 1 {
+		t.Fatalf("lines=%d want 1", len(lines))
+	}
+	if maxW <= 0 || h <= 0 {
+		t.Fatalf("maxW=%v h=%v want positive", maxW, h)
+	}
+	// 行高应为较大字号的 lineH
+	if lines[0].height < float32(runs[1].lineH)-0.5 {
+		t.Fatalf("line height=%v want >= %v", lines[0].height, runs[1].lineH)
+	}
+	// 混排基线对齐：两段 draw-y 不同（小字号下移到共同基线）
+	base := lines[0].ascent
+	if base < runs[1].ascent-0.5 {
+		t.Fatalf("line ascent=%v want >= max run ascent %v", base, runs[1].ascent)
+	}
+}
+
+func TestWrapCacheInvalidation(t *testing.T) {
+	g := newGame()
+	g.mountRoot(Div(Style(Width(120)),
+		Text("alpha beta gamma delta epsilon zeta"),
+	))
+	rn := g.rootRN.children[0]
+	if rn.kind != rnText {
+		t.Fatalf("expected text node, got kind %v", rn.kind)
+	}
+	l1, _ := rn.wrapped(120)
+	if !rn.wc.valid || rn.wc.width != 120 {
+		t.Fatal("cache not populated after first wrap")
+	}
+	l2, _ := rn.wrapped(120) // 同参再取应命中缓存：返回同一底层切片
+	if len(l1) == 0 || &l1[0] != &l2[0] {
+		t.Fatal("expected cache hit (same backing slice)")
+	}
+	rn.wrapped(60) // 宽度变化 -> 失效重算
+	if rn.wc.width != 60 {
+		t.Fatal("cache not updated for new width")
+	}
+	rn.text = "xy" // 文本变化 -> 不得返回旧折行
+	l3, _ := rn.wrapped(120)
+	if len(l3) != 1 || l3[0] != "xy" {
+		t.Fatalf("stale wrap after text change: %v", l3)
+	}
+}
+
+func TestRichCacheInvalidation(t *testing.T) {
+	g := newGame()
+	g.mountRoot(Div(RichText(Text("hello "), Text("world", Bold))))
+	rn := g.rootRN.children[0]
+	if len(rn.runs) == 0 {
+		t.Fatal("no runs")
+	}
+	l1, _, _ := rn.richLayout(0)
+	l2, _, _ := rn.richLayout(0) // 命中缓存
+	if len(l1) == 0 || &l1[0] != &l2[0] {
+		t.Fatal("expected rich cache hit")
+	}
+	rev := rn.runsRev
+	// 模拟继承样式变化：改字号后重解析 -> runsRev 自增 -> 缓存失效
+	rn.runs[0].style.fontSize, rn.runs[0].style.hasFontSize = 40, true
+	rn.resolveRuns(inhText{})
+	if rn.runsRev == rev {
+		t.Fatal("runsRev should bump after run style change")
+	}
+	l3, _, _ := rn.richLayout(0)
+	if &l3[0] == &l1[0] {
+		t.Fatal("expected recompute after runsRev bump (got stale cached slice)")
+	}
+}
+
+func BenchmarkWrapUncached(b *testing.B) {
+	g := newGame()
+	g.mountRoot(Div(Style(Width(120)), Text("alpha beta gamma delta epsilon zeta eta theta")))
+	rn := g.rootRN.children[0]
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		wrapForWidth(rn.text, rn.face, rn.lineH, 120)
+	}
+}
+
+func BenchmarkWrapCached(b *testing.B) {
+	g := newGame()
+	g.mountRoot(Div(Style(Width(120)), Text("alpha beta gamma delta epsilon zeta eta theta")))
+	rn := g.rootRN.children[0]
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		rn.wrapped(120)
+	}
+}
+
+// 黄金测试：通过录制后端断言"画了什么"，无需 GPU。
+func TestPaintRecording(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		return Div(Style(Width(120), Height(48), Bg(Hex("#ef4444")), Radius(8), Border(2, Hex("#111111"))),
+			Text("Hi"),
+		)
+	}, struct{}{}), 200, 100)
+	ops := h.Paint()
+
+	var fill, stroke, txt bool
+	for _, op := range ops {
+		switch op.Kind {
+		case "rect":
+			if op.Color == Hex("#ef4444") && op.Radius == 8 {
+				fill = true
+			}
+		case "stroke":
+			if op.Color == Hex("#111111") && op.Width == 2 {
+				stroke = true
+			}
+		case "text":
+			if op.Text == "Hi" {
+				txt = true
+			}
+		}
+	}
+	if !fill || !stroke || !txt {
+		t.Fatalf("paint ops missing: fill=%v stroke=%v text=%v\n%+v", fill, stroke, txt, ops)
+	}
+}
+
+// 裁剪容器应在子节点绘制前后成对产生 clip / unclip 指令。
+func TestPaintClipBalanced(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		return Div(Style(Width(100), Height(50), Clip), Text("x"))
+	}, struct{}{}), 200, 100)
+	ops := h.Paint()
+
+	var clip, unclip, depth, maxDepth int
+	for _, op := range ops {
+		switch op.Kind {
+		case "clip":
+			clip++
+			depth++
+			if depth > maxDepth {
+				maxDepth = depth
+			}
+		case "unclip":
+			unclip++
+			depth--
+		}
+	}
+	if clip != 1 || unclip != 1 || depth != 0 || maxDepth != 1 {
+		t.Fatalf("clip=%d unclip=%d endDepth=%d maxDepth=%d; want 1/1/0/1", clip, unclip, depth, maxDepth)
+	}
+}
+
+// tokenize 现在遵循 UAX#14 换行规则。
+func TestUAX14Tokenize(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"test-case", []string{"test-", "case"}}, // 连字符后可断
+		{"foo bar", []string{"foo ", "bar"}},     // 拉丁词含尾随空格
+		{"你好。世界", []string{"你", "好。", "世", "界"}}, // 收尾标点不落行首
+		{"hello，world", []string{"hello，", "world"}},
+	}
+	for _, c := range cases {
+		got := tokenize(c.in)
+		if strings.Join(got, "") != c.in {
+			t.Fatalf("tokenize(%q)=%q must concatenate back to input", c.in, got)
+		}
+		if len(got) != len(c.want) {
+			t.Fatalf("tokenize(%q)=%q want %q", c.in, got, c.want)
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Fatalf("tokenize(%q)=%q want %q", c.in, got, c.want)
+			}
+		}
+	}
+}
+
+// ArrowNav：方向键在导航组内环形移动焦点；组外方向不动作。
+func TestArrowNavRovingFocus(t *testing.T) {
+	comp := func(_ struct{}) *Node {
+		return Div(
+			Button(OnClick(func() {}), Text("outside")),
+			Div(Style(Column), ArrowNav(NavVertical),
+				Button(OnClick(func() {}), Text("i0")),
+				Button(OnClick(func() {}), Text("i1")),
+				Button(OnClick(func() {}), Text("i2")),
+			),
+		)
+	}
+	h := Mount(Use(comp, struct{}{}), 300, 300)
+
+	// 先聚焦到组内第一个项（按钮，而非其文本子节点）
+	byLabel := func(s string) *Query {
+		return h.Root().Find(func(q *Query) bool { return q.Clickable() && q.AllText() == s })
+	}
+	byLabel("i0").Focus()
+	if got := h.Arrow(NavVertical, true).AllText(); got != "i1" {
+		t.Fatalf("Down -> %q want i1", got)
+	}
+	if got := h.Arrow(NavVertical, true).AllText(); got != "i2" {
+		t.Fatalf("Down -> %q want i2", got)
+	}
+	if got := h.Arrow(NavVertical, true).AllText(); got != "i0" { // 环形回绕
+		t.Fatalf("Down wrap -> %q want i0", got)
+	}
+	if got := h.Arrow(NavVertical, false).AllText(); got != "i2" { // 反向回绕
+		t.Fatalf("Up wrap -> %q want i2", got)
+	}
+	// 水平方向在纵向组里不动作
+	if got := h.Arrow(NavHorizontal, true).AllText(); got != "i2" {
+		t.Fatalf("Horizontal in vertical group moved focus -> %q want i2", got)
+	}
+	// 焦点在组外时方向键不动作
+	byLabel("outside").Focus()
+	if got := h.Arrow(NavVertical, true).AllText(); got != "outside" {
+		t.Fatalf("arrow outside group moved focus -> %q want outside", got)
+	}
+}
+
+// 模态（Portal + TrapFocus）打开时 Tab 只在浮层内循环，不逃到背景。
+func TestFocusTrapInModal(t *testing.T) {
+	comp := func(_ struct{}) *Node {
+		return Div(
+			Button(OnClick(func() {}), Text("bg1")),
+			Button(OnClick(func() {}), Text("bg2")),
+			Portal(TrapFocus(),
+				Button(OnClick(func() {}), Text("m1")),
+				Button(OnClick(func() {}), Text("m2")),
+			),
+		)
+	}
+	h := Mount(Use(comp, struct{}{}), 400, 300)
+
+	seen := map[string]bool{}
+	for i := 0; i < 4; i++ {
+		seen[h.Tab().AllText()] = true
+	}
+	if seen["bg1"] || seen["bg2"] {
+		t.Fatalf("focus escaped modal into background: %v", seen)
+	}
+	if !seen["m1"] || !seen["m2"] {
+		t.Fatalf("modal items should be reachable: %v", seen)
+	}
+}
+
+// 无 TrapFocus 的普通浮层（如下拉/提示）不应限制焦点。
+func TestNonModalPortalDoesNotTrap(t *testing.T) {
+	comp := func(_ struct{}) *Node {
+		return Div(
+			Button(OnClick(func() {}), Text("bg1")),
+			Portal(Button(OnClick(func() {}), Text("p1"))),
+		)
+	}
+	h := Mount(Use(comp, struct{}{}), 400, 300)
+	seen := map[string]bool{}
+	for i := 0; i < 3; i++ {
+		seen[h.Tab().AllText()] = true
+	}
+	if !seen["bg1"] || !seen["p1"] {
+		t.Fatalf("non-modal portal should allow focus everywhere: %v", seen)
+	}
+}
+
+func TestGraphemeBoundaries(t *testing.T) {
+	// "a👍b"：👍 是 4 字节单个字素簇，退格/方向应把它当一个字符
+	s := "a👍b"
+	if got := prevGraphemeBoundary(s, 5); got != 1 { // 光标在 👍 之后(byte5) 退一格 -> 1
+		t.Fatalf("prevGrapheme(%q,5)=%d want 1", s, got)
+	}
+	if got := nextGraphemeBoundary(s, 1); got != 5 { // 从 👍 起始前进一格 -> 越过整个 emoji
+		t.Fatalf("nextGrapheme(%q,1)=%d want 5", s, got)
+	}
+	// 组合字符 e + U+0301 (é 分解形式) 应作为一个字素簇
+	combining := "éx"
+	if got := prevGraphemeBoundary(combining, 3); got != 0 {
+		t.Fatalf("prevGrapheme(combining,3)=%d want 0", got)
+	}
+}
+
+func TestWordBoundaries(t *testing.T) {
+	s := "foo bar baz"
+	if got := nextWordBoundary(s, 0); got != 3 { // "foo" 末
+		t.Fatalf("nextWord(0)=%d want 3", got)
+	}
+	if got := nextWordBoundary(s, 3); got != 7 { // 跳过空格 -> "bar" 末
+		t.Fatalf("nextWord(3)=%d want 7", got)
+	}
+	if got := prevWordBoundary(s, 11); got != 8 { // "baz" 首
+		t.Fatalf("prevWord(11)=%d want 8", got)
+	}
+	if got := prevWordBoundary(s, 7); got != 4 { // "bar" 首
+		t.Fatalf("prevWord(7)=%d want 4", got)
+	}
+	a, b := wordAt(s, 5) // 点在 "bar" 内
+	if a != 4 || b != 7 {
+		t.Fatalf("wordAt(5)=(%d,%d) want (4,7)", a, b)
+	}
+}
+
+// 退格应按字素簇删除整个 emoji，而不是拆成半个码点。
+func TestBackspaceDeletesGrapheme(t *testing.T) {
+	val := "a👍"
+	caret := len(val) // 6
+	// 复刻 editFocusedInput 的退格逻辑（非 ctrl）
+	prev := prevGraphemeBoundary(val, caret)
+	val = val[:prev] + val[caret:]
+	if val != "a" {
+		t.Fatalf("after backspace = %q want %q", val, "a")
+	}
+}
+
+func styleWith(opts ...StyleOpt) StyleProps {
+	st := newStyleProps()
+	for _, o := range opts {
+		o(&st)
+	}
+	return st
+}
+
+// 预编辑（IME 组字串）以虚拟方式插入到 caret，不改变受控 value。
+func TestPreeditRenderInsertion(t *testing.T) {
+	rn := &renderNode{kind: rnInput, value: "abcd", caretPos: 2, selAnchor: 2,
+		preedit: "XY", preeditAt: 2, preeditCaret: 2}
+	// 复现 paintInput 中的显示串推导
+	val := rn.value
+	at := rn.preeditAt
+	disp := val[:at] + rn.preedit + val[at:]
+	if disp != "abXYcd" {
+		t.Fatalf("display=%q want abXYcd", disp)
+	}
+	if rn.value != "abcd" {
+		t.Fatalf("controlled value mutated to %q", rn.value)
+	}
+	caret := at + rn.preeditCaret
+	if caret != 4 {
+		t.Fatalf("preedit caret=%d want 4", caret)
+	}
+}
 
 func newGame() *game {
 	_ = font.InitDefaultFont()
