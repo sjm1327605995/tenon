@@ -12,6 +12,7 @@ const (
 	typeFragment
 	typeProvider
 	typePortal
+	typeIcon
 )
 
 // Node 是不可变的 UI 描述（相当于 React Element / VNode）。
@@ -29,6 +30,11 @@ type Node struct {
 	text      string
 	textStyle StyleProps
 	runs      []textRun // 富文本：多段混排样式（RichText）
+
+	// icon（SVG 图标）
+	iconPath   string
+	iconSize   float32
+	iconStroke float32 // >0 描边宽度（viewBox 单位），0 为填充
 
 	// component
 	fnPtr      uintptr
@@ -64,6 +70,7 @@ type hostProps struct {
 	onPress     func(bool)
 	onDrag      func(dx, dy float32)
 	measure     *measureHook
+	scrollRef   *scrollHook // UseScroll：把该 ScrollView 的滚动状态写回
 
 	// 方向键导航组（ArrowNav）：组内可聚焦项用方向键移动焦点
 	navGroup  bool
@@ -171,6 +178,24 @@ func RichText(spans ...*Node) *Node {
 		rt.runs = append(rt.runs, textRun{text: s.text, style: s.textStyle})
 	}
 	return rt
+}
+
+// iconViewBox 是内置图标假定的 SVG viewBox 边长（lucide/heroicons 等均为 24）。
+const iconViewBox = 24
+
+// Icon 渲染一个线性（描边）SVG 图标：d 是 24×24 viewBox 下的 path data，size 是目标边长（逻辑 px）。
+// 颜色继承自文本颜色（类似 SVG 的 currentColor），可用 TextColor 覆盖。匹配 lucide/feather 等图标集。
+func Icon(d string, size float32, opts ...StyleOpt) *Node { return iconNode(d, size, 2, opts) }
+
+// IconFill 渲染填充（实心）SVG 图标（Material/Heroicons-solid 等单一填充路径）。
+func IconFill(d string, size float32, opts ...StyleOpt) *Node { return iconNode(d, size, 0, opts) }
+
+func iconNode(d string, size, stroke float32, opts []StyleOpt) *Node {
+	st := newStyleProps()
+	for _, o := range opts {
+		o(&st)
+	}
+	return &Node{typ: typeIcon, iconPath: d, iconSize: size, iconStroke: stroke, textStyle: st}
 }
 
 // ---- 属性构造器 ----

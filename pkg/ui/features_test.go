@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -241,6 +242,23 @@ func TestPaintClipBalanced(t *testing.T) {
 	}
 }
 
+// 带圆角的裁剪容器应记录一条 radius>0 的 clip 指令（走圆角遮罩路径）。
+func TestRoundedClipRecordsRadius(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		return Div(Style(Width(100), Height(50), Radius(12), Clip), Text("x"))
+	}, struct{}{}), 200, 100)
+	ops := h.Paint()
+	found := false
+	for _, op := range ops {
+		if op.Kind == "clip" && op.Radius > 0 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected a rounded clip op (radius>0); ops=%+v", ops)
+	}
+}
+
 // tokenize 现在遵循 UAX#14 换行规则。
 func TestUAX14Tokenize(t *testing.T) {
 	cases := []struct {
@@ -265,6 +283,76 @@ func TestUAX14Tokenize(t *testing.T) {
 				t.Fatalf("tokenize(%q)=%q want %q", c.in, got, c.want)
 			}
 		}
+	}
+}
+
+// Icon：按尺寸测量，并通过录制后端确认真的描边/填充了一条路径（继承颜色）。
+func TestIconRendersPath(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		return Div(Style(TextColor(Hex("#3b82f6"))), // 容器设色 -> 图标继承
+			Icon(IconCheck, 20),           // 描边
+			IconFill(IconChevronDown, 16), // 填充
+		)
+	}, struct{}{}), 200, 100)
+
+	icons := h.Root().FindAll(func(q *Query) bool { return q.rn.kind == rnIcon })
+	if len(icons) != 2 {
+		t.Fatalf("icon nodes = %d want 2", len(icons))
+	}
+	// 尺寸测量：20×20 与 16×16（uiScale=1）
+	if b := icons[0].Bounds(); b.W != 20 || b.H != 20 {
+		t.Fatalf("icon0 bounds = %vx%v want 20x20", b.W, b.H)
+	}
+	// 绘制：一条描边路径 + 一条填充路径，颜色继承自容器
+	ops := h.Paint()
+	var stroke, fill int
+	for _, op := range ops {
+		if op.Kind == "strokepath" && op.Color == Hex("#3b82f6") {
+			stroke++
+		}
+		if op.Kind == "path" && op.Color == Hex("#3b82f6") {
+			fill++
+		}
+	}
+	if stroke != 1 || fill != 1 {
+		t.Fatalf("icon paint: stroke=%d fill=%d want 1/1\n%+v", stroke, fill, ops)
+	}
+}
+
+// VirtualList 只渲染视口附近的少量行，滚动后窗口跟随移动。
+func TestVirtualListWindowing(t *testing.T) {
+	render := func(i int) *Node { return Text("row-" + strconv.Itoa(i)) }
+	h := Mount(Use(func(_ struct{}) *Node {
+		return VirtualList(VirtualListProps{Count: 1000, ItemHeight: 20, Height: 100, Render: render})
+	}, struct{}{}), 300, 140)
+
+	countRows := func() int {
+		return len(h.Root().FindAll(func(q *Query) bool {
+			return q.rn.kind == rnText && strings.HasPrefix(q.Text(), "row-")
+		}))
+	}
+	// 视口 100 / 行高 20 = 5 行；加 overscan，应是十几行，绝非 1000
+	if n := countRows(); n == 0 || n > 40 {
+		t.Fatalf("rendered rows = %d, want a small window (not ~1000)", n)
+	}
+	if !h.Root().ByText("row-0").Exists() {
+		t.Fatal("row-0 should render at top")
+	}
+	if h.Root().ByText("row-500").Exists() {
+		t.Fatal("row-500 should NOT render (far off-screen)")
+	}
+	// 向下滚动到约第 25 行处
+	if !h.Root().ByKind("scroll").ScrollBy(500) {
+		t.Fatal("no scroll container found")
+	}
+	if h.Root().ByText("row-0").Exists() {
+		t.Fatal("row-0 should be virtualized out after scrolling")
+	}
+	if !h.Root().ByText("row-25").Exists() {
+		t.Fatalf("row-25 should be in window after scroll; texts=%v", h.Root().Texts())
+	}
+	if n := countRows(); n > 40 {
+		t.Fatalf("window grew unexpectedly after scroll: %d rows", n)
 	}
 }
 

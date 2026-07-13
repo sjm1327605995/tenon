@@ -11,8 +11,10 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/sjm1327605995/tenon/pkg/font"
+	"github.com/sjm1327605995/tenon/pkg/svg"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -31,6 +33,7 @@ const (
 	rnInput
 	rnImage
 	rnScroll
+	rnIcon
 )
 
 // renderNode = yoga.Node + 绘制数据。是唯一进入 yoga 树的节点类型。
@@ -99,6 +102,7 @@ type renderNode struct {
 	onPress      func(bool)
 	onDrag       func(dx, dy float32)
 	measure      *measureHook
+	scrollRef    *scrollHook // UseScroll：写回滚动状态
 	focusable    bool
 	navGroup     bool // ArrowNav：本节点是方向键导航组
 	navOrient    NavOrient
@@ -106,6 +110,14 @@ type renderNode struct {
 	// image
 	imgSrc string
 	img    *ebiten.Image
+
+	// icon（SVG）
+	iconPath    string
+	iconSize    float32
+	iconStroke  float32      // >0 描边（viewBox 单位），0 填充
+	iconCache   *vector.Path // 已按物理尺寸解析缩放的路径（局部坐标，绘制时平移到 bounds）
+	iconCacheK  string       // 缓存键：path
+	iconCacheSz float32      // 缓存键：物理尺寸
 
 	// scroll / clip
 	clip     bool
@@ -231,6 +243,40 @@ func newImageRenderNode() *renderNode {
 	return rn
 }
 
+func newIconRenderNode(d string, size, stroke float32, st StyleProps) *renderNode {
+	rn := &renderNode{yn: yoga.NewNode(), kind: rnIcon, iconPath: d, iconSize: size, iconStroke: stroke, opacity: 1, scale: 1}
+	rn.applyTextStyle(st)                        // 复用文本颜色继承（currentColor）
+	rn.yn.StyleSetAlignSelf(yoga.AlignFlexStart) // 固定尺寸，不随 align-items:stretch 拉伸
+	rn.yn.SetMeasureFunc(func(_ *yoga.Node, _ float32, _ yoga.MeasureMode, _ float32, _ yoga.MeasureMode) yoga.Size {
+		s := rn.iconSize * uiScale
+		return yoga.Size{Width: s, Height: s}
+	})
+	return rn
+}
+
+func (rn *renderNode) setIcon(d string, size, stroke float32, st StyleProps) {
+	if rn.iconPath != d || rn.iconSize != size || rn.iconStroke != stroke {
+		rn.iconPath, rn.iconSize, rn.iconStroke = d, size, stroke
+		rn.iconCache = nil
+		rn.yn.MarkDirty()
+	}
+	rn.applyTextStyle(st)
+}
+
+// scaledIconPath 返回按当前物理尺寸解析缩放好的路径（缓存，局部坐标，绘制时再平移）。
+func (rn *renderNode) scaledIconPath() *vector.Path {
+	phys := rn.iconSize * uiScale
+	if rn.iconCache != nil && rn.iconCacheK == rn.iconPath && rn.iconCacheSz == phys {
+		return rn.iconCache
+	}
+	p, err := svg.ParsePathScaled(rn.iconPath, phys/iconViewBox)
+	if err != nil {
+		p = nil
+	}
+	rn.iconCache, rn.iconCacheK, rn.iconCacheSz = p, rn.iconPath, phys
+	return p
+}
+
 // applyTextStyle 只记录本节点显式设置的文本样式；生效值由 resolveInherited 决定。
 func (rn *renderNode) applyTextStyle(st StyleProps) {
 	rn.explicitColor = st.hasColor
@@ -282,6 +328,14 @@ type inhText struct {
 // 须在测量（CalculateLayout）之前调用。
 func resolveInherited(rn *renderNode, ctx inhText) {
 	switch rn.kind {
+	case rnIcon:
+		c := Black
+		if rn.explicitColor {
+			c = rn.ownColor
+		} else if ctx.hasColor {
+			c = ctx.color
+		}
+		rn.color = c
 	case rnText, rnInput:
 		if rn.kind == rnText && len(rn.runs) > 0 {
 			rn.resolveRuns(ctx)
@@ -372,6 +426,7 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 	rn.onPress = hp.onPress
 	rn.onDrag = hp.onDrag
 	rn.measure = hp.measure
+	rn.scrollRef = hp.scrollRef
 	rn.navGroup = hp.navGroup
 	rn.navOrient = hp.navOrient
 	rn.focusable = rn.kind == rnInput || hp.onClick != nil
@@ -591,11 +646,20 @@ func paintNode(p painter, rn *renderNode) {
 		if rn.img != nil {
 			p.DrawImage(rn.img, b, o)
 		}
+	case rnIcon:
+		if path := rn.scaledIconPath(); path != nil {
+			if rn.iconStroke > 0 {
+				sw := rn.iconStroke * (rn.iconSize * uiScale / iconViewBox) // 描边宽随缩放
+				p.StrokePath(path, b.X, b.Y, sw, rn.color.Alpha(o))
+			} else {
+				p.FillPath(path, b.X, b.Y, rn.color.Alpha(o))
+			}
+		}
 	}
 
-	// 裁剪：把子节点画进自身矩形（越界部分被裁掉）。
+	// 裁剪：把子节点画进自身矩形（越界部分被裁掉；有圆角则裁到圆角）。
 	if rn.clip {
-		p.PushClip(b)
+		p.PushClip(b, rn.radius)
 		for _, c := range rn.children {
 			paint(p, c)
 		}

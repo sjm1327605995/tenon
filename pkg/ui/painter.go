@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 // painter 是绘制后端的抽象：paint 遍历只依赖这些原语，从而可替换后端 ——
@@ -18,7 +19,9 @@ type painter interface {
 	Line(x0, y0, x1, y1 float32, c Color)
 	DrawText(s string, face *text.GoTextFace, c Color, x, y float32, fauxBold, fauxItalic bool)
 	DrawImage(img *ebiten.Image, dst Rect, opacity float32)
-	PushClip(r Rect)
+	FillPath(path *vector.Path, x, y float32, c Color)          // 填充路径（实心图标）
+	StrokePath(path *vector.Path, x, y, width float32, c Color) // 描边路径（线性图标，圆角端点）
+	PushClip(r Rect, radius float32)                            // radius>0 裁剪到圆角矩形
 	PopClip()
 	BeginLayer()
 	EndLayer(t layerTransform)
@@ -34,18 +37,39 @@ type layerTransform struct {
 
 // ---- ebiten 后端 ----
 
-// ebitenPainter 把原语画到 *ebiten.Image。stack 顶为当前绘制目标，
-// 裁剪（SubImage）与离屏图层都以压栈形式表达，保证嵌套平衡。
+type clipKind int
+
+const (
+	clipRect  clipKind = iota // 矩形裁剪：SubImage（廉价）
+	clipRound                 // 圆角裁剪：离屏层 + 出栈时圆角遮罩
+	clipLayer                 // 变换/整组透明度的离屏层
+)
+
+type clipEntry struct {
+	img    *ebiten.Image
+	kind   clipKind
+	rect   Rect
+	radius float32
+}
+
+// ebitenPainter 把原语画到 *ebiten.Image。stack 顶为当前绘制目标；
+// 矩形裁剪用 SubImage，圆角裁剪与变换层用离屏图层，出栈时合回。
 type ebitenPainter struct {
 	w, h  int
-	stack []*ebiten.Image
+	stack []clipEntry
 }
 
 func newEbitenPainter(dst *ebiten.Image, w, h int) *ebitenPainter {
-	return &ebitenPainter{w: w, h: h, stack: []*ebiten.Image{dst}}
+	return &ebitenPainter{w: w, h: h, stack: []clipEntry{{img: dst, kind: clipRect}}}
 }
 
-func (p *ebitenPainter) top() *ebiten.Image { return p.stack[len(p.stack)-1] }
+func (p *ebitenPainter) top() *ebiten.Image { return p.stack[len(p.stack)-1].img }
+func (p *ebitenPainter) push(e clipEntry)   { p.stack = append(p.stack, e) }
+func (p *ebitenPainter) pop() clipEntry {
+	e := p.stack[len(p.stack)-1]
+	p.stack = p.stack[:len(p.stack)-1]
+	return e
+}
 
 func (p *ebitenPainter) FillRect(x, y, w, h, r float32, c Color) {
 	fillRoundRect(p.top(), x, y, w, h, r, c)
@@ -63,6 +87,13 @@ func (p *ebitenPainter) DrawText(s string, face *text.GoTextFace, c Color, x, y 
 	drawText(p.top(), s, face, c, x, y, fb, fi)
 }
 
+func (p *ebitenPainter) FillPath(path *vector.Path, x, y float32, c Color) {
+	fillPathAt(p.top(), path, x, y, c)
+}
+func (p *ebitenPainter) StrokePath(path *vector.Path, x, y, width float32, c Color) {
+	strokePathAt(p.top(), path, x, y, width, c)
+}
+
 func (p *ebitenPainter) DrawImage(img *ebiten.Image, d Rect, opacity float32) {
 	ib := img.Bounds()
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
@@ -72,23 +103,33 @@ func (p *ebitenPainter) DrawImage(img *ebiten.Image, d Rect, opacity float32) {
 	p.top().DrawImage(img, op)
 }
 
-func (p *ebitenPainter) PushClip(r Rect) {
-	dst := p.top()
+func (p *ebitenPainter) PushClip(r Rect, radius float32) {
+	if radius > 0 { // 圆角裁剪：画进离屏层，出栈时用圆角矩形遮罩裁角
+		p.push(clipEntry{img: acquireLayer(p.w, p.h), kind: clipRound, rect: r, radius: radius})
+		return
+	}
+	dst := p.top() // 矩形裁剪：SubImage 快路径
 	ir := image.Rect(int(r.X), int(r.Y), int(r.X+r.W), int(r.Y+r.H))
 	if ir.Dx() > 0 && ir.Dy() > 0 {
-		p.stack = append(p.stack, dst.SubImage(ir).(*ebiten.Image))
+		p.push(clipEntry{img: dst.SubImage(ir).(*ebiten.Image), kind: clipRect})
 	} else {
-		p.stack = append(p.stack, dst) // 空裁剪：压入同一目标，保持栈平衡
+		p.push(clipEntry{img: dst, kind: clipRect}) // 空裁剪：同一目标，保持栈平衡
 	}
 }
-func (p *ebitenPainter) PopClip() { p.stack = p.stack[:len(p.stack)-1] }
+func (p *ebitenPainter) PopClip() {
+	e := p.pop()
+	if e.kind == clipRound {
+		maskRoundRect(e.img, e.rect, e.radius) // DestinationIn 裁掉圆角外内容
+		p.top().DrawImage(e.img, &ebiten.DrawImageOptions{})
+		releaseLayer(e.img)
+	}
+}
 
 func (p *ebitenPainter) BeginLayer() {
-	p.stack = append(p.stack, acquireLayer(p.w, p.h))
+	p.push(clipEntry{img: acquireLayer(p.w, p.h), kind: clipLayer})
 }
 func (p *ebitenPainter) EndLayer(t layerTransform) {
-	layer := p.top()
-	p.stack = p.stack[:len(p.stack)-1]
+	layer := p.pop().img
 	dst := p.top()
 	cx, cy := float64(t.cx), float64(t.cy)
 	op := &ebiten.DrawImageOptions{Filter: ebiten.FilterLinear}
@@ -136,9 +177,17 @@ func (p *recordPainter) DrawText(s string, face *text.GoTextFace, c Color, x, y 
 func (p *recordPainter) DrawImage(img *ebiten.Image, d Rect, opacity float32) {
 	p.ops = append(p.ops, PaintOp{Kind: "image", Rect: d, Opacity: opacity})
 }
-func (p *recordPainter) PushClip(r Rect) { p.ops = append(p.ops, PaintOp{Kind: "clip", Rect: r}) }
-func (p *recordPainter) PopClip()        { p.ops = append(p.ops, PaintOp{Kind: "unclip"}) }
-func (p *recordPainter) BeginLayer()     { p.ops = append(p.ops, PaintOp{Kind: "layer"}) }
+func (p *recordPainter) FillPath(path *vector.Path, x, y float32, c Color) {
+	p.ops = append(p.ops, PaintOp{Kind: "path", X0: x, Y0: y, Color: c})
+}
+func (p *recordPainter) StrokePath(path *vector.Path, x, y, width float32, c Color) {
+	p.ops = append(p.ops, PaintOp{Kind: "strokepath", X0: x, Y0: y, Width: width, Color: c})
+}
+func (p *recordPainter) PushClip(r Rect, radius float32) {
+	p.ops = append(p.ops, PaintOp{Kind: "clip", Rect: r, Radius: radius})
+}
+func (p *recordPainter) PopClip()    { p.ops = append(p.ops, PaintOp{Kind: "unclip"}) }
+func (p *recordPainter) BeginLayer() { p.ops = append(p.ops, PaintOp{Kind: "layer"}) }
 func (p *recordPainter) EndLayer(t layerTransform) {
 	p.ops = append(p.ops, PaintOp{Kind: "unlayer", Opacity: t.opacity})
 }

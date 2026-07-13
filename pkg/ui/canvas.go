@@ -101,6 +101,60 @@ func fillShadow(dst *ebiten.Image, x, y, w, h, r, offX, offY, blur, spread float
 	fillRoundRect(dst, bx, by, bw, bh, br, la)
 }
 
+// fillPathAt 以 (x,y) 为偏移填充一条矢量路径（实心图标）。
+func fillPathAt(dst *ebiten.Image, path *vector.Path, x, y float32, c Color) {
+	if path == nil || c.transparent() {
+		return
+	}
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	if len(is) == 0 {
+		return
+	}
+	cr, cg, cb, ca := colorScale(c)
+	for i := range vs {
+		vs[i].DstX += x
+		vs[i].DstY += y
+		vs[i].SrcX, vs[i].SrcY = 0, 0
+		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = cr, cg, cb, ca
+	}
+	op := &ebiten.DrawTrianglesOptions{AntiAlias: true, FillRule: ebiten.FillRuleNonZero}
+	dst.DrawTriangles(vs, is, whiteImage(), op)
+}
+
+// strokePathAt 以 (x,y) 为偏移描边一条矢量路径（线性图标，圆角端点/拐角）。
+func strokePathAt(dst *ebiten.Image, path *vector.Path, x, y, width float32, c Color) {
+	if path == nil || c.transparent() || width <= 0 {
+		return
+	}
+	sop := &vector.StrokeOptions{Width: width, LineCap: vector.LineCapRound, LineJoin: vector.LineJoinRound}
+	vs, is := path.AppendVerticesAndIndicesForStroke(nil, nil, sop)
+	if len(is) == 0 {
+		return
+	}
+	cr, cg, cb, ca := colorScale(c)
+	for i := range vs {
+		vs[i].DstX += x
+		vs[i].DstY += y
+		vs[i].SrcX, vs[i].SrcY = 0, 0
+		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = cr, cg, cb, ca
+	}
+	op := &ebiten.DrawTrianglesOptions{AntiAlias: true}
+	dst.DrawTriangles(vs, is, whiteImage(), op)
+}
+
+// maskRoundRect 用一个白色圆角矩形以 DestinationIn 混合裁剪 dst：
+// 保留圆角内的像素、清除圆角外（含四个尖角）的像素。用于圆角裁剪。
+func maskRoundRect(dst *ebiten.Image, r Rect, radius float32) {
+	path := roundRectPath(r.X, r.Y, r.W, r.H, radius)
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	for i := range vs {
+		vs[i].SrcX, vs[i].SrcY = 0, 0
+		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = 1, 1, 1, 1
+	}
+	op := &ebiten.DrawTrianglesOptions{AntiAlias: true, Blend: ebiten.BlendDestinationIn}
+	dst.DrawTriangles(vs, is, whiteImage(), op)
+}
+
 // ebitenDrawLine 画一条直线（用于输入光标）。
 func ebitenDrawLine(dst *ebiten.Image, x0, y0, x1, y1 float32, c Color) {
 	vector.StrokeLine(dst, x0, y0, x1, y1, 1, c, false)

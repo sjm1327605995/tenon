@@ -47,6 +47,7 @@ ui.ThemeProvider(ui.LightTheme,
 | `Tooltip` | hover-anchored label above the trigger |
 | `DropdownMenu` | anchored menu (`[]MenuItem`) |
 | `Select` | anchored options dropdown (controlled value) |
+| `Combobox` | searchable dropdown: type-to-filter options + check on selected (Select × Command) |
 | `Table` | `TableRow`/`TableHead`/`TableCell` (equal columns) |
 | `Accordion` | collapsible sections, single-open, height animation |
 | `Toast` / `Toaster` | global notifications, auto-dismiss (mount `Toaster()` at root, call `Toast(...)` anywhere) |
@@ -75,4 +76,4 @@ Anchored overlays (`Popover`/`Tooltip`/`DropdownMenu`/`Select`) use `ui.UseMeasu
 
 ## Coverage
 
-~41 components across form / display / feedback / navigation / overlay / data — the full shadcn/ui core plus common extras — all on the same theme + interaction + measure + animation foundation.
+~42 components across form / display / feedback / navigation / overlay / data — the full shadcn/ui core plus common extras — all on the same theme + interaction + measure + animation foundation.

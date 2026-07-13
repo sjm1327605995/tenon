@@ -31,6 +31,7 @@ func App(_ struct{}) *ui.Node {
 	toggle, setToggle := ui.UseState(false)
 	open, setOpen := ui.UseState(false)
 	sel, setSel := ui.UseState("")
+	combo, setCombo := ui.UseState("")
 	note, setNote := ui.UseState("")
 	date, setDate := ui.UseState(time.Time{})
 	cmdOpen, setCmdOpen := ui.UseState(false)
@@ -136,6 +137,13 @@ func App(_ struct{}) *ui.Node {
 					rowN(
 						shadcn.Select(shadcn.SelectProps{Value: sel, Options: []string{"苹果", "香蕉", "橙子"},
 							OnChange: setSel, Placeholder: "选择水果"}),
+						shadcn.Combobox(shadcn.ComboboxProps{Value: combo, OnChange: setCombo,
+							Placeholder: "搜索框架…", SearchPlaceholder: "输入过滤…",
+							Options: []shadcn.ComboboxOption{
+								{Value: "go", Label: "Go"}, {Value: "rust", Label: "Rust"},
+								{Value: "ts", Label: "TypeScript"}, {Value: "py", Label: "Python"},
+								{Value: "zig", Label: "Zig"},
+							}}),
 						shadcn.Popover(shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline}, ui.Text("Popover")),
 							ui.Text("这是一个锚定在按钮下方的浮层。", ui.FontSize(13)),
 						),

@@ -29,7 +29,7 @@ func selectC(p SelectProps) *ui.Node {
 			ui.Bg(th.Background), ui.MinWidth(180)),
 		ui.OnClick(func() { setOpen(!open) }),
 		ui.Text(label, ui.FontSize(14), ui.TextColor(labelColor)),
-		ui.Text("▾", ui.FontSize(12), ui.TextColor(th.MutedForeground)),
+		ui.Icon(ui.IconChevronDown, 16, ui.TextColor(th.MutedForeground)),
 	)
 
 	rows := make([]*ui.Node, 0, len(p.Options))

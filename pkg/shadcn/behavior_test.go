@@ -72,6 +72,64 @@ func TestButtonPaintsBackgroundAndLabel(t *testing.T) {
 	}
 }
 
+// Combobox：打开 -> 输入过滤 -> 选中回填并关闭。
+func TestComboboxFilterAndSelect(t *testing.T) {
+	var selected string
+	app := func(_ struct{}) *ui.Node {
+		val, setVal := ui.UseState("")
+		selected = val
+		return Combobox(ComboboxProps{
+			Options: []ComboboxOption{
+				{Value: "go", Label: "Go"},
+				{Value: "rs", Label: "Rust"},
+				{Value: "py", Label: "Python"},
+			},
+			Value:       val,
+			OnChange:    func(v string) { setVal(v) },
+			Placeholder: "Pick language",
+		})
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+
+	if !h.Root().ByText("Pick language").Exists() {
+		t.Fatal("placeholder not shown initially")
+	}
+	if len(h.Overlays()) != 0 {
+		t.Fatal("panel should be closed initially")
+	}
+
+	h.Root().ByText("Pick language").Click() // 打开
+	if len(h.Overlays()) == 0 {
+		t.Fatal("panel did not open on trigger click")
+	}
+	ov := h.Overlays()[0]
+	for _, lbl := range []string{"Go", "Rust", "Python"} {
+		if !ov.ByText(lbl).Exists() {
+			t.Fatalf("option %q missing before filter (texts=%v)", lbl, ov.Texts())
+		}
+	}
+
+	ov.ByKind("input").Type("ru") // 过滤
+	ov = h.Overlays()[0]
+	if ov.ByText("Go").Exists() || ov.ByText("Python").Exists() {
+		t.Fatalf("filter did not hide non-matches: %v", ov.Texts())
+	}
+	if !ov.ByText("Rust").Exists() {
+		t.Fatalf("filter hid the match: %v", ov.Texts())
+	}
+
+	ov.ByText("Rust").Click() // 选中
+	if selected != "rs" {
+		t.Fatalf("OnChange value = %q want rs", selected)
+	}
+	if len(h.Overlays()) != 0 {
+		t.Fatal("panel should close after select")
+	}
+	if !h.Root().ByText("Rust").Exists() {
+		t.Fatalf("trigger should show selected label; texts=%v", h.Root().Texts())
+	}
+}
+
 // Tabs 用左右方向键在标签间移动焦点（ArrowNav）。
 func TestTabsArrowNav(t *testing.T) {
 	h := ui.MountDefault(Tabs(TabsProps{Tabs: []string{"A", "B", "C"}, Active: 0, OnChange: func(int) {}}))
