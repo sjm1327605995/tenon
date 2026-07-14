@@ -2,6 +2,7 @@ package svg
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -221,15 +222,11 @@ func (p *PathParser) executeCmd(cmd byte, args []float32) error {
 
 	case 'A', 'a':
 		for i := 0; i+6 < len(args); i += 7 {
-			_ = args[i+2]
-			_ = args[i+3] != 0
-			_ = args[i+4] != 0
-			x, y := p.apply(args[i+5], args[i+6], isAbs)
-			// Ebiten vector.Path.Arc 只支持圆弧，不支持椭圆弧。
-			// 这里用 LineTo 近似（大多数图标场景下 A 命令很少见）
-			p.path.LineTo(x, y)
-			p.px, p.py = x, y
-			p.updateBounds(x, y)
+			rx, ry := args[i]*p.scale, args[i+1]*p.scale
+			rot := args[i+2]
+			largeArc, sweep := args[i+3] != 0, args[i+4] != 0
+			ex, ey := p.apply(args[i+5], args[i+6], isAbs)
+			p.arcTo(rx, ry, rot, largeArc, sweep, ex, ey)
 		}
 
 	case 'Z', 'z':
@@ -238,6 +235,74 @@ func (p *PathParser) executeCmd(cmd byte, args []float32) error {
 	}
 
 	return nil
+}
+
+// arcTo 把 SVG 椭圆弧（endpoint 参数化）转成中心参数化后采样为折线段。
+// 处理 rx≠ry 的椭圆与旋转，替代之前的直线近似（否则圆形图标会退化成一条线）。
+func (p *PathParser) arcTo(rx, ry, rotDeg float32, largeArc, sweep bool, ex, ey float32) {
+	x1, y1 := p.px, p.py
+	if rx == 0 || ry == 0 || (x1 == ex && y1 == ey) {
+		p.path.LineTo(ex, ey)
+		p.px, p.py = ex, ey
+		p.updateBounds(ex, ey)
+		return
+	}
+	rxf, ryf := math.Abs(float64(rx)), math.Abs(float64(ry))
+	phi := float64(rotDeg) * math.Pi / 180
+	cosP, sinP := math.Cos(phi), math.Sin(phi)
+
+	// 端点 -> 中心参数化（SVG 规范 F.6.5）
+	dx, dy := float64(x1-ex)/2, float64(y1-ey)/2
+	x1p := cosP*dx + sinP*dy
+	y1p := -sinP*dx + cosP*dy
+	if l := x1p*x1p/(rxf*rxf) + y1p*y1p/(ryf*ryf); l > 1 {
+		s := math.Sqrt(l)
+		rxf *= s
+		ryf *= s
+	}
+	sign := 1.0
+	if largeArc == sweep {
+		sign = -1.0
+	}
+	num := rxf*rxf*ryf*ryf - rxf*rxf*y1p*y1p - ryf*ryf*x1p*x1p
+	den := rxf*rxf*y1p*y1p + ryf*ryf*x1p*x1p
+	co := 0.0
+	if den > 0 && num > 0 {
+		co = sign * math.Sqrt(num/den)
+	}
+	cxp := co * rxf * y1p / ryf
+	cyp := -co * ryf * x1p / rxf
+	cx := cosP*cxp - sinP*cyp + float64(x1+ex)/2
+	cy := sinP*cxp + cosP*cyp + float64(y1+ey)/2
+
+	ang := func(ux, uy, vx, vy float64) float64 {
+		d := ux*vx + uy*vy
+		l := math.Hypot(ux, uy) * math.Hypot(vx, vy)
+		a := math.Acos(math.Max(-1, math.Min(1, d/l)))
+		if ux*vy-uy*vx < 0 {
+			a = -a
+		}
+		return a
+	}
+	t1 := ang(1, 0, (x1p-cxp)/rxf, (y1p-cyp)/ryf)
+	dt := ang((x1p-cxp)/rxf, (y1p-cyp)/ryf, (-x1p-cxp)/rxf, (-y1p-cyp)/ryf)
+	if !sweep && dt > 0 {
+		dt -= 2 * math.Pi
+	} else if sweep && dt < 0 {
+		dt += 2 * math.Pi
+	}
+	n := int(math.Ceil(math.Abs(dt) / (math.Pi / 16))) // ~11° 一段
+	if n < 1 {
+		n = 1
+	}
+	for k := 1; k <= n; k++ {
+		t := t1 + dt*float64(k)/float64(n)
+		x := cx + rxf*math.Cos(t)*cosP - ryf*math.Sin(t)*sinP
+		y := cy + rxf*math.Cos(t)*sinP + ryf*math.Sin(t)*cosP
+		p.path.LineTo(float32(x), float32(y))
+		p.updateBounds(float32(x), float32(y))
+	}
+	p.px, p.py = ex, ey
 }
 
 func (p *PathParser) apply(x, y float32, isAbs bool) (float32, float32) {

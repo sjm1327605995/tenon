@@ -51,3 +51,14 @@ func TestParsePathBoundsSimple(t *testing.T) {
 	}
 	fmt.Printf("Simple path parsed successfully\n")
 }
+
+func TestArcTessellated(t *testing.T) {
+	// 半圆弧 (0,0)->(10,0) r=5 应鼓出高度 ~5，而非退化成直线（之前用 LineTo 高度为 0）。
+	_, minY, _, maxY, err := ParsePathBounds("M0 0 A5 5 0 0 1 10 0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if maxY-minY < 3 {
+		t.Fatalf("arc degenerate: height=%v, want ~5 (arc not tessellated)", maxY-minY)
+	}
+}

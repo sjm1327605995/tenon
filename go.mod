@@ -7,6 +7,7 @@ toolchain go1.24.2
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.9
 	github.com/rivo/uniseg v0.4.7
+	github.com/traefik/yaegi v0.16.1
 	golang.org/x/image v0.31.0
 )
 

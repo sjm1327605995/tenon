@@ -3,7 +3,9 @@ package ui
 import (
 	"fmt"
 	"math"
+	"os"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -97,6 +99,15 @@ func Run(root *Node) {
 	initFont()
 	g := &game{root: root, w: 800, h: 600, showHUD: ShowStats}
 	activeGame = g
+	if p := os.Getenv("TENON_CAPTURE"); p != "" && capturePath == "" {
+		frames := 90
+		if s := os.Getenv("TENON_CAPTURE_FRAMES"); s != "" {
+			if n, err := strconv.Atoi(s); err == nil && n > 0 {
+				frames = n
+			}
+		}
+		Capture(p, frames, true)
+	}
 	if FrameSync {
 		ebiten.SetTPS(ebiten.SyncWithFPS) // 逻辑跟随刷新率；动画 dt-based，速度不变、步数随刷新率增多
 	}
@@ -247,6 +258,7 @@ func (g *game) Draw(screen *ebiten.Image) {
 	if g.showHUD {
 		g.drawHUD(screen, repainted)
 	}
+	g.maybeCapture(screen)
 }
 
 // rollStats 每秒快照一次重绘/布局计数，供 HUD 显示。

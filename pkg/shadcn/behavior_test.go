@@ -72,6 +72,95 @@ func TestButtonPaintsBackgroundAndLabel(t *testing.T) {
 	}
 }
 
+// Phase-2 表单组件构造并渲染。
+func TestFormComponentsRender(t *testing.T) {
+	clicks := 0
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ui.Div(
+			Field(FieldProps{Label: "Email", Description: "desc-here"},
+				Input(InputProps{Placeholder: "x@y.com"})),
+			Field(FieldProps{Label: "Pass", Error: "err-here"},
+				Input(InputProps{Value: "v"})),
+			InputGroup(InputGroupProps{Leading: ui.Icon(ui.IconSearch, 16), Placeholder: "search"}),
+			ButtonGroup([]ButtonGroupItem{
+				{Label: "Day", Active: true}, {Label: "Week", OnClick: func() { clicks++ }},
+			}),
+		)
+	}, struct{}{}))
+	for _, s := range []string{"Email", "desc-here", "Pass", "err-here", "Day", "Week"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+	if !h.Root().ByText("Week").Click() || clicks != 1 {
+		t.Fatalf("ButtonGroup item click did not fire (clicks=%d)", clicks)
+	}
+}
+
+// Item + InputOTP：渲染与交互。
+func TestItemAndOTP(t *testing.T) {
+	clicked := 0
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ui.Div(
+			Item(ItemProps{Title: "T1", Description: "D1", OnClick: func() { clicked++ }}),
+			InputOTP(InputOTPProps{Length: 6, Value: "42x8"}), // 非数字被过滤 -> 428
+		)
+	}, struct{}{}))
+	for _, s := range []string{"T1", "D1", "4", "2", "8"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+	if h.Root().ByText("x").Exists() {
+		t.Fatal("OTP should have filtered non-digit 'x'")
+	}
+	if !h.Root().ByText("T1").Click() || clicked != 1 {
+		t.Fatalf("Item click didn't fire (clicked=%d)", clicked)
+	}
+}
+
+func TestDigitsOnly(t *testing.T) {
+	if got := digitsOnly("a1b2c3!"); got != "123" {
+		t.Fatalf("digitsOnly = %q want 123", got)
+	}
+}
+
+// Accordion：标题与内容都渲染，点击标题触发切换（不 panic）。
+func TestAccordionToggle(t *testing.T) {
+	h := ui.MountDefault(Accordion([]AccordionItemData{
+		{Title: "A", Content: []*ui.Node{ui.Text("body-A")}},
+		{Title: "B", Content: []*ui.Node{ui.Text("body-B")}},
+	}))
+	for _, s := range []string{"A", "B", "body-A", "body-B"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+	if !h.Root().ByText("B").Click() {
+		t.Fatal("clicking accordion header fired no toggle handler")
+	}
+	h.Step(250) // 推进滑动/旋转动画，确认无 panic
+}
+
+// Phase-1 基础组件都能构造并渲染出文本。
+func TestPrimitivesRender(t *testing.T) {
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ui.Div(
+			Kbd("K"),
+			KbdGroup("Ctrl", "K"),
+			Spinner(SpinnerProps{}),
+			Empty(EmptyProps{Title: "空", Description: "无数据"}),
+			H1("标题"), H2("H2"), P("正文"), Lead("引导"), Muted("次要"),
+			InlineCode("go"), Blockquote("引用"), Large("大"), Small("小"),
+		)
+	}, struct{}{}))
+	for _, s := range []string{"K", "Ctrl", "空", "无数据", "标题", "H2", "正文", "引导", "次要", "go", "引用", "大", "小"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing rendered text %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+}
+
 // Combobox：打开 -> 输入过滤 -> 选中回填并关闭。
 func TestComboboxFilterAndSelect(t *testing.T) {
 	var selected string

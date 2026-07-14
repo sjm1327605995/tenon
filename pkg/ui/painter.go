@@ -114,11 +114,8 @@ func (p *ebitenPainter) PushClip(r Rect, radius float32) {
 	}
 	dst := p.top() // 矩形裁剪：SubImage 快路径
 	ir := image.Rect(int(r.X), int(r.Y), int(r.X+r.W), int(r.Y+r.H))
-	if ir.Dx() > 0 && ir.Dy() > 0 {
-		p.push(clipEntry{img: dst.SubImage(ir).(*ebiten.Image), kind: clipRect})
-	} else {
-		p.push(clipEntry{img: dst, kind: clipRect}) // 空裁剪：同一目标，保持栈平衡
-	}
+	// 总是裁剪：空矩形 -> 空子图，子内容被完全裁掉（而非不裁 —— 否则折叠中的内容会溢出）。
+	p.push(clipEntry{img: dst.SubImage(ir).(*ebiten.Image), kind: clipRect})
 }
 func (p *ebitenPainter) PopClip() {
 	e := p.pop()
