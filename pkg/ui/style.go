@@ -28,6 +28,10 @@ type StyleProps struct {
 	hasJu   bool
 
 	bg          Color
+	gradFrom    Color
+	gradTo      Color
+	gradAngle   float32
+	hasGradient bool
 	radius      float32
 	borderW     float32
 	borderColor Color
@@ -129,7 +133,15 @@ func JustifyBetween(s *StyleProps) { s.justify, s.hasJu = yoga.JustifySpaceBetwe
 
 // ---- 外观 ----
 
-func Bg(c Color) StyleOpt       { return func(s *StyleProps) { s.bg = c } }
+func Bg(c Color) StyleOpt { return func(s *StyleProps) { s.bg = c } }
+
+// LinearGradient 用线性渐变作为背景填充：颜色从 from 到 to，
+// angleDeg 为方向角（0=左→右，90=上→下，45=左上→右下）。会遵循圆角。
+func LinearGradient(from, to Color, angleDeg float32) StyleOpt {
+	return func(s *StyleProps) {
+		s.gradFrom, s.gradTo, s.gradAngle, s.hasGradient = from, to, angleDeg, true
+	}
+}
 func Radius(v float32) StyleOpt { return func(s *StyleProps) { s.radius = v } }
 func Border(w float32, c Color) StyleOpt {
 	return func(s *StyleProps) { s.borderW, s.borderColor = w, c }

@@ -35,6 +35,23 @@ type Fiber struct {
 	dirty     bool
 	queued    bool
 	unmounted bool
+
+	// 错误边界（ErrorBoundary）：捕获后代 render 期的 panic
+	errBoundary bool
+	caughtErr   any
+}
+
+// boundaryCount 是活动 ErrorBoundary 数量；为 0 时 renderComponent 走无 defer 的快路径。
+var boundaryCount int
+
+// nearestBoundary 返回 f 最近的、当前未处于错误态的祖先错误边界。
+func nearestBoundary(f *Fiber) *Fiber {
+	for a := f.parent; a != nil; a = a.parent {
+		if a.errBoundary && a.caughtErr == nil {
+			return a
+		}
+	}
+	return nil
 }
 
 func sameType(f *Fiber, n *Node) bool {
@@ -151,8 +168,23 @@ func updateFiber(f *Fiber, n *Node) {
 }
 
 // renderComponent 执行组件 render 并协调其唯一子树。
+// 存在错误边界时用 recover 捕获本组件（或其后代）render 期的 panic，交给最近的边界降级显示。
 func renderComponent(f *Fiber) {
 	f.dirty = false
+	if boundaryCount > 0 {
+		defer func() {
+			if r := recover(); r != nil {
+				b := nearestBoundary(f)
+				if b == nil {
+					panic(r) // 无边界可兜 -> 继续抛出
+				}
+				b.caughtErr = r
+				if activeGame != nil {
+					activeGame.markDirty(b)
+				}
+			}
+		}()
+	}
 	childNode := renderWithHooks(f)
 	var old *Fiber
 	if len(f.children) > 0 {
@@ -167,6 +199,9 @@ func renderComponent(f *Fiber) {
 
 func unmount(f *Fiber) {
 	f.unmounted = true
+	if f.errBoundary {
+		boundaryCount--
+	}
 	if activeGame != nil && activeGame.focusedFiber == f {
 		activeGame.focusedFiber = nil
 	}

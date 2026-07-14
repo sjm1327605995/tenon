@@ -14,6 +14,7 @@ import (
 // 坐标均为物理像素，与 renderNode.bounds 一致。
 type painter interface {
 	FillRect(x, y, w, h, r float32, c Color)
+	FillGradient(x, y, w, h, r float32, from, to Color, angle float32) // 线性渐变填充
 	StrokeRect(x, y, w, h, r, width float32, c Color)
 	Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c Color)
 	Line(x0, y0, x1, y1 float32, c Color)
@@ -73,6 +74,9 @@ func (p *ebitenPainter) pop() clipEntry {
 
 func (p *ebitenPainter) FillRect(x, y, w, h, r float32, c Color) {
 	fillRoundRect(p.top(), x, y, w, h, r, c)
+}
+func (p *ebitenPainter) FillGradient(x, y, w, h, r float32, from, to Color, angle float32) {
+	fillGradientRoundRect(p.top(), x, y, w, h, r, from, to, angle)
 }
 func (p *ebitenPainter) StrokeRect(x, y, w, h, r, width float32, c Color) {
 	strokeRoundRect(p.top(), x, y, w, h, r, width, c)
@@ -161,6 +165,9 @@ type recordPainter struct{ ops []PaintOp }
 
 func (p *recordPainter) FillRect(x, y, w, h, r float32, c Color) {
 	p.ops = append(p.ops, PaintOp{Kind: "rect", Rect: Rect{x, y, w, h}, Radius: r, Color: c})
+}
+func (p *recordPainter) FillGradient(x, y, w, h, r float32, from, to Color, angle float32) {
+	p.ops = append(p.ops, PaintOp{Kind: "gradient", Rect: Rect{x, y, w, h}, Radius: r, Color: from})
 }
 func (p *recordPainter) StrokeRect(x, y, w, h, r, width float32, c Color) {
 	p.ops = append(p.ops, PaintOp{Kind: "stroke", Rect: Rect{x, y, w, h}, Radius: r, Width: width, Color: c})

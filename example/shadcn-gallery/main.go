@@ -50,8 +50,9 @@ func App(_ struct{}) *ui.Node {
 			ui.Style(ui.Column, ui.Width(720), ui.Height(760), ui.Bg(theme.Background),
 				ui.TextColor(theme.Foreground), ui.Padding(24), ui.Gap(16)),
 
-			// 顶栏
-			ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.JustifyBetween),
+			// 顶栏（渐变横幅）
+			ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.JustifyBetween, ui.PaddingXY(16, 12), ui.Radius(12),
+				ui.LinearGradient(ui.Hex("#6366f1"), ui.Hex("#ec4899"), 60), ui.TextColor(ui.White)),
 				ui.Text("shadcn/ui 组件库", ui.FontSize(24)),
 				rowN(
 					shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeSecondary}, ui.Text("Tenon")),

@@ -242,6 +242,94 @@ func TestPaintClipBalanced(t *testing.T) {
 	}
 }
 
+// ErrorBoundary 捕获初次挂载时子组件的 panic，显示 fallback，不崩溃。
+func TestErrorBoundaryCatchesMount(t *testing.T) {
+	boom := func(_ struct{}) *Node { panic("boom") }
+	app := func(_ struct{}) *Node {
+		return ErrorBoundary(
+			func(err any, _ func()) *Node { return Text("caught: " + ErrText(err)) },
+			Use(boom, struct{}{}),
+		)
+	}
+	h := Mount(Use(app, struct{}{}), 200, 100)
+	if !h.Root().ByText("caught: boom").Exists() {
+		t.Fatalf("fallback not rendered; texts=%v", h.Root().Texts())
+	}
+}
+
+// 无边界时 panic 应照常抛出（不被静默吞掉）。
+func TestNoBoundaryPanicsPropagate(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("expected panic to propagate without a boundary")
+		}
+	}()
+	boom := func(_ struct{}) *Node { panic("x") }
+	Mount(Use(boom, struct{}{}), 100, 100)
+}
+
+// 触发再重试：出错 -> fallback -> retry 清错 -> 子树恢复正常。
+func TestErrorBoundaryRetry(t *testing.T) {
+	shouldBoom := true
+	child := func(_ struct{}) *Node {
+		if shouldBoom {
+			panic("transient")
+		}
+		return Text("ok")
+	}
+	var retryFn func()
+	app := func(_ struct{}) *Node {
+		return ErrorBoundary(
+			func(err any, retry func()) *Node { retryFn = retry; return Text("failed") },
+			Use(child, struct{}{}),
+		)
+	}
+	h := Mount(Use(app, struct{}{}), 200, 100)
+	if !h.Root().ByText("failed").Exists() {
+		t.Fatalf("expected fallback; texts=%v", h.Root().Texts())
+	}
+	shouldBoom = false // 修复"外部条件"
+	retryFn()          // 重试
+	h.Step(0)          // 让脏队列刷新
+	if !h.Root().ByText("ok").Exists() {
+		t.Fatalf("expected recovery after retry; texts=%v", h.Root().Texts())
+	}
+}
+
+// 线性渐变背景应记录一条 gradient 填充指令。
+func TestGradientFill(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		return Div(Style(Width(100), Height(40), LinearGradient(Hex("#ff0000"), Hex("#0000ff"), 90)))
+	}, struct{}{}), 200, 100)
+	ops := h.Paint()
+	found := false
+	for _, op := range ops {
+		if op.Kind == "gradient" && op.Color == Hex("#ff0000") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected gradient fill op; ops=%+v", ops)
+	}
+}
+
+// object-fit 的几何计算（不依赖真实图片）。
+func TestObjectFitRect(t *testing.T) {
+	box := Rect{X: 0, Y: 0, W: 200, H: 100}
+	// 图片 100×100（1:1），放进 200×100 的框
+	if dr, clip := fitRect(100, 100, box, FitFill); dr != box || clip {
+		t.Fatalf("fill: %v clip=%v want full box no clip", dr, clip)
+	}
+	// contain：缩到高度 100，宽 100，水平居中 -> x=50
+	if dr, clip := fitRect(100, 100, box, FitContain); dr != (Rect{50, 0, 100, 100}) || clip {
+		t.Fatalf("contain: %v clip=%v want {50 0 100 100} no clip", dr, clip)
+	}
+	// cover：放大到宽度 200，高 200，垂直居中 -> y=-50，需裁剪
+	if dr, clip := fitRect(100, 100, box, FitCover); dr != (Rect{0, -50, 200, 200}) || !clip {
+		t.Fatalf("cover: %v clip=%v want {0 -50 200 200} clip", dr, clip)
+	}
+}
+
 // 带圆角的裁剪容器应记录一条 radius>0 的 clip 指令（走圆角遮罩路径）。
 func TestRoundedClipRecordsRadius(t *testing.T) {
 	h := Mount(Use(func(_ struct{}) *Node {

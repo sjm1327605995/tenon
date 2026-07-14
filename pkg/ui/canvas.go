@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"math"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -69,6 +70,43 @@ func fillRoundRect(dst *ebiten.Image, x, y, w, h, r float32, c Color) {
 	vs, is := p.AppendVerticesAndIndicesForFilling(nil, nil)
 	cr, cg, cb, ca := colorScale(c)
 	for i := range vs {
+		vs[i].SrcX, vs[i].SrcY = 0, 0
+		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = cr, cg, cb, ca
+	}
+	op := &ebiten.DrawTrianglesOptions{AntiAlias: true}
+	dst.DrawTriangles(vs, is, whiteImage(), op)
+}
+
+// fillGradientRoundRect 用线性渐变填充圆角矩形：按顶点在渐变方向上的投影插值颜色。
+func fillGradientRoundRect(dst *ebiten.Image, x, y, w, h, r float32, from, to Color, angleDeg float32) {
+	if w <= 0 || h <= 0 {
+		return
+	}
+	path := roundRectPath(x, y, w, h, r)
+	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	if len(is) == 0 {
+		return
+	}
+	rad := float64(angleDeg) * math.Pi / 180
+	dx, dy := float32(math.Cos(rad)), float32(math.Sin(rad))
+	// 四角在方向上的投影范围，作为 t∈[0,1] 的归一化区间
+	minP, maxP := float32(math.MaxFloat32), float32(-math.MaxFloat32)
+	for _, c := range [4][2]float32{{x, y}, {x + w, y}, {x, y + h}, {x + w, y + h}} {
+		pr := c[0]*dx + c[1]*dy
+		if pr < minP {
+			minP = pr
+		}
+		if pr > maxP {
+			maxP = pr
+		}
+	}
+	span := maxP - minP
+	if span == 0 {
+		span = 1
+	}
+	for i := range vs {
+		t := (vs[i].DstX*dx + vs[i].DstY*dy - minP) / span
+		cr, cg, cb, ca := colorScale(Mix(from, to, t))
 		vs[i].SrcX, vs[i].SrcY = 0, 0
 		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = cr, cg, cb, ca
 	}

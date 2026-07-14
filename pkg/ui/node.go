@@ -77,7 +77,8 @@ type hostProps struct {
 	navOrient NavOrient
 
 	// img
-	src string
+	src       string
+	objectFit ObjectFit
 }
 
 func buildHostProps(n *Node) hostProps {
@@ -256,6 +257,20 @@ func Multiline() *Node {
 // Src 设置图片来源（文件路径）。
 func Src(v string) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.src = v }}
+}
+
+// ObjectFit 决定图片如何适配其框：FitFill 拉伸（默认）/ FitContain 完整放入留白 / FitCover 填满并裁剪。
+type ObjectFit int
+
+const (
+	FitFill    ObjectFit = iota // 拉伸填满（默认，可能变形）
+	FitContain                  // 等比缩放完整放入，多余处留白
+	FitCover                    // 等比缩放填满，超出部分裁掉
+)
+
+// Fit 设置 Img 的适配方式（object-fit）。
+func Fit(mode ObjectFit) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.objectFit = mode }}
 }
 
 // Use 挂载一个带 typed props 的函数组件。

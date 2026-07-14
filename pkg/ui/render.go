@@ -47,6 +47,10 @@ type renderNode struct {
 
 	// box / input
 	bg          Color
+	hasGradient bool
+	gradFrom    Color
+	gradTo      Color
+	gradAngle   float32
 	radius      float32
 	borderW     float32
 	borderColor Color
@@ -108,8 +112,9 @@ type renderNode struct {
 	navOrient    NavOrient
 
 	// image
-	imgSrc string
-	img    *ebiten.Image
+	imgSrc    string
+	img       *ebiten.Image
+	objectFit ObjectFit
 
 	// icon（SVG）
 	iconPath    string
@@ -445,12 +450,33 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 		}
 		rn.yn.MarkDirty()
 	case rnImage:
+		rn.objectFit = hp.objectFit
 		if hp.src != "" && rn.imgSrc != hp.src {
 			rn.imgSrc = hp.src
 			rn.loadImage()
 			rn.yn.MarkDirty()
 		}
 	}
+}
+
+// fitRect 按 object-fit 计算图片在框 b 内的绘制矩形；bool 表示是否需要裁剪到 b（cover）。
+func fitRect(iw, ih float32, b Rect, fit ObjectFit) (Rect, bool) {
+	if iw <= 0 || ih <= 0 || fit == FitFill {
+		return b, false
+	}
+	scale := b.W / iw
+	switch fit {
+	case FitContain:
+		if s := b.H / ih; s < scale {
+			scale = s
+		}
+	case FitCover:
+		if s := b.H / ih; s > scale {
+			scale = s
+		}
+	}
+	dw, dh := iw*scale, ih*scale
+	return Rect{X: b.X + (b.W-dw)/2, Y: b.Y + (b.H-dh)/2, W: dw, H: dh}, fit == FitCover
 }
 
 // syncYoga 把 StyleProps 写进 yoga 节点，并缓存绘制属性。所有尺寸按 uiScale 换算到物理像素。
@@ -523,6 +549,8 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	setPos(yn, yoga.EdgeLeft, s.posL*k)
 
 	rn.bg = s.bg
+	rn.hasGradient = s.hasGradient
+	rn.gradFrom, rn.gradTo, rn.gradAngle = s.gradFrom, s.gradTo, s.gradAngle
 	rn.radius = s.radius * k
 	rn.borderW = s.borderW * k
 	rn.borderColor = s.borderColor
@@ -627,7 +655,11 @@ func paintNode(p painter, rn *renderNode) {
 	}
 	switch rn.kind {
 	case rnBox, rnScroll:
-		p.FillRect(b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))
+		if rn.hasGradient {
+			p.FillGradient(b.X, b.Y, b.W, b.H, rn.radius, rn.gradFrom.Alpha(o), rn.gradTo.Alpha(o), rn.gradAngle)
+		} else {
+			p.FillRect(b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))
+		}
 		if rn.borderW > 0 {
 			p.StrokeRect(b.X, b.Y, b.W, b.H, rn.radius, rn.borderW, rn.borderColor.Alpha(o))
 		}
@@ -644,7 +676,15 @@ func paintNode(p painter, rn *renderNode) {
 		}
 	case rnImage:
 		if rn.img != nil {
-			p.DrawImage(rn.img, b, o)
+			ib := rn.img.Bounds()
+			dr, needClip := fitRect(float32(ib.Dx()), float32(ib.Dy()), b, rn.objectFit)
+			if needClip { // cover：裁剪到框（遵循圆角）
+				p.PushClip(b, rn.radius)
+				p.DrawImage(rn.img, dr, o)
+				p.PopClip()
+			} else {
+				p.DrawImage(rn.img, dr, o)
+			}
 		}
 	case rnIcon:
 		if path := rn.scaledIconPath(); path != nil {
