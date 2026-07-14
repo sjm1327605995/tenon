@@ -522,6 +522,16 @@ func (g *game) handleInput() {
 			}
 		}
 	}
+	// 右键：向上冒泡找第一个 onContextMenu，回调光标逻辑坐标
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+		x, y := ebiten.CursorPosition()
+		for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+			if c.onContextMenu != nil {
+				c.onContextMenu(float32(x)/uiScale, float32(y)/uiScale)
+				break
+			}
+		}
+	}
 	g.updatePress()
 	g.updateInputSelection()
 	g.handleKeyboardNav()

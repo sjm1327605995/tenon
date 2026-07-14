@@ -1,39 +1,40 @@
 package main
 
 import (
+	"os"
+	"time"
+
 	"github.com/sjm1327605995/tenon/pkg/shadcn"
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
 )
 
-func App(_ struct{}) *ui.Node {
-	otp, setOTP := ui.UseState("428")
+func App(scene string) *ui.Node {
 	th := ui.DarkTheme
-	return ui.ThemeProvider(th,
-		ui.Div(
-			ui.Style(ui.Column, ui.Fill, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(24),
-				ui.Bg(th.Background), ui.TextColor(th.Foreground)),
-
-			ui.Div(ui.Style(ui.Column, ui.Width(380), ui.Gap(20),
-				ui.Bg(th.Card), ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Padding(24)),
-
-				shadcn.H3("Item 列表项"),
-				ui.Div(ui.Style(ui.Column, ui.Gap(2)),
-					shadcn.Item(shadcn.ItemProps{
-						Media: ui.Icon(ui.IconSearch, 18),
-						Title: "搜索", Description: "全局搜索命令与文件",
-						Trailing: shadcn.KbdGroup("Ctrl", "K"), OnClick: func() {}}),
-					shadcn.Item(shadcn.ItemProps{
-						Media: ui.Icon(ui.IconTrash, 18),
-						Title: "回收站", Description: "30 天后自动清空",
-						Trailing: shadcn.Badge(shadcn.BadgeProps{Variant: shadcn.BadgeSecondary}, ui.Text("12")),
-						OnClick:  func() {}}),
-				),
-
-				shadcn.H3("Input OTP 验证码"),
-				shadcn.InputOTP(shadcn.InputOTPProps{Length: 6, Value: otp, OnChange: setOTP}),
-			),
-		),
+	menus := []shadcn.MenubarMenu{
+		{Label: "File", Items: []shadcn.MenuItem{{Label: "New"}, {Label: "Open"}, {Label: "Save"}}},
+		{Label: "Edit", Items: []shadcn.MenuItem{{Label: "Undo"}, {Label: "Redo"}}},
+		{Label: "View", Items: []shadcn.MenuItem{{Label: "Zoom In"}, {Label: "Zoom Out"}}},
+	}
+	base := ui.Div(ui.Style(ui.Column, ui.Fill, ui.ItemsCenter, ui.JustifyCenter, ui.Gap(24),
+		ui.Bg(th.Background), ui.TextColor(th.Foreground)),
+		shadcn.H3("Menubar + DatePicker"),
+		shadcn.Menubar(menus),
+		shadcn.DatePicker(shadcn.DatePickerProps{Value: time.Date(2026, 7, 14, 0, 0, 0, 0, time.Local)}),
 	)
+	kids := []*ui.Node{ui.Style(ui.Fill), base}
+	switch scene {
+	case "alert":
+		kids = append(kids, shadcn.AlertDialog(shadcn.AlertDialogProps{
+			Open: true, Title: "确认删除？",
+			Description: "此操作不可撤销，将永久删除该项目及其所有数据。",
+			ActionLabel: "删除", Destructive: true}))
+	case "drawer":
+		kids = append(kids, shadcn.Drawer(shadcn.DrawerProps{Open: true, Height: 280},
+			shadcn.H3("分享到"),
+			shadcn.Muted("从底部滑入的抽屉内容。"),
+			shadcn.Button(shadcn.ButtonProps{}, ui.Text("复制链接"))))
+	}
+	return ui.ThemeProvider(th, ui.Div(kids...))
 }
 
-func main() { ui.Run(ui.Use(App, struct{}{})) }
+func main() { ui.Run(ui.Use(App, os.Getenv("SCENE"))) }

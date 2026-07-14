@@ -10,7 +10,7 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 |---|---|---|
 | Accordion | ✅ | |
 | Alert | ✅ | |
-| Alert Dialog | ⬜ | Dialog + action/cancel buttons |
+| Alert Dialog | ✅ | title + desc + cancel/action (destructive) |
 | Aspect Ratio | ✅ | |
 | Avatar | ✅ | image fallback? initials only |
 | Badge | ✅ | |
@@ -25,11 +25,11 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 | Collapsible | ✅ | |
 | Combobox | ✅ | |
 | Command | ✅ | |
-| Context Menu | ⬜ | right-click menu |
+| Context Menu | ✅ | right-click (engine OnContextMenu) at cursor |
 | Data Table | ⬜ | sort/filter/paginate on Table + VirtualList |
-| Date Picker | ⬜ | Popover + Calendar |
+| Date Picker | ✅ | trigger + Calendar floatPanel |
 | Dialog | ✅ | |
-| Drawer | ⬜ | bottom sheet (vaul-style) |
+| Drawer | ✅ | bottom slide-up + grab handle |
 | Dropdown Menu | ✅ | |
 | Empty | ✅ | icon + title + description + actions |
 | Field | ✅ | label + control + description/error |
@@ -41,7 +41,7 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 | Item | ✅ | media + title/description + trailing |
 | Kbd | ✅ | `Kbd` + `KbdGroup` |
 | Label | ✅ | |
-| Menubar | ⬜ | app menu bar |
+| Menubar | ✅ | bar of DropdownMenus |
 | Native Select | ✅ | covered by Select (no OS-native select on Ebiten) |
 | Navigation Menu | ✅ | |
 | Pagination | ✅ | |

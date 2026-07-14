@@ -99,17 +99,18 @@ type renderNode struct {
 	selAnchor   int // 选区另一端；等于 caretPos 表示无选区
 
 	// IME 预编辑（未提交的组字串），仅聚焦输入框绘制期有效；不进入 value/onChange。
-	preedit      string
-	preeditAt    int // 预编辑串在 value 中的插入字节位置
-	preeditCaret int // 光标在预编辑串内的字节偏移
-	onHover      func(bool)
-	onPress      func(bool)
-	onDrag       func(dx, dy float32)
-	measure      *measureHook
-	scrollRef    *scrollHook // UseScroll：写回滚动状态
-	focusable    bool
-	navGroup     bool // ArrowNav：本节点是方向键导航组
-	navOrient    NavOrient
+	preedit       string
+	preeditAt     int // 预编辑串在 value 中的插入字节位置
+	preeditCaret  int // 光标在预编辑串内的字节偏移
+	onHover       func(bool)
+	onPress       func(bool)
+	onDrag        func(dx, dy float32)
+	onContextMenu func(x, y float32)
+	measure       *measureHook
+	scrollRef     *scrollHook // UseScroll：写回滚动状态
+	focusable     bool
+	navGroup      bool // ArrowNav：本节点是方向键导航组
+	navOrient     NavOrient
 
 	// image
 	imgSrc    string
@@ -430,6 +431,7 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 	rn.onHover = hp.onHover
 	rn.onPress = hp.onPress
 	rn.onDrag = hp.onDrag
+	rn.onContextMenu = hp.onContextMenu
 	rn.measure = hp.measure
 	rn.scrollRef = hp.scrollRef
 	rn.navGroup = hp.navGroup

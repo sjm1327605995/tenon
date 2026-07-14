@@ -61,16 +61,17 @@ type hostProps struct {
 	key     string
 
 	// input
-	value       string
-	hasValue    bool
-	onChange    func(string)
-	placeholder string
-	multiline   bool
-	onHover     func(bool)
-	onPress     func(bool)
-	onDrag      func(dx, dy float32)
-	measure     *measureHook
-	scrollRef   *scrollHook // UseScroll：把该 ScrollView 的滚动状态写回
+	value         string
+	hasValue      bool
+	onChange      func(string)
+	placeholder   string
+	multiline     bool
+	onHover       func(bool)
+	onPress       func(bool)
+	onDrag        func(dx, dy float32)
+	onContextMenu func(x, y float32) // 右键（逻辑坐标）
+	measure       *measureHook
+	scrollRef     *scrollHook // UseScroll：把该 ScrollView 的滚动状态写回
 
 	// 方向键导航组（ArrowNav）：组内可聚焦项用方向键移动焦点
 	navGroup  bool
@@ -242,6 +243,11 @@ func OnPress(fn func(bool)) *Node {
 // OnDrag 在元素上按住左键拖动时逐帧回调（dx,dy 为本帧屏幕位移）。
 func OnDrag(fn func(dx, dy float32)) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.onDrag = fn }}
+}
+
+// OnContextMenu 在元素上右键点击时回调，参数为光标的逻辑坐标（用于弹出上下文菜单）。
+func OnContextMenu(fn func(x, y float32)) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.onContextMenu = fn }}
 }
 
 // Placeholder 设置输入占位符。

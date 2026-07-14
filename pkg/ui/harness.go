@@ -123,6 +123,19 @@ func (h *Harness) ClickAt(x, y float32) bool {
 	return false
 }
 
+// RightClickAt hit-tests at a screen point and fires the nearest onContextMenu
+// up the chain (right-click), passing the point. Returns whether a handler fired.
+func (h *Harness) RightClickAt(x, y float32) bool {
+	for c := h.g.hitTop(x, y); c != nil; c = c.parent {
+		if c.onContextMenu != nil {
+			c.onContextMenu(x, y)
+			h.settle()
+			return true
+		}
+	}
+	return false
+}
+
 // Focused returns a Query for the currently focused node, or an empty Query if
 // nothing is focused.
 func (h *Harness) Focused() *Query {

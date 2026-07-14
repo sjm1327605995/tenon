@@ -3,9 +3,47 @@ package shadcn
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
 )
+
+// Phase-3: Menubar + DatePicker 内联渲染。
+func TestMenubarAndDatePicker(t *testing.T) {
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ui.Div(
+			Menubar([]MenubarMenu{{Label: "File", Items: []MenuItem{{Label: "New"}}}, {Label: "Edit"}}),
+			DatePicker(DatePickerProps{Value: time.Date(2026, 7, 14, 0, 0, 0, 0, time.UTC)}),
+		)
+	}, struct{}{}))
+	for _, s := range []string{"File", "Edit", "2026-07-14"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+}
+
+// Phase-3: AlertDialog 打开后显示内容，点击操作按钮回调。
+func TestAlertDialogOpens(t *testing.T) {
+	acted := 0
+	h := ui.MountDefault(AlertDialog(AlertDialogProps{
+		Open: true, Title: "T-title", Description: "D-desc",
+		ActionLabel: "Go", OnAction: func() { acted++ }}))
+	h.Step(220) // 过渡挂载
+	ovs := h.Overlays()
+	if len(ovs) == 0 {
+		t.Fatal("alert dialog overlay did not open")
+	}
+	fired := false
+	for _, ov := range ovs {
+		if ov.ByText("T-title").Exists() && ov.ByText("D-desc").Exists() {
+			fired = ov.ByText("Go").Click()
+		}
+	}
+	if !fired || acted != 1 {
+		t.Fatalf("alert action click didn't fire (fired=%v acted=%d)", fired, acted)
+	}
+}
 
 // These tests drive real interactions through ui.Mount (the headless harness),
 // asserting behavior — clicks fire, controlled state flips the rendered output —
@@ -339,5 +377,39 @@ func TestTabsSwitchActive(t *testing.T) {
 	}
 	if !h.Root().ByText("active=2").Exists() {
 		t.Fatalf("after clicking C texts = %v, want active=2", h.Root().Texts())
+	}
+}
+
+// Phase-3: ContextMenu 右键弹出，选中回调并关闭。
+func TestContextMenuRightClick(t *testing.T) {
+	sel := ""
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ContextMenu(
+			ui.Div(ui.Style(ui.Width(200), ui.Height(100)), ui.Text("area")),
+			[]MenuItem{
+				{Label: "Copy", OnSelect: func() { sel = "Copy" }},
+				{Label: "Delete", OnSelect: func() { sel = "Delete" }},
+			},
+		)
+	}, struct{}{}))
+	if len(h.Overlays()) != 0 {
+		t.Fatal("menu should be closed initially")
+	}
+	b := h.Root().ByText("area").Bounds()
+	if !h.RightClickAt(b.X+b.W/2, b.Y+b.H/2) {
+		t.Fatal("right-click found no onContextMenu handler")
+	}
+	ovs := h.Overlays()
+	if len(ovs) == 0 {
+		t.Fatal("context menu did not open on right-click")
+	}
+	if !ovs[0].ByText("Delete").Click() {
+		t.Fatal("menu item click found no handler")
+	}
+	if sel != "Delete" {
+		t.Fatalf("OnSelect = %q want Delete", sel)
+	}
+	if len(h.Overlays()) != 0 {
+		t.Fatal("menu should close after select")
 	}
 }
