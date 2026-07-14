@@ -54,6 +54,8 @@ type game struct {
 	pressedNode          *renderNode
 	inputSelecting       bool
 
+	hoverX, hoverY int // 上次计算悬停链时的光标位置（用于空闲时跳过重算）
+
 	// 多击检测（双击选词 / 三击选全部）
 	lastClickAt            time.Time
 	lastClickX, lastClickY int
@@ -338,8 +340,8 @@ func (g *game) flushDirty() {
 	sort.SliceStable(q, func(i, j int) bool { return depth(q[i]) < depth(q[j]) })
 	for _, f := range q {
 		f.queued = false
-		if !f.dirty {
-			continue
+		if !f.dirty || f.unmounted {
+			continue // 跳过本帧内已被卸载的 fiber，避免在死组件上重跑 render/effect
 		}
 		renderComponent(f)
 	}
@@ -902,6 +904,14 @@ func (g *game) handleIME(rn *renderNode) bool {
 // updateHover 计算光标下的悬停链，触发 enter/leave 回调（回调内一般 setState 驱动重渲染）。
 func (g *game) updateHover() {
 	x, y := ebiten.CursorPosition()
+	// 空闲时（光标未移动、无待处理重渲染、无动画在跑）悬停链不会变，
+	// 跳过整树命中遍历与每帧 map 分配，避免静态界面空转。
+	animating := len(g.anims) > 0 || len(g.loops) > 0 || g.hasLayoutAnim
+	if !animating && g.hovered != nil && x == g.hoverX && y == g.hoverY &&
+		!g.needsLayout && len(g.dirty) == 0 {
+		return
+	}
+	g.hoverX, g.hoverY = x, y
 	now := map[*renderNode]bool{}
 	for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
 		if c.onHover != nil {

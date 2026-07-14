@@ -1,11 +1,14 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"math"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -421,23 +424,75 @@ func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
 
 var imgCache = map[string]*ebiten.Image{}
 
+var (
+	imgLoading = map[string]bool{}          // 正在后台加载的 src
+	imgWaiters = map[string][]*renderNode{} // 等待同一 src 完成的节点
+)
+
+// imgHTTPClient 带超时，避免后台加载 goroutine 因网络挂起而永久泄漏。
+var imgHTTPClient = &http.Client{Timeout: 15 * time.Second}
+
+// loadImage 异步加载图片：命中缓存立即返回；否则在后台 goroutine 解码，完成后经
+// Post 回到渲染线程安装缓存并触发重绘。imgCache/imgLoading/imgWaiters 仅在渲染线程
+// （reconcile 与 drainPosts）访问，故无需加锁；后台 goroutine 只做 IO/解码。
 func (rn *renderNode) loadImage() {
 	if img, ok := imgCache[rn.imgSrc]; ok {
 		rn.img = img
 		return
 	}
-	f, err := os.Open(rn.imgSrc)
+	rn.img = nil // 加载完成前不显示旧图
+	src := rn.imgSrc
+	imgWaiters[src] = append(imgWaiters[src], rn)
+	if imgLoading[src] {
+		return // 已在加载，完成时统一通知全部等待者
+	}
+	imgLoading[src] = true
+	go func() {
+		img, err := decodeImageSource(src)
+		Post(func() {
+			delete(imgLoading, src)
+			waiters := imgWaiters[src]
+			delete(imgWaiters, src)
+			if err != nil || img == nil {
+				return // 失败：保持未加载（不缓存失败），src 再次设置时会重试
+			}
+			ei := ebiten.NewImageFromImage(img)
+			imgCache[src] = ei
+			for _, w := range waiters {
+				if w.imgSrc == src { // 期间 src 可能已改，仅回填仍需要它的节点
+					w.img = ei
+					w.yn.MarkDirty()
+				}
+			}
+			if activeGame != nil {
+				activeGame.needsLayout = true
+				activeGame.needsPaint = true
+			}
+		})
+	}()
+}
+
+// decodeImageSource 从本地路径或 http(s) URL 读取并解码一张图片（在后台 goroutine 调用）。
+func decodeImageSource(src string) (image.Image, error) {
+	if strings.HasPrefix(src, "http://") || strings.HasPrefix(src, "https://") {
+		resp, err := imgHTTPClient.Get(src)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("image: GET %s -> %s", src, resp.Status)
+		}
+		img, _, err := image.Decode(resp.Body)
+		return img, err
+	}
+	f, err := os.Open(src)
 	if err != nil {
-		return
+		return nil, err
 	}
 	defer f.Close()
-	src, _, err := image.Decode(f)
-	if err != nil {
-		return
-	}
-	ei := ebiten.NewImageFromImage(src)
-	imgCache[rn.imgSrc] = ei
-	rn.img = ei
+	img, _, err := image.Decode(f)
+	return img, err
 }
 
 // applyHostProps 把某个 host 元素的属性写入其 renderNode。

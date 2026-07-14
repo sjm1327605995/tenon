@@ -23,7 +23,26 @@ func whiteImage() *ebiten.Image {
 	return whiteImg
 }
 
-// roundRectPath 构造圆角矩形路径。
+// paint 是单线程的，以下 scratch 缓冲在各绘制原语间顺序复用，消除 paint 热路径每帧的
+// 顶点/索引/路径分配。每次生成的顶点都会被 DrawTriangles 立即拷贝走，且各绘制函数内
+// 不会在消费完当前顶点前再次占用同一缓冲，故顺序复用是安全的。
+var (
+	scratchVerts []ebiten.Vertex
+	scratchIdx   []uint16
+	scratchPath  vector.Path
+)
+
+// fillVerts / strokeVerts 用复用缓冲把 path 三角化，返回的切片仅在下一次绘制前有效。
+func fillVerts(path *vector.Path) ([]ebiten.Vertex, []uint16) {
+	scratchVerts, scratchIdx = path.AppendVerticesAndIndicesForFilling(scratchVerts[:0], scratchIdx[:0])
+	return scratchVerts, scratchIdx
+}
+func strokeVerts(path *vector.Path, sop *vector.StrokeOptions) ([]ebiten.Vertex, []uint16) {
+	scratchVerts, scratchIdx = path.AppendVerticesAndIndicesForStroke(scratchVerts[:0], scratchIdx[:0], sop)
+	return scratchVerts, scratchIdx
+}
+
+// roundRectPath 构造圆角矩形路径（复用包级 scratchPath，调用方须在下次调用前消费完）。
 func roundRectPath(x, y, w, h, r float32) *vector.Path {
 	if r > w/2 {
 		r = w / 2
@@ -31,7 +50,8 @@ func roundRectPath(x, y, w, h, r float32) *vector.Path {
 	if r > h/2 {
 		r = h / 2
 	}
-	p := &vector.Path{}
+	p := &scratchPath
+	p.Reset()
 	if r <= 0 {
 		p.MoveTo(x, y)
 		p.LineTo(x+w, y)
@@ -67,7 +87,7 @@ func fillRoundRect(dst *ebiten.Image, x, y, w, h, r float32, c Color) {
 		return
 	}
 	p := roundRectPath(x, y, w, h, r)
-	vs, is := p.AppendVerticesAndIndicesForFilling(nil, nil)
+	vs, is := fillVerts(p)
 	cr, cg, cb, ca := colorScale(c)
 	for i := range vs {
 		vs[i].SrcX, vs[i].SrcY = 0, 0
@@ -83,7 +103,7 @@ func fillGradientRoundRect(dst *ebiten.Image, x, y, w, h, r float32, from, to Co
 		return
 	}
 	path := roundRectPath(x, y, w, h, r)
-	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	vs, is := fillVerts(path)
 	if len(is) == 0 {
 		return
 	}
@@ -144,7 +164,7 @@ func fillPathAt(dst *ebiten.Image, path *vector.Path, x, y float32, c Color) {
 	if path == nil || c.transparent() {
 		return
 	}
-	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	vs, is := fillVerts(path)
 	if len(is) == 0 {
 		return
 	}
@@ -165,7 +185,7 @@ func strokePathAt(dst *ebiten.Image, path *vector.Path, x, y, width float32, c C
 		return
 	}
 	sop := &vector.StrokeOptions{Width: width, LineCap: vector.LineCapRound, LineJoin: vector.LineJoinRound}
-	vs, is := path.AppendVerticesAndIndicesForStroke(nil, nil, sop)
+	vs, is := strokeVerts(path, sop)
 	if len(is) == 0 {
 		return
 	}
@@ -184,7 +204,7 @@ func strokePathAt(dst *ebiten.Image, path *vector.Path, x, y, width float32, c C
 // 保留圆角内的像素、清除圆角外（含四个尖角）的像素。用于圆角裁剪。
 func maskRoundRect(dst *ebiten.Image, r Rect, radius float32) {
 	path := roundRectPath(r.X, r.Y, r.W, r.H, radius)
-	vs, is := path.AppendVerticesAndIndicesForFilling(nil, nil)
+	vs, is := fillVerts(path)
 	for i := range vs {
 		vs[i].SrcX, vs[i].SrcY = 0, 0
 		vs[i].ColorR, vs[i].ColorG, vs[i].ColorB, vs[i].ColorA = 1, 1, 1, 1
@@ -205,7 +225,7 @@ func strokeRoundRect(dst *ebiten.Image, x, y, w, h, r, width float32, c Color) {
 	}
 	inset := width / 2
 	p := roundRectPath(x+inset, y+inset, w-width, h-width, r-inset)
-	vs, is := p.AppendVerticesAndIndicesForStroke(nil, nil, &vector.StrokeOptions{Width: width})
+	vs, is := strokeVerts(p, &vector.StrokeOptions{Width: width})
 	cr, cg, cb, ca := colorScale(c)
 	for i := range vs {
 		vs[i].SrcX, vs[i].SrcY = 0, 0

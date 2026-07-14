@@ -20,9 +20,10 @@ type Fiber struct {
 	hooks      []any
 
 	// provider
-	ctxID       int
-	ctxValue    any
-	subscribers []*Fiber
+	ctxID        int
+	ctxValue     any
+	subscribers  map[*Fiber]struct{} // 消费者集合（去重）；值变化时统一标脏
+	providerSubs []*Fiber            // 本 fiber 订阅的 provider，卸载时据此退订
 
 	// host / text
 	tag   string
@@ -147,7 +148,7 @@ func updateFiber(f *Fiber, n *Node) {
 		if changed {
 			subs := f.subscribers
 			f.subscribers = nil
-			for _, s := range subs {
+			for s := range subs {
 				if !s.unmounted && activeGame != nil {
 					activeGame.markDirty(s)
 				}
@@ -202,8 +203,25 @@ func unmount(f *Fiber) {
 	if f.errBoundary {
 		boundaryCount--
 	}
-	if activeGame != nil && activeGame.focusedFiber == f {
-		activeGame.focusedFiber = nil
+	// 退订本 fiber 消费过的所有 provider，避免 provider 悬挂已卸载消费者。
+	for _, p := range f.providerSubs {
+		delete(p.subscribers, f)
+	}
+	f.providerSubs = nil
+	if g := activeGame; g != nil {
+		if g.focusedFiber == f {
+			g.focusedFiber = nil
+		}
+		// 清理指向本节点的悬空交互指针，防止在已卸载节点上回调 onPress/onDrag/onHover。
+		if rn := f.rnode; rn != nil {
+			if g.pressedNode == rn {
+				g.pressedNode = nil
+			}
+			if g.dragging == rn {
+				g.dragging = nil
+			}
+			delete(g.hovered, rn)
+		}
 	}
 	for _, h := range f.hooks {
 		if e, ok := h.(*effectHook); ok && e.cleanup != nil {
