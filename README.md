@@ -9,9 +9,15 @@
 
 ---
 
+![Tenon dashboard demo](docs/screenshots/dashboard.png)
+
+<p align="center"><em>A dashboard built entirely with Tenon + its shadcn-style component library — see <a href="example/showcase">example/showcase</a>.</em></p>
+
+---
+
 ## ⚠️ Status
 
-Young but coherent. The core (`pkg/ui`) is stable in shape and covered by tests; APIs may still change before a 1.0. Good for tools, dashboards, in-app/game UIs and prototypes. See [ROADMAP.md](ROADMAP.md) for what's done and what's missing (notably: font weights, IME, accessibility, multi-window).
+Young but coherent. The core (`pkg/ui`) is stable in shape and covered by tests; APIs may still change before a 1.0. Good for tools, dashboards, in-app/game UIs and prototypes. See [ROADMAP.md](ROADMAP.md) for what's done and what's next. Highlights: rich text (weights/italic, IME, UAX#14 wrapping), on-demand repaint + list virtualization, accessibility (focus trap, arrow-key nav), SVG icons / gradients / rounded clipping, and a ~60-component shadcn library. Not covered: OS-native integration (multi-window, native menus) — bounded by Ebiten.
 
 ## What is Tenon?
 

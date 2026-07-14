@@ -117,13 +117,16 @@ type renderNode struct {
 	img       *ebiten.Image
 	objectFit ObjectFit
 
-	// icon（SVG）
+	// icon（SVG）/ vector（原始像素路径）
 	iconPath    string
 	iconSize    float32
-	iconStroke  float32      // >0 描边（viewBox 单位），0 填充
-	iconCache   *vector.Path // 已按物理尺寸解析缩放的路径（局部坐标，绘制时平移到 bounds）
+	iconStroke  float32 // >0 描边，0 填充
+	iconRaw     bool    // Vector：路径为逻辑像素坐标
+	iconW       float32
+	iconH       float32
+	iconCache   *vector.Path // 已按缩放解析好的路径（局部坐标，绘制时平移到 bounds）
 	iconCacheK  string       // 缓存键：path
-	iconCacheSz float32      // 缓存键：物理尺寸
+	iconCacheSz float32      // 缓存键：缩放比例
 
 	// scroll / clip
 	clip     bool
@@ -249,37 +252,50 @@ func newImageRenderNode() *renderNode {
 	return rn
 }
 
-func newIconRenderNode(d string, size, stroke float32, st StyleProps) *renderNode {
-	rn := &renderNode{yn: yoga.NewNode(), kind: rnIcon, iconPath: d, iconSize: size, iconStroke: stroke, opacity: 1, scale: 1}
+func newIconRenderNode(d string, size, stroke float32, raw bool, w, h float32, st StyleProps) *renderNode {
+	rn := &renderNode{yn: yoga.NewNode(), kind: rnIcon, iconPath: d, iconSize: size, iconStroke: stroke,
+		iconRaw: raw, iconW: w, iconH: h, opacity: 1, scale: 1}
 	rn.applyTextStyle(st)                        // 复用文本颜色继承（currentColor）
 	rn.yn.StyleSetAlignSelf(yoga.AlignFlexStart) // 固定尺寸，不随 align-items:stretch 拉伸
 	rn.yn.SetMeasureFunc(func(_ *yoga.Node, _ float32, _ yoga.MeasureMode, _ float32, _ yoga.MeasureMode) yoga.Size {
+		if rn.iconRaw {
+			return yoga.Size{Width: rn.iconW * uiScale, Height: rn.iconH * uiScale}
+		}
 		s := rn.iconSize * uiScale
 		return yoga.Size{Width: s, Height: s}
 	})
 	return rn
 }
 
-func (rn *renderNode) setIcon(d string, size, stroke float32, st StyleProps) {
-	if rn.iconPath != d || rn.iconSize != size || rn.iconStroke != stroke {
+func (rn *renderNode) setIcon(d string, size, stroke float32, raw bool, w, h float32, st StyleProps) {
+	if rn.iconPath != d || rn.iconSize != size || rn.iconStroke != stroke || rn.iconRaw != raw || rn.iconW != w || rn.iconH != h {
 		rn.iconPath, rn.iconSize, rn.iconStroke = d, size, stroke
+		rn.iconRaw, rn.iconW, rn.iconH = raw, w, h
 		rn.iconCache = nil
 		rn.yn.MarkDirty()
 	}
 	rn.applyTextStyle(st)
 }
 
-// scaledIconPath 返回按当前物理尺寸解析缩放好的路径（缓存，局部坐标，绘制时再平移）。
+// iconScale 是路径坐标 -> 物理像素的缩放：Vector 原始像素用 uiScale；图标按 size/viewBox。
+func (rn *renderNode) iconScale() float32 {
+	if rn.iconRaw {
+		return uiScale
+	}
+	return rn.iconSize * uiScale / iconViewBox
+}
+
+// scaledIconPath 返回按当前缩放解析好的路径（缓存，局部坐标，绘制时再平移）。
 func (rn *renderNode) scaledIconPath() *vector.Path {
-	phys := rn.iconSize * uiScale
-	if rn.iconCache != nil && rn.iconCacheK == rn.iconPath && rn.iconCacheSz == phys {
+	sc := rn.iconScale()
+	if rn.iconCache != nil && rn.iconCacheK == rn.iconPath && rn.iconCacheSz == sc {
 		return rn.iconCache
 	}
-	p, err := svg.ParsePathScaled(rn.iconPath, phys/iconViewBox)
+	p, err := svg.ParsePathScaled(rn.iconPath, sc)
 	if err != nil {
 		p = nil
 	}
-	rn.iconCache, rn.iconCacheK, rn.iconCacheSz = p, rn.iconPath, phys
+	rn.iconCache, rn.iconCacheK, rn.iconCacheSz = p, rn.iconPath, sc
 	return p
 }
 
@@ -691,7 +707,7 @@ func paintNode(p painter, rn *renderNode) {
 	case rnIcon:
 		if path := rn.scaledIconPath(); path != nil {
 			if rn.iconStroke > 0 {
-				sw := rn.iconStroke * (rn.iconSize * uiScale / iconViewBox) // 描边宽随缩放
+				sw := rn.iconStroke * rn.iconScale() // 描边宽随缩放
 				p.StrokePath(path, b.X, b.Y, sw, rn.color.Alpha(o))
 			} else {
 				p.FillPath(path, b.X, b.Y, rn.color.Alpha(o))

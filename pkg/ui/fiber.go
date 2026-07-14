@@ -114,7 +114,7 @@ func mountFiber(parent *Fiber, n *Node) *Fiber {
 		f.rnode = newTextRenderNode(n.text, n.textStyle, cloneRuns(n.runs))
 		f.rnode.owner = f
 	case typeIcon:
-		f.rnode = newIconRenderNode(n.iconPath, n.iconSize, n.iconStroke, n.textStyle)
+		f.rnode = newIconRenderNode(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
 		f.rnode.owner = f
 	}
 	return f
@@ -163,7 +163,7 @@ func updateFiber(f *Fiber, n *Node) {
 	case typeText:
 		f.rnode.setText(n.text, n.textStyle, cloneRuns(n.runs))
 	case typeIcon:
-		f.rnode.setIcon(n.iconPath, n.iconSize, n.iconStroke, n.textStyle)
+		f.rnode.setIcon(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
 	}
 }
 

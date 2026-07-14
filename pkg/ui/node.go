@@ -31,10 +31,13 @@ type Node struct {
 	textStyle StyleProps
 	runs      []textRun // 富文本：多段混排样式（RichText）
 
-	// icon（SVG 图标）
+	// icon（SVG 图标）/ vector（原始像素坐标路径）
 	iconPath   string
 	iconSize   float32
-	iconStroke float32 // >0 描边宽度（viewBox 单位），0 为填充
+	iconStroke float32 // >0 描边宽度，0 为填充
+	iconRaw    bool    // true：路径为逻辑像素坐标（scale=1），尺寸用 iconW×iconH（Vector）
+	iconW      float32
+	iconH      float32
 
 	// component
 	fnPtr      uintptr
@@ -198,6 +201,16 @@ func iconNode(d string, size, stroke float32, opts []StyleOpt) *Node {
 		o(&st)
 	}
 	return &Node{typ: typeIcon, iconPath: d, iconSize: size, iconStroke: stroke, textStyle: st}
+}
+
+// Vector 绘制一条任意 SVG 路径，坐标即逻辑像素（无 viewBox 缩放），尺寸为 w×h。
+// stroke>0 描边、=0 填充；颜色继承文本颜色。用于图表等自定义矢量图形。
+func Vector(d string, w, h, stroke float32, opts ...StyleOpt) *Node {
+	st := newStyleProps()
+	for _, o := range opts {
+		o(&st)
+	}
+	return &Node{typ: typeIcon, iconPath: d, iconRaw: true, iconW: w, iconH: h, iconStroke: stroke, textStyle: st}
 }
 
 // ---- 属性构造器 ----

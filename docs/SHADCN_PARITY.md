@@ -20,13 +20,13 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 | Calendar | ✅ | |
 | Card | ✅ | |
 | Carousel | ✅ | |
-| Chart | 🟡 | BarChart only; add Line/Area/Pie |
+| Chart | ✅ | Bar/Line/Area/Pie (Vector primitive) |
 | Checkbox | ✅ | |
 | Collapsible | ✅ | |
 | Combobox | ✅ | |
 | Command | ✅ | |
 | Context Menu | ✅ | right-click (engine OnContextMenu) at cursor |
-| Data Table | ⬜ | sort/filter/paginate on Table + VirtualList |
+| Data Table | ✅ | search + sortable headers + pagination |
 | Date Picker | ✅ | trigger + Calendar floatPanel |
 | Dialog | ✅ | |
 | Drawer | ✅ | bottom slide-up + grab handle |
@@ -53,7 +53,7 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 | Select | ✅ | |
 | Separator | ✅ | |
 | Sheet | ✅ | |
-| Sidebar | ⬜ | collapsible app sidebar |
+| Sidebar | ✅ | groups + items + collapse + divider |
 | Skeleton | ✅ | |
 | Slider | ✅ | |
 | Sonner / Toast | ✅ | Toast + Toaster |

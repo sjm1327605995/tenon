@@ -94,10 +94,20 @@ var ShowStats bool
 // 仅在 Run 启动时读取一次。
 var FrameSync = true
 
+// 初始窗口逻辑尺寸（可用 ui.WindowSize 覆盖）。
+var initWinW, initWinH = 800, 600
+
+// WindowSize 设置初始窗口的逻辑尺寸（须在 Run 之前调用）。
+func WindowSize(w, h int) {
+	if w > 0 && h > 0 {
+		initWinW, initWinH = w, h
+	}
+}
+
 // Run 启动应用；root 通常是一个 Use(...) 组件节点。
 func Run(root *Node) {
 	initFont()
-	g := &game{root: root, w: 800, h: 600, showHUD: ShowStats}
+	g := &game{root: root, w: initWinW, h: initWinH, showHUD: ShowStats}
 	activeGame = g
 	if p := os.Getenv("TENON_CAPTURE"); p != "" && capturePath == "" {
 		frames := 90

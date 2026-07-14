@@ -413,3 +413,66 @@ func TestContextMenuRightClick(t *testing.T) {
 		t.Fatal("menu should close after select")
 	}
 }
+
+// Phase-4: DataTable 分页/搜索基础渲染 + 比较函数。
+func TestDataTablePaging(t *testing.T) {
+	rows := []map[string]string{
+		{"name": "Alice", "amt": "100"}, {"name": "Bob", "amt": "50"}, {"name": "Carol", "amt": "200"},
+	}
+	cols := []DataColumn{{Key: "name", Header: "Name", Sortable: true}, {Key: "amt", Header: "Amt"}}
+	h := ui.MountDefault(DataTable(DataTableProps{Columns: cols, Rows: rows, Search: true, PageSize: 2}))
+	if !h.Root().ByText("Alice").Exists() || !h.Root().ByText("Bob").Exists() {
+		t.Fatalf("page-1 rows missing; texts=%v", h.Root().Texts())
+	}
+	if h.Root().ByText("Carol").Exists() {
+		t.Fatal("Carol should be on page 2, not page 1")
+	}
+}
+
+func TestLessValue(t *testing.T) {
+	if !lessValue("50", "100") { // 数值比较
+		t.Fatal("50 < 100 (numeric) failed")
+	}
+	if lessValue("100", "50") {
+		t.Fatal("100 < 50 should be false")
+	}
+	if !lessValue("apple", "banana") { // 字符串比较
+		t.Fatal("apple < banana (string) failed")
+	}
+}
+
+// Phase-4: Sidebar 渲染分组菜单项。
+func TestSidebarRenders(t *testing.T) {
+	h := ui.MountDefault(Sidebar(SidebarProps{
+		Header: H4("App"),
+		Groups: []SidebarGroup{{Label: "Nav", Items: []SidebarItem{{Label: "Home", Active: true}, {Label: "Settings"}}}},
+	}))
+	for _, s := range []string{"App", "Nav", "Home", "Settings"} {
+		if !h.Root().ByText(s).Exists() {
+			t.Fatalf("missing %q; texts=%v", s, h.Root().Texts())
+		}
+	}
+}
+
+// Phase-4: Line/Area/Pie 通过 Vector 画出描边/填充路径。
+func TestChartsDrawPaths(t *testing.T) {
+	h := ui.MountDefault(ui.Use(func(_ struct{}) *ui.Node {
+		return ui.Div(
+			LineChart(LineChartProps{Data: []float32{1, 3, 2, 5}, Width: 200, Height: 100, Area: true}),
+			PieChart(PieChartProps{Size: 120, Slices: []PieSlice{
+				{Value: 1, Color: ui.Hex("#ff0000")}, {Value: 1, Color: ui.Hex("#00ff00")}}}),
+		)
+	}, struct{}{}))
+	var stroke, fill int
+	for _, op := range h.Paint() {
+		switch op.Kind {
+		case "strokepath":
+			stroke++
+		case "path":
+			fill++
+		}
+	}
+	if stroke < 1 || fill < 3 { // line 描边×1；area 填充×1 + pie 填充×2
+		t.Fatalf("charts paths: stroke=%d fill=%d (want >=1 / >=3)", stroke, fill)
+	}
+}
