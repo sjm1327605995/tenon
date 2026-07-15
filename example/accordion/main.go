@@ -62,92 +62,127 @@ func registry() []group {
 	}
 }
 
+// app 汇聚一次渲染所需的上下文（主题、当前状态与各 setter）。文档页的各区块与可复用
+// 交互都以它的成员方法呈现，从而不必把 th / 状态在函数间层层透传。
+type app struct {
+	th     ui.Theme
+	groups []group
+	flat   []comp
+	cur    comp
+	dark   bool
+	sel    int
+	show   bool // View Code 展开
+	fw     int  // Radix UI / Base UI
+	inst   int  // 命令 / 手动
+	pm     int  // pnpm / npm / yarn / bun
+	scroll ui.ScrollInfo
+
+	setDark func(bool)
+	setSel  func(int)
+	setShow func(bool)
+	setFw   func(int)
+	setInst func(int)
+	setPm   func(int)
+}
+
 func App(_ struct{}) *ui.Node {
 	dark, setDark := ui.UseState(false)
 	sel, setSel := ui.UseState(0)
-	show, setShow := ui.UseState(false) // View Code 展开
-	fw, setFw := ui.UseState(0)         // Radix UI / Base UI
-	inst, setInst := ui.UseState(0)     // 命令 / 手动
-	pm, setPm := ui.UseState(0)         // pnpm / npm / yarn / bun
+	show, setShow := ui.UseState(false)
+	fw, setFw := ui.UseState(0)
+	inst, setInst := ui.UseState(0)
+	pm, setPm := ui.UseState(0)
+	scrollRef, scroll := ui.UseScroll()
 
-	th := pickTheme(dark)
 	groups := registry()
 	flat := flatten(groups)
 	if sel >= len(flat) {
 		sel = 0
 	}
-	cur := flat[sel]
-	goTo := func(i int) {
-		if i >= 0 && i < len(flat) {
-			setSel(i)
-			setShow(false)
-		}
-	}
-
-	scrollRef, scroll := ui.UseScroll()
-	reveal := func(kids ...*ui.Node) *ui.Node {
-		return ui.Use(revealBox, revealProps{off: scroll.Offset, vp: scroll.Viewport, kids: kids})
+	a := &app{
+		th: pickTheme(dark), groups: groups, flat: flat, cur: flat[sel],
+		dark: dark, sel: sel, show: show, fw: fw, inst: inst, pm: pm, scroll: scroll,
+		setDark: setDark, setSel: setSel, setShow: setShow,
+		setFw: setFw, setInst: setInst, setPm: setPm,
 	}
 
 	content := ui.VStack(28,
-		reveal(docHeader(th, cur, sel, goTo)),
-		reveal(underlineTabs(th, []string{"Radix UI", "Base UI"}, fw, setFw)),
-		reveal(previewCard(th, cur, show, func() { setShow(!show) })),
+		a.reveal(a.header()),
+		a.reveal(a.frameTabs()),
+		a.reveal(a.preview()),
 		vspace(8),
-		reveal(installSection(th, cur, inst, setInst, pm, setPm)),
+		a.reveal(a.install()),
 		vspace(60),
 	)
-	page := ui.Div(ui.Style(ui.Column, ui.ItemsCenter, ui.WidthPct(100), ui.PaddingXY(32, 44), ui.Bg(th.Background)),
+	page := ui.Div(ui.Style(ui.Column, ui.ItemsCenter, ui.WidthPct(100), ui.PaddingXY(32, 44), ui.Bg(a.th.Background)),
 		ui.Div(ui.Style(ui.Column, ui.MaxWidth(760), ui.WidthPct(100)), content))
 
-	return ui.ThemeProvider(th,
-		ui.Div(ui.Style(ui.Row, ui.Fill, ui.Bg(th.Background), ui.TextColor(th.Foreground)),
-			buildSidebar(th, groups, sel, goTo, dark, setDark),
-			vline(th),
+	return ui.ThemeProvider(a.th,
+		ui.Div(ui.Style(ui.Row, ui.Fill, ui.Bg(a.th.Background), ui.TextColor(a.th.Foreground)),
+			a.sidebar(),
+			vline(a.th),
 			ui.ScrollView(scrollRef, ui.Style(ui.Grow(1), ui.HeightPct(100)), page)))
 }
 
-// ---------- 文档页各区块 ----------
+// goTo 切换到第 i 个组件（并收起 View Code）。
+func (a *app) goTo(i int) {
+	if i >= 0 && i < len(a.flat) {
+		a.setSel(i)
+		a.setShow(false)
+	}
+}
 
-func buildSidebar(th ui.Theme, groups []group, sel int, goTo func(int), dark bool, setDark func(bool)) *ui.Node {
+// reveal 把区块包进滚动淡入容器。
+func (a *app) reveal(kids ...*ui.Node) *ui.Node {
+	return ui.Use(revealBox, revealProps{off: a.scroll.Offset, vp: a.scroll.Viewport, kids: kids})
+}
+
+func (a *app) sidebar() *ui.Node {
 	idx := 0
 	var sgroups []shadcn.SidebarGroup
-	for _, g := range groups {
+	for _, g := range a.groups {
 		var items []shadcn.SidebarItem
 		for _, c := range g.items {
-			i := idx
-			items = append(items, shadcn.SidebarItem{Label: c.name, Active: i == sel, OnClick: func() { goTo(i) }})
+			i := idx // 快照跨组递增的下标供事件闭包捕获
+			items = append(items, shadcn.SidebarItem{Label: c.name, Active: i == a.sel, OnClick: func() { a.goTo(i) }})
 			idx++
 		}
 		sgroups = append(sgroups, shadcn.SidebarGroup{Label: g.label, Items: items})
 	}
 	return shadcn.Sidebar(shadcn.SidebarProps{
-		Header: ui.HStack(8, ui.Text("◆", ui.FontSize(16), ui.TextColor(th.Primary)),
+		Header: ui.HStack(8, ui.Text("◆", ui.FontSize(16), ui.TextColor(a.th.Primary)),
 			ui.Text("Tenon UI", ui.FontSize(15), ui.Semibold)),
 		Groups: sgroups,
-		Footer: ui.HStack(8, shadcn.Switch(shadcn.SwitchProps{Checked: dark, OnChange: setDark}),
+		Footer: ui.HStack(8, shadcn.Switch(shadcn.SwitchProps{Checked: a.dark, OnChange: a.setDark}),
 			shadcn.Label("深色主题")),
 	})
 }
 
-func docHeader(th ui.Theme, c comp, sel int, goTo func(int)) *ui.Node {
-	arrow := func(path string, to int) *ui.Node {
-		return shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, Size: shadcn.SizeIcon, OnClick: func() { goTo(to) }},
-			ui.Icon(path, 16, ui.TextColor(th.MutedForeground)))
-	}
+func (a *app) header() *ui.Node {
 	actions := ui.HStack(8,
 		shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline},
 			ui.Text("复制当前页", ui.FontSize(13)),
-			ui.Icon(ui.IconChevronDown, 14, ui.TextColor(th.MutedForeground))),
-		arrow(ui.IconChevronLeft, sel-1),
-		arrow(ui.IconChevronRight, sel+1))
+			ui.Icon(ui.IconChevronDown, 14, ui.TextColor(a.th.MutedForeground))),
+		a.arrow(ui.IconChevronLeft, a.sel-1),
+		a.arrow(ui.IconChevronRight, a.sel+1))
 	return ui.VStack(12,
-		ui.HStack(6, muted(th, "组件", 13), muted(th, "/", 13), ui.Text(c.name, ui.FontSize(13))),
-		ui.HStack(16, ui.Text(c.name, ui.FontSize(30), ui.Bold), ui.Spacer(), actions),
-		muted(th, c.desc, 16))
+		ui.HStack(6, muted(a.th, "组件", 13), muted(a.th, "/", 13), ui.Text(a.cur.name, ui.FontSize(13))),
+		ui.HStack(16, ui.Text(a.cur.name, ui.FontSize(30), ui.Bold), ui.Spacer(), actions),
+		muted(a.th, a.cur.desc, 16))
 }
 
-func previewCard(th ui.Theme, c comp, show bool, toggle func()) *ui.Node {
+// arrow 是标题栏的上/下一个组件按钮。
+func (a *app) arrow(path string, to int) *ui.Node {
+	return shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, Size: shadcn.SizeIcon, OnClick: func() { a.goTo(to) }},
+		ui.Icon(path, 16, ui.TextColor(a.th.MutedForeground)))
+}
+
+func (a *app) frameTabs() *ui.Node {
+	return a.underlineTabs([]string{"Radix UI", "Base UI"}, a.fw, a.setFw)
+}
+
+func (a *app) preview() *ui.Node {
+	th, c := a.th, a.cur
 	sym := symbol(c.name)
 	kids := []*ui.Node{ui.Style(ui.Column, ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Clip, ui.Bg(th.Card)),
 		ui.Center(ui.Style(ui.MinHeight(320), ui.PaddingXY(40, 40)), c.preview()),
@@ -157,10 +192,10 @@ func previewCard(th ui.Theme, c comp, show bool, toggle func()) *ui.Node {
 				muted(th, fmt.Sprintf("import { %s } from", sym), 12.5),
 				muted(th, fmt.Sprintf("  \"@/components/ui/%s\"", c.pkg), 12.5)),
 			vspace(14),
-			shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: toggle},
-				ui.Text(codeLabel(show), ui.FontSize(13)))),
+			shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() { a.setShow(!a.show) }},
+				ui.Text(codeLabel(a.show), ui.FontSize(13)))),
 	}
-	if show {
+	if a.show {
 		kids = append(kids, hline(th),
 			ui.Div(ui.Style(ui.Column, ui.Gap(3), ui.Bg(th.Muted), ui.PaddingXY(20, 18)),
 				code(th, fmt.Sprintf("import { %s } from \"@/components/ui/%s\"", sym, c.pkg)),
@@ -172,12 +207,13 @@ func previewCard(th ui.Theme, c comp, show bool, toggle func()) *ui.Node {
 	return ui.Div(kids...)
 }
 
-func installSection(th ui.Theme, c comp, inst int, setInst func(int), pm int, setPm func(int)) *ui.Node {
+func (a *app) install() *ui.Node {
+	th, c := a.th, a.cur
 	sym := symbol(c.name)
 	names := []string{"pnpm", "npm", "yarn", "bun"}
 	prefix := []string{"pnpm dlx", "npx", "yarn dlx", "bunx"}
 	add := "shadcn@latest add " + c.pkg
-	if pm == 3 {
+	if a.pm == 3 {
 		add = "--bun shadcn@latest add " + c.pkg
 	}
 
@@ -185,16 +221,16 @@ func installSection(th ui.Theme, c comp, inst int, setInst func(int), pm int, se
 	for i, name := range names {
 		st := []ui.StyleOpt{ui.PaddingXY(10, 5), ui.Radius(6)}
 		col := th.MutedForeground
-		if i == pm {
+		if i == a.pm {
 			st = append(st, ui.Bg(th.Background))
 			col = th.Foreground
 		}
-		pmTabs[i] = ui.Button(ui.Style(st...), ui.OnClick(func() { setPm(i) }),
+		pmTabs[i] = ui.Button(ui.Style(st...), ui.OnClick(func() { a.setPm(i) }),
 			ui.Text(name, ui.FontSize(12.5), ui.TextColor(col)))
 	}
 	cmdRow := ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.Gap(12), ui.PaddingXY(16, 14)),
 		muted(th, "›", 13),
-		ui.HStack(6, ui.Style(ui.Grow(1)), muted(th, prefix[pm], 13), ui.Text(add, ui.FontSize(13))),
+		ui.HStack(6, ui.Style(ui.Grow(1)), muted(th, prefix[a.pm], 13), ui.Text(add, ui.FontSize(13))),
 		shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Ghost, Size: shadcn.SizeSm}, muted(th, "复制", 12.5)))
 	terminal := ui.Div(ui.Style(ui.Column, ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Clip, ui.Bg(th.Muted)),
 		ui.Div(append([]*ui.Node{ui.Style(ui.Row, ui.Gap(2), ui.Padding(6))}, pmTabs...)...),
@@ -205,22 +241,20 @@ func installSection(th ui.Theme, c comp, inst int, setInst func(int), pm int, se
 
 	return ui.VStack(16,
 		ui.Text("安装", ui.FontSize(22), ui.Semibold),
-		underlineTabs(th, []string{"命令", "手动"}, inst, setInst),
+		a.underlineTabs([]string{"命令", "手动"}, a.inst, a.setInst),
 		terminal,
 		ui.Text("导入", ui.FontSize(16), ui.Semibold),
 		importBox)
 }
 
-// ---------- 可复用小部件 ----------
-
 // underlineTabs 是下划线式标签栏（选中项文字加深、底部 2px 下划线），下方带一条整宽分隔线。
 // 框架标签（Radix/Base）与安装标签（命令/手动）共用它。
-func underlineTabs(th ui.Theme, labels []string, active int, onSel func(int)) *ui.Node {
+func (a *app) underlineTabs(labels []string, active int, onSel func(int)) *ui.Node {
 	tabs := make([]*ui.Node, len(labels))
 	for i, label := range labels {
-		col, under := th.MutedForeground, ui.Transparent
+		col, under := a.th.MutedForeground, ui.Transparent
 		if i == active {
-			col, under = th.Foreground, th.Foreground
+			col, under = a.th.Foreground, a.th.Foreground
 		}
 		tabs[i] = ui.Div(ui.Style(ui.Column, ui.Gap(10)), ui.OnClick(func() { onSel(i) }),
 			ui.Text(label, ui.FontSize(14), ui.Medium, ui.TextColor(col)),
@@ -228,8 +262,10 @@ func underlineTabs(th ui.Theme, labels []string, active int, onSel func(int)) *u
 	}
 	return ui.VStack(0,
 		ui.Div(append([]*ui.Node{ui.Style(ui.Row, ui.Gap(20))}, tabs...)...),
-		hline(th))
+		hline(a.th))
 }
+
+// ---------- 纯助手（无状态，预览函数也在用，故保持自由函数） ----------
 
 func pickTheme(dark bool) ui.Theme {
 	if dark {
@@ -263,7 +299,7 @@ func codeLabel(show bool) string {
 	return "View Code"
 }
 
-// ---------- 各组件预览 ----------
+// ---------- 各组件预览（独立子组件） ----------
 
 func pvAccordion(_ struct{}) *ui.Node {
 	th := ui.UseTheme()
