@@ -1,0 +1,17 @@
+# Normalize all text files to LF in the repository and on checkout, on every
+# platform. Without this, a Windows checkout (core.autocrlf=true) can commit
+# CRLF, which the CI `gofmt` step rewrites to LF and then fails on.
+* text=auto eol=lf
+
+# Source and scripts must stay LF (gofmt / shell / go tooling).
+*.go   text eol=lf
+*.sh   text eol=lf
+*.mod  text eol=lf
+*.sum  text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.svg  text eol=lf
+
+# Binary assets — never touch their bytes.
+*.ttf  binary
+*.png  binary
