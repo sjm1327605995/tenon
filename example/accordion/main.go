@@ -355,15 +355,20 @@ func pvAvatar(_ struct{}) *ui.Node {
 }
 
 func pvCard(_ struct{}) *ui.Node {
-	th := ui.UseTheme()
+	// 用 Card 的正规分区（CardHeader/Content/Footer 各带 px-6 水平内边距）。
 	return ui.Div(ui.Style(ui.Width(340)),
-		shadcn.Card(ui.Div(ui.Style(ui.Column, ui.Gap(14)),
-			ui.Div(ui.Style(ui.Column, ui.Gap(4)),
-				ui.Text("创建项目", ui.FontSize(16), ui.Semibold),
-				ui.Text("部署你的新项目，仅需几步即可上线。", ui.FontSize(13), ui.TextColor(th.MutedForeground))),
-			ui.Div(ui.Style(ui.Row, ui.Gap(8), ui.JustifyEnd),
-				shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, Size: shadcn.SizeSm}, ui.Text("取消")),
-				shadcn.Button(shadcn.ButtonProps{Size: shadcn.SizeSm}, ui.Text("部署"))))))
+		shadcn.Card(
+			shadcn.CardHeader(
+				shadcn.CardTitle("创建项目"),
+				shadcn.CardDescription("部署你的新项目，仅需几步即可上线。")),
+			shadcn.CardContent(
+				shadcn.Label("项目名称"),
+				ui.Div(ui.Style(ui.Height(8))),
+				shadcn.Input(shadcn.InputProps{Placeholder: "my-app"})),
+			shadcn.CardFooter(
+				ui.Div(ui.Style(ui.Row, ui.Grow(1), ui.JustifyEnd, ui.Gap(8)),
+					shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, Size: shadcn.SizeSm}, ui.Text("取消")),
+					shadcn.Button(shadcn.ButtonProps{Size: shadcn.SizeSm}, ui.Text("部署"))))))
 }
 
 func pvSeparator(_ struct{}) *ui.Node {
