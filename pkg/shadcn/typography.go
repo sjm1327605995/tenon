@@ -22,8 +22,28 @@ func leadText(s string) *ui.Node {
 	return ui.Text(s, ui.FontSize(20), ui.TextColor(th.MutedForeground))
 }
 
-// Muted 是次要说明文字。
+// Muted 是次要说明文字（默认 14px）。
 func Muted(s string) *ui.Node { return ui.Use(mutedText, s) }
+
+// mutedSizedProps 承载 TextMuted 的文字与字号。
+type mutedSizedProps struct {
+	s    string
+	size float32
+}
+
+// TextMuted 是指定字号的次要色文字：等价于 ui.Text(s, ui.FontSize(size), MutedColor())，
+// 取当前主题的 MutedForeground。文档站里说明性小字随处可用，省去自定义 muted 助手。
+func TextMuted(s string, size float32) *ui.Node {
+	return ui.Use(mutedSized, mutedSizedProps{s: s, size: size})
+}
+
+func mutedSized(p mutedSizedProps) *ui.Node {
+	return ui.Text(p.s, ui.FontSize(p.size), ui.TextColor(ui.UseTheme().MutedForeground))
+}
+
+// MutedColor 返回「当前主题次要前景色」作为文本颜色样式，可用于文字或图标（currentColor）。
+// 只能在组件渲染期间调用（内部读取 UseTheme）。
+func MutedColor() ui.StyleOpt { return ui.TextColor(ui.UseTheme().MutedForeground) }
 
 // InlineCode 是行内代码片段（次要背景 + 圆角）。
 func InlineCode(s string) *ui.Node { return ui.Use(inlineCode, s) }

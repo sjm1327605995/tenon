@@ -186,8 +186,7 @@ func Divider() *Node {
 
 // Card 是带边框内边距的卡片容器；传入 Style(...) 可覆盖默认样式。
 func Card(children ...*Node) *Node {
-	base := Style(Bg(White), Radius(12), Border(1, kitLine), Padding(16), Column, Gap(8))
-	return Div(append([]*Node{base}, children...)...)
+	return Box([]StyleOpt{Bg(White), Radius(12), Border(1, kitLine), Padding(16), Column, Gap(8)}, children...)
 }
 
 // Tabs 渲染标签栏（内容区由外部按 Active 自行渲染）。

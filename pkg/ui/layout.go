@@ -7,20 +7,37 @@ package ui
 // 需要额外样式时，在子节点里再传一个 Style(...)——它会与预置样式合并（后者覆盖前者），
 // 例如 HStack(8, Style(JustifyBetween), a, b)。
 
+// Box 是「先给一组样式、再排子节点」的 Div：等价于 Div(Style(opts...), kids...)，
+// 但接收已经构建好的 []StyleOpt，省去调用处 append([]*Node{Style(...)}, kids...) 的样板。
+// 动态拼样式时尤其方便：
+//
+//	st := []ui.StyleOpt{ui.Row, ui.Gap(6)}
+//	if active { st = append(st, ui.Bg(th.Primary)) }
+//	return ui.Box(st, a, b) // 而非 Div(append([]*Node{Style(st...)}, a, b)...)
+func Box(opts []StyleOpt, kids ...*Node) *Node {
+	return Div(append([]*Node{Style(opts...)}, kids...)...)
+}
+
 // HStack 是横向 flex 容器（行、交叉轴居中、子项间距 gap）。
 func HStack(gap float32, kids ...*Node) *Node {
-	return Div(append([]*Node{Style(Row, ItemsCenter, Gap(gap))}, kids...)...)
+	return Box([]StyleOpt{Row, ItemsCenter, Gap(gap)}, kids...)
 }
 
 // VStack 是纵向 flex 容器（列、子项间距 gap）。
 func VStack(gap float32, kids ...*Node) *Node {
-	return Div(append([]*Node{Style(Column, Gap(gap))}, kids...)...)
+	return Box([]StyleOpt{Column, Gap(gap)}, kids...)
 }
 
 // Center 让子节点在主轴与交叉轴上都居中。
 func Center(kids ...*Node) *Node {
-	return Div(append([]*Node{Style(ItemsCenter, JustifyCenter)}, kids...)...)
+	return Box([]StyleOpt{ItemsCenter, JustifyCenter}, kids...)
 }
 
 // Spacer 是可伸缩占位（flex-grow:1），把两侧的兄弟节点推向容器两端。
 func Spacer() *Node { return Div(Style(Grow(1))) }
+
+// VSpace 是固定高度的纵向留白（在纵向容器里拉开一段固定间距）。
+func VSpace(h float32) *Node { return Div(Style(Height(h))) }
+
+// HSpace 是固定宽度的横向留白（在横向容器里拉开一段固定间距）。
+func HSpace(w float32) *Node { return Div(Style(Width(w))) }

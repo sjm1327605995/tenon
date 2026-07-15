@@ -71,9 +71,9 @@ func emailRow(p rowProps) *ui.Node {
 	return ui.VStack(0,
 		ui.HStack(12, ui.Style(ui.PaddingXY(20, 14), ui.Bg(bg)), ui.OnClick(p.onOpen), ia,
 			shadcn.Avatar(p.e.initials, 40),
-			ui.VStack(2, ui.Text(p.e.from, ui.FontSize(14), ui.Medium), muted(p.e.subject, 13)),
+			ui.VStack(2, ui.Text(p.e.from, ui.FontSize(14), ui.Medium), shadcn.TextMuted(p.e.subject, 13)),
 			ui.Spacer(),
-			ui.Icon(ui.IconChevronRight, 16, dim())),
+			ui.Icon(ui.IconChevronRight, 16, shadcn.MutedColor())),
 		shadcn.Separator(shadcn.SeparatorProps{}))
 }
 
@@ -87,13 +87,13 @@ func detailScreen(p router.Params) *ui.Node {
 	var back *ui.Node // 仅当能返回时才显示返回按钮
 	if nav.CanPop() {
 		back = shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Ghost, Size: shadcn.SizeSm, OnClick: nav.Pop},
-			ui.Icon(ui.IconChevronLeft, 16, dim()), ui.Text("收件箱", ui.FontSize(13)))
+			ui.Icon(ui.IconChevronLeft, 16, shadcn.MutedColor()), ui.Text("收件箱", ui.FontSize(13)))
 	}
 
 	body := ui.VStack(18, ui.Style(ui.PaddingXY(24, 20)),
 		ui.Text(e.subject, ui.FontSize(22), ui.Semibold),
 		ui.HStack(12, shadcn.Avatar(e.initials, 40),
-			ui.VStack(2, ui.Text(e.from, ui.FontSize(14), ui.Medium), muted("发送至：我", 12))),
+			ui.VStack(2, ui.Text(e.from, ui.FontSize(14), ui.Medium), shadcn.TextMuted("发送至：我", 12))),
 		shadcn.Separator(shadcn.SeparatorProps{}),
 		ui.Text(e.body, ui.FontSize(14)),
 		ui.HStack(8,
@@ -104,7 +104,7 @@ func detailScreen(p router.Params) *ui.Node {
 				ui.Text("下一封"))))
 
 	return screen(
-		topBar(back, ui.Spacer(), muted(fmt.Sprintf("第 %d 层", nav.Depth()), 12)),
+		topBar(back, ui.Spacer(), shadcn.TextMuted(fmt.Sprintf("第 %d 层", nav.Depth()), 12)),
 		body)
 }
 
@@ -131,7 +131,3 @@ func screen(bar, content *ui.Node) *ui.Node {
 func topBar(items ...*ui.Node) *ui.Node {
 	return ui.HStack(10, append([]*ui.Node{ui.Style(ui.Height(56), ui.PaddingXY(16, 0))}, items...)...)
 }
-
-// muted 是次要色文本；dim 是次要色（用于图标 currentColor）。二者自取当前主题。
-func muted(s string, size float32) *ui.Node { return ui.Text(s, ui.FontSize(size), dim()) }
-func dim() ui.StyleOpt                      { return ui.TextColor(ui.UseTheme().MutedForeground) }
