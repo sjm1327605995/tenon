@@ -123,6 +123,31 @@ func (h *Harness) ClickAt(x, y float32) bool {
 	return false
 }
 
+// MouseDown replays a full left mousedown at a screen point (logical px): it
+// does focus management (focus the input under the point, else clear focus) AND
+// fires the nearest onClick up the chain — the real engine does both in one
+// press, so tests that split them (ClickAt only clicks) can miss ordering bugs.
+// Returns a Query for the focused node afterward (empty if focus cleared).
+// Settles afterward.
+func (h *Harness) MouseDown(x, y float32) *Query {
+	n := h.g.hitTop(x, y)
+	if n != nil && n.kind == rnInput {
+		h.g.focusedFiber = n.owner
+		n.caretPos = n.caretAt(x, y)
+		n.selAnchor = n.caretPos
+	} else {
+		h.g.focusedFiber = nil
+	}
+	for c := n; c != nil; c = c.parent {
+		if c.onClick != nil {
+			c.onClick()
+			break
+		}
+	}
+	h.settle()
+	return h.Focused()
+}
+
 // RightClickAt hit-tests at a screen point and fires the nearest onContextMenu
 // up the chain (right-click), passing the point. Returns whether a handler fired.
 func (h *Harness) RightClickAt(x, y float32) bool {

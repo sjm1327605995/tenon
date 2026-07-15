@@ -395,11 +395,32 @@ func pvAlert(_ struct{}) *ui.Node {
 func pvTabs(_ struct{}) *ui.Node {
 	th := ui.UseTheme()
 	i, set := ui.UseState(0)
-	body := []string{"在这里管理你的账户信息。", "修改密码以保护账户安全。", "设置你希望接收的通知类型。"}
+	// 每个标签页都有各自的受控状态，切换后仍可继续输入/操作。
+	name, setName := ui.UseState("Tenon")
+	user, setUser := ui.UseState("@tenon")
+	cur, setCur := ui.UseState("")
+	pwd, setPwd := ui.UseState("")
+	push, setPush := ui.UseState(true)
+	mail, setMail := ui.UseState(false)
+
+	field := func(label, val string, set func(string)) *ui.Node {
+		return ui.VStack(6, shadcn.Label(label), shadcn.Input(shadcn.InputProps{Value: val, OnChange: set}))
+	}
+	var body *ui.Node
+	switch i {
+	case 0:
+		body = ui.VStack(12, field("名称", name, setName), field("用户名", user, setUser))
+	case 1:
+		body = ui.VStack(12, field("当前密码", cur, setCur), field("新密码", pwd, setPwd))
+	default:
+		body = ui.VStack(12,
+			ui.HStack(10, shadcn.Switch(shadcn.SwitchProps{Checked: push, OnChange: setPush}), shadcn.Label("推送通知")),
+			ui.HStack(10, shadcn.Switch(shadcn.SwitchProps{Checked: mail, OnChange: setMail}), shadcn.Label("营销邮件")))
+	}
 	return ui.VStack(16, ui.Style(ui.Width(380)),
 		shadcn.Tabs(shadcn.TabsProps{Tabs: []string{"账户", "密码", "通知"}, Active: i, OnChange: set}),
-		ui.Div(ui.Style(ui.Border(1, th.Border), ui.Radius(th.Radius+2), ui.Padding(16), ui.Bg(th.Card)),
-			muted(th, body[i], 14)))
+		ui.Div(ui.Style(ui.Column, ui.Gap(12), ui.Border(1, th.Border), ui.Radius(th.Radius+2), ui.Padding(16), ui.Bg(th.Card)),
+			body))
 }
 
 func pvTooltip(_ struct{}) *ui.Node {
