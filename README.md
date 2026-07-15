@@ -64,16 +64,14 @@ func main() { ui.Run(ui.Use(Counter, struct{}{})) }
 |---|---|
 | [`pkg/ui`](pkg/ui) | The engine + elements, hooks, styling, animation, input. Start here — see its [README](pkg/ui/README.md). |
 | [`pkg/shadcn`](pkg/shadcn) | shadcn/ui-style component library (Button, Card, Dialog, Select, Table, Toast, …) on top of `pkg/ui`. [README](pkg/shadcn/README.md). |
+| [`pkg/router`](pkg/router) | Stack-based navigation (named routes + params, `Push`/`Pop`/`Replace`, back) — React Navigation-style, built on the hooks. |
 | [`yoga`](yoga) | Pure-Go port of the Yoga flexbox engine. |
 | [`pkg/font`](pkg/font) | Font loading/measurement (embeds a CJK-capable face). |
 
-## Example
+## Examples
 
-A single, self-contained example: a small **docs site** re-created with Tenon, in the shadcn/ui style. A grouped sidebar on the left lists 17 components — click to switch — and the right pane shows that component's docs page (breadcrumb, title bar, framework tabs, a live interactive preview, and the install section). The main pane is a `ScrollView` whose sections fade and slide in as you scroll; a footer switch toggles light/dark.
-
-```bash
-go run ./example/accordion
-```
+- **`go run ./example/accordion`** — a small **docs site** in the shadcn/ui style. A grouped sidebar lists 17 components (click to switch); the right pane shows that component's docs page (breadcrumb, title bar, framework tabs, a live interactive preview, install section) inside a `ScrollView` whose sections fade in on scroll; a footer switch toggles light/dark.
+- **`go run ./example/router`** — **stack navigation** with [`pkg/router`](pkg/router): an inbox where tapping a message pushes a detail screen; the detail screen pops back and uses `Replace` to swap in the next message without growing the stack.
 
 
 ## Background updates

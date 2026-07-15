@@ -58,16 +58,14 @@ func main() { ui.Run(ui.Use(Counter, struct{}{})) }
 |---|---|
 | [`pkg/ui`](pkg/ui) | 引擎 + 元素、Hooks、样式、动画、输入。从这里开始 —— 见其 [README](pkg/ui/README.md)。 |
 | [`pkg/shadcn`](pkg/shadcn) | 基于 `pkg/ui` 的 shadcn/ui 风格组件库（Button/Card/Dialog/Select/Table/Toast…）。[README](pkg/shadcn/README.md)。 |
+| [`pkg/router`](pkg/router) | 栈式导航（具名路由 + 参数，`Push`/`Pop`/`Replace`、返回）—— React Navigation 风格，纯建立在 hooks 之上。 |
 | [`yoga`](yoga) | 纯 Go 的 Yoga flex 布局引擎移植。 |
 | [`pkg/font`](pkg/font) | 字体加载/测量（内置支持 CJK 的字体）。 |
 
 ## 示例
 
-一个自包含示例：用 Tenon 复刻的一个小型 **文档站**（shadcn/ui 风格）。左侧分组侧栏列出 17 个组件，点击即可切换；右侧是该组件的文档页（面包屑、标题栏、框架标签、实时可交互预览、安装区）。主区是 `ScrollView`，各区块随滚动淡入；底部开关切换明暗主题。
-
-```bash
-go run ./example/accordion
-```
+- **`go run ./example/accordion`** —— 一个 shadcn/ui 风格的小型 **文档站**。左侧分组侧栏列出 17 个组件（点击切换）；右侧是该组件的文档页（面包屑、标题栏、框架标签、实时可交互预览、安装区），放在 `ScrollView` 里、各区块随滚动淡入；底部开关切换明暗主题。
+- **`go run ./example/router`** —— 用 [`pkg/router`](pkg/router) 做的 **栈式导航**：一个收件箱，点邮件 `Push` 进详情屏；详情屏可 `Pop` 返回，并用 `Replace` 原地换成下一封而不加深栈。
 
 ![Accordion 文档页](docs/screenshots/accordion.png)
 
