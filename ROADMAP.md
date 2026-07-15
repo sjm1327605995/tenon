@@ -36,7 +36,7 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 - `pkg/shadcn`: ~41 shadcn/ui-style components on a theme + interaction foundation.
 
 **Tooling**
-- Live preview / hot reload (`pkg/hotreload`): edit a plain-Go `View() *ui.Node` file and the running window updates in-process — no rebuild, no restart (yaegi-interpreted; interpreted code uses non-generic `pkg/ui` + all `pkg/shadcn`, host owns state). Demo `example/hotreload`.
+- Live preview / hot reload (`pkg/hotreload`): edit a plain-Go `View() *ui.Node` file and the running window updates in-process — no rebuild, no restart (yaegi-interpreted; interpreted code uses non-generic `pkg/ui` + all `pkg/shadcn`, host owns state).
 - Debug frame capture: `ui.Capture(path, afterFrames, exit)` or env `TENON_CAPTURE=out.png` saves the engine's own rendered frame to PNG (only the app's pixels — safe), for visually verifying rendering headlessly.
 - 40+ engine tests incl. headless **golden paint tests** (`Harness.Paint()` → `[]PaintOp` via the recording backend) + wrap/measure benchmarks; per-package READMEs + godoc; runnable examples.
 - `ui.Mount` headless test harness (mount + drive click/hover/press/drag/type, query the render tree) — `pkg/shadcn` uses it for real behavior tests.

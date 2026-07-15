@@ -2,10 +2,14 @@
 
 Drop screenshots/GIFs here and reference them from the root README.
 
-To capture the component gallery:
+`accordion.png` (the README hero) is the `example/accordion` docs-page demo. To
+regenerate it headlessly, capture the engine's own framebuffer to a PNG:
 
 ```bash
-go run ./example/shadcn-gallery
+# Windows (Git Bash)
+TENON_CAPTURE=docs/screenshots/accordion.png TENON_CAPTURE_FRAMES=45 go run ./example/accordion
 ```
 
-Then screenshot just the window (Windows: **Win+Shift+S**; macOS: **Cmd+Shift+4** then space to grab the window; Linux: your screenshot tool) and save it as `gallery.png` in this folder. Uncomment the image line in [`../../README.md`](../../README.md) / [`../../README.zh-CN.md`](../../README.zh-CN.md) once added.
+`TENON_CAPTURE_FRAMES` waits a few frames so the scroll-reveal fade-in settles
+before the frame is saved. This captures only the app's own rendered frame — not
+the OS desktop.

@@ -7,7 +7,7 @@ import (
 )
 
 // TestConstruct 确认所有组件构造器都能返回非空节点（编译期签名 + 运行期不 panic）。
-// 端到端渲染由 example/shadcn-gallery 的实机运行覆盖。
+// 端到端渲染由 example/accordion 的实机运行覆盖。
 func TestConstruct(t *testing.T) {
 	nodes := map[string]*ui.Node{
 		"Button":       Button(ButtonProps{Variant: Outline, OnClick: func() {}}, ui.Text("x")),

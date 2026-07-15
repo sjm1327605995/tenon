@@ -27,8 +27,8 @@
 // UseCallback, UseRef, UseContext) follow React semantics, and animation is
 // available via UseTween / UseTransition and the Animated layout style.
 //
-// See README.md in this directory for the full guide and the example/hooks-*
-// programs for runnable demos.
+// See README.md in this directory for the full guide and the example/accordion
+// program for a runnable demo.
 //
 // Rendering is single-threaded (Ebiten's Update/Draw loop); trigger state
 // changes from callbacks and effects rather than other goroutines.

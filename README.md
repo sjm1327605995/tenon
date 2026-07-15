@@ -9,9 +9,9 @@
 
 ---
 
-![Tenon dashboard demo](docs/screenshots/dashboard.png)
+![Tenon accordion docs demo](docs/screenshots/accordion.png)
 
-<p align="center"><em>A dashboard built entirely with Tenon + its shadcn-style component library — see <a href="example/showcase">example/showcase</a>.</em></p>
+<p align="center"><em>The shadcn/ui Accordion docs page, re-created entirely with Tenon + its shadcn-style component library — run it with <code>go run ./example/accordion</code>.</em></p>
 
 ---
 
@@ -67,17 +67,13 @@ func main() { ui.Run(ui.Use(Counter, struct{}{})) }
 | [`yoga`](yoga) | Pure-Go port of the Yoga flexbox engine. |
 | [`pkg/font`](pkg/font) | Font loading/measurement (embeds a CJK-capable face). |
 
-## Examples
+## Example
 
-Run any with `go run ./example/<name>`:
+A single, self-contained example: a small **docs site** re-created with Tenon, in the shadcn/ui style. A grouped sidebar on the left lists 17 components — click to switch — and the right pane shows that component's docs page (breadcrumb, title bar, framework tabs, a live interactive preview, and the install section). The main pane is a `ScrollView` whose sections fade and slide in as you scroll; a footer switch toggles light/dark.
 
-`hooks-counter` · `hooks-app` (todo) · `hooks-anim` · `hooks-hover` · `hooks-drag` · `hooks-modal` · `hooks-reorder` (FLIP) · `hooks-text` · `hooks-kit` · `hooks-async` (background goroutine + `ui.Post`) · `shadcn-gallery` (full component showcase).
-
-`go run ./example/shadcn-gallery` shows every component with a light/dark toggle.
-
-<!-- Add docs/screenshots/gallery.png (see docs/screenshots/README.md), then uncomment:
-![Component gallery](docs/screenshots/gallery.png)
--->
+```bash
+go run ./example/accordion
+```
 
 
 ## Background updates

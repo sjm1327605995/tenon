@@ -63,15 +63,13 @@ func main() { ui.Run(ui.Use(Counter, struct{}{})) }
 
 ## 示例
 
-`go run ./example/<名称>`：
+一个自包含示例：用 Tenon 复刻的一个小型 **文档站**（shadcn/ui 风格）。左侧分组侧栏列出 17 个组件，点击即可切换；右侧是该组件的文档页（面包屑、标题栏、框架标签、实时可交互预览、安装区）。主区是 `ScrollView`，各区块随滚动淡入；底部开关切换明暗主题。
 
-`hooks-counter` · `hooks-app`（待办）· `hooks-anim` · `hooks-hover` · `hooks-drag` · `hooks-modal` · `hooks-reorder`（FLIP）· `hooks-text` · `hooks-kit` · `hooks-async`（后台 goroutine + `ui.Post`）· `shadcn-gallery`（组件总览）。
+```bash
+go run ./example/accordion
+```
 
-`go run ./example/shadcn-gallery` 可查看全部组件（含明暗切换）。
-
-<!-- 添加 docs/screenshots/gallery.png（见 docs/screenshots/README.md）后取消注释：
-![组件总览](docs/screenshots/gallery.png)
--->
+![Accordion 文档页](docs/screenshots/accordion.png)
 
 
 ## 后台更新

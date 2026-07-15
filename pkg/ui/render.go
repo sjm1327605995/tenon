@@ -259,7 +259,7 @@ func newIconRenderNode(d string, size, stroke float32, raw bool, w, h float32, s
 	rn := &renderNode{yn: yoga.NewNode(), kind: rnIcon, iconPath: d, iconSize: size, iconStroke: stroke,
 		iconRaw: raw, iconW: w, iconH: h, opacity: 1, scale: 1}
 	rn.applyTextStyle(st)                        // 复用文本颜色继承（currentColor）
-	rn.yn.StyleSetAlignSelf(yoga.AlignFlexStart) // 固定尺寸，不随 align-items:stretch 拉伸
+	rn.yn.StyleSetAlignSelf(yoga.AlignCenter) // 固定尺寸（不随 align-items:stretch 拉伸），并在交叉轴居中
 	rn.yn.SetMeasureFunc(func(_ *yoga.Node, _ float32, _ yoga.MeasureMode, _ float32, _ yoga.MeasureMode) yoga.Size {
 		if rn.iconRaw {
 			return yoga.Size{Width: rn.iconW * uiScale, Height: rn.iconH * uiScale}

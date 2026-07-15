@@ -68,7 +68,7 @@ ui.ThemeProvider(ui.LightTheme,
 
 Controlled components take value in / `OnChange` out — hold the state with `ui.UseState`.
 
-See `example/shadcn-gallery` for a full showcase (with light/dark toggle).
+See `example/accordion` for a full showcase — a shadcn/ui docs-page re-creation (with a light/dark toggle).
 
 Anchored overlays (`Popover`/`Tooltip`/`DropdownMenu`/`Select`) use `ui.UseMeasure()` to read the trigger's on-screen rect and position a `ui.Portal` panel at it; the panel measures itself and **flips above the trigger when it would overflow the bottom** (via `ui.Viewport()`). `Textarea` uses the base `ui.Multiline()` input. `Accordion` measures content height (`UseMeasure`) and animates it with `UseTween`.
 

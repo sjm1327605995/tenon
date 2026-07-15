@@ -176,7 +176,7 @@ func button(p ButtonProps) *ui.Node {
 }
 ```
 
-`pkg/shadcn` seeds this pattern with `Button` (6 variants, 4 sizes); see `example/shadcn-demo`.
+`pkg/shadcn` seeds this pattern with `Button` (6 variants, 4 sizes); see `example/accordion`.
 
 ## Examples
 
@@ -220,6 +220,6 @@ if !h.Root().ByText("1").Exists() {   // re-query after state changes the tree
 
 - **Incremental layout**: yoga child links are only rebuilt when a node's children actually change, so paint-only updates (color/hover/opacity/transform) keep yoga's cache valid and `CalculateLayout` is a no-op. On window resize, only size-dependent subtrees recompute; fixed-size subtrees are reused. Idle frames run no layout at all.
 - **Crisp edges**: the scene is rendered at `DeviceScaleFactor × SuperSample` (default 2×, capped at 2.5×) and downscaled by Ebiten, so rounded corners, circles, and borders are antialiased. Author everything in logical pixels; the engine scales layout, fonts, and pointer deltas. Lower `ui.SuperSample` (e.g. to 1) to trade sharpness for performance.
-- Rendering runs on Ebiten's single Update/Draw loop. Call state setters from callbacks/effects (the render goroutine). **From other goroutines** (network callbacks, timers) wrap updates in `ui.Post(func(){ ... })` — it queues the closure to run on the render goroutine before the next frame, so `setState` inside it is safe. See `example/hooks-async`.
+- Rendering runs on Ebiten's single Update/Draw loop. Call state setters from callbacks/effects (the render goroutine). **From other goroutines** (network callbacks, timers) wrap updates in `ui.Post(func(){ ... })` — it queues the closure to run on the render goroutine before the next frame, so `setState` inside it is safe.
 - Per-node `Opacity` on a container becomes a **group** opacity (composited via an offscreen layer); transforms also use a layer.
 - Not yet implemented: `Img` object-fit, horizontal scroll, rich-text spans, multiple font families/weights (one embedded CJK face is the default).

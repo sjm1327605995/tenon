@@ -10,7 +10,7 @@ import (
 
 // 解释示例 view 并挂载，确认（含 shadcn 组件）真的渲染出来。
 func TestInterpretViewRenders(t *testing.T) {
-	node, err := Interpret(filepath.Join("..", "..", "example", "hotreload", "view", "view.go"))
+	node, err := Interpret(filepath.Join("testdata", "view.go"))
 	if err != nil {
 		t.Fatalf("interpret: %v", err)
 	}
