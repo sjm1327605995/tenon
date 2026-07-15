@@ -71,7 +71,8 @@ func App(_ struct{}) *ui.Node {
 	pm, setPm := ui.UseState(0)         // pnpm / npm / yarn / bun
 
 	th := pickTheme(dark)
-	flat := flatten(registry())
+	groups := registry()
+	flat := flatten(groups)
 	if sel >= len(flat) {
 		sel = 0
 	}
@@ -101,17 +102,17 @@ func App(_ struct{}) *ui.Node {
 
 	return ui.ThemeProvider(th,
 		ui.Div(ui.Style(ui.Row, ui.Fill, ui.Bg(th.Background), ui.TextColor(th.Foreground)),
-			buildSidebar(th, sel, goTo, dark, setDark),
+			buildSidebar(th, groups, sel, goTo, dark, setDark),
 			vline(th),
 			ui.ScrollView(scrollRef, ui.Style(ui.Grow(1), ui.HeightPct(100)), page)))
 }
 
 // ---------- 文档页各区块 ----------
 
-func buildSidebar(th ui.Theme, sel int, goTo func(int), dark bool, setDark func(bool)) *ui.Node {
+func buildSidebar(th ui.Theme, groups []group, sel int, goTo func(int), dark bool, setDark func(bool)) *ui.Node {
 	idx := 0
 	var sgroups []shadcn.SidebarGroup
-	for _, g := range registry() {
+	for _, g := range groups {
 		var items []shadcn.SidebarItem
 		for _, c := range g.items {
 			i := idx
@@ -182,7 +183,6 @@ func installSection(th ui.Theme, c comp, inst int, setInst func(int), pm int, se
 
 	pmTabs := make([]*ui.Node, len(names))
 	for i, name := range names {
-		i, name := i, name
 		st := []ui.StyleOpt{ui.PaddingXY(10, 5), ui.Radius(6)}
 		col := th.MutedForeground
 		if i == pm {
@@ -218,7 +218,6 @@ func installSection(th ui.Theme, c comp, inst int, setInst func(int), pm int, se
 func underlineTabs(th ui.Theme, labels []string, active int, onSel func(int)) *ui.Node {
 	tabs := make([]*ui.Node, len(labels))
 	for i, label := range labels {
-		i, label := i, label
 		col, under := th.MutedForeground, ui.Transparent
 		if i == active {
 			col, under = th.Foreground, th.Foreground
@@ -291,7 +290,7 @@ func pvButton(_ struct{}) *ui.Node {
 
 func pvInput(_ struct{}) *ui.Node {
 	v, set := ui.UseState("")
-	return ui.Div(ui.Style(ui.Column, ui.Gap(8), ui.Width(300)),
+	return ui.VStack(8, ui.Style(ui.Width(300)),
 		shadcn.Label("邮箱"),
 		shadcn.Input(shadcn.InputProps{Value: v, OnChange: set, Placeholder: "you@example.com"}))
 }
@@ -379,7 +378,7 @@ func pvProgress(_ struct{}) *ui.Node {
 }
 
 func pvAlert(_ struct{}) *ui.Node {
-	return ui.Div(ui.Style(ui.Column, ui.Gap(12), ui.Width(420)),
+	return ui.VStack(12, ui.Style(ui.Width(420)),
 		shadcn.Alert(shadcn.AlertProps{},
 			shadcn.AlertTitle("提示"),
 			shadcn.AlertDescription("这是一条默认提示信息，用于向用户传达状态。")),
@@ -392,7 +391,7 @@ func pvTabs(_ struct{}) *ui.Node {
 	th := ui.UseTheme()
 	i, set := ui.UseState(0)
 	body := []string{"在这里管理你的账户信息。", "修改密码以保护账户安全。", "设置你希望接收的通知类型。"}
-	return ui.Div(ui.Style(ui.Column, ui.Gap(16), ui.Width(380)),
+	return ui.VStack(16, ui.Style(ui.Width(380)),
 		shadcn.Tabs(shadcn.TabsProps{Tabs: []string{"账户", "密码", "通知"}, Active: i, OnChange: set}),
 		ui.Div(ui.Style(ui.Border(1, th.Border), ui.Radius(th.Radius+2), ui.Padding(16), ui.Bg(th.Card)),
 			muted(th, body[i], 14)))
