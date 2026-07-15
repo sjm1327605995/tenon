@@ -2,6 +2,8 @@
 
 Goal: implement every [shadcn/ui component](https://ui.shadcn.com/docs/components) in `pkg/shadcn`, one by one, with full property support. Tracked here; checked off as landed.
 
+**All core components implemented ✅** (2026-07-14).
+
 Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 
 ## Core components
@@ -33,7 +35,7 @@ Legend: ✅ done · 🟡 partial (needs fuller props/variants) · ⬜ missing
 | Dropdown Menu | ✅ | |
 | Empty | ✅ | icon + title + description + actions |
 | Field | ✅ | label + control + description/error |
-| Form | 🟡 | audit props |
+| Form | ✅ | validated controlled form (Field + submit) |
 | Hover Card | ✅ | |
 | Input | ✅ | |
 | Input Group | ✅ | leading/trailing addons, borderless input |

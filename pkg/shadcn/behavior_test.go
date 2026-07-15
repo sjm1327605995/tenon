@@ -476,3 +476,39 @@ func TestChartsDrawPaths(t *testing.T) {
 		t.Fatalf("charts paths: stroke=%d fill=%d (want >=1 / >=3)", stroke, fill)
 	}
 }
+
+// Form：无效提交显示错误，修正后提交回调。
+func TestFormValidation(t *testing.T) {
+	var submitted map[string]string
+	app := func(_ struct{}) *ui.Node {
+		return Form(FormProps{
+			SubmitLabel: "Save",
+			OnSubmit:    func(v map[string]string) { submitted = v },
+			Fields: []FormField{
+				{Name: "email", Label: "Email", Validate: func(v string) string {
+					if v == "" {
+						return "必填"
+					}
+					return ""
+				}, Control: func(v string, oc func(string)) *ui.Node {
+					return Input(InputProps{Value: v, OnChange: oc})
+				}},
+			},
+		})
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	// 空提交 -> 错误显示，OnSubmit 不触发
+	h.Root().ByText("Save").Click()
+	if !h.Root().ByText("必填").Exists() {
+		t.Fatalf("expected validation error; texts=%v", h.Root().Texts())
+	}
+	if submitted != nil {
+		t.Fatal("OnSubmit should not fire with invalid form")
+	}
+	// 填入值 -> 再提交 -> 回调
+	h.Root().ByKind("input").Type("a@b.com")
+	h.Root().ByText("Save").Click()
+	if submitted == nil || submitted["email"] != "a@b.com" {
+		t.Fatalf("OnSubmit not called with valid form: %v", submitted)
+	}
+}
