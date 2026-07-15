@@ -73,16 +73,12 @@ type app struct {
 	sel    int
 	show   bool // View Code 展开
 	fw     int  // Radix UI / Base UI
-	inst   int  // 命令 / 手动
-	pm     int  // pnpm / npm / yarn / bun
 	scroll ui.ScrollInfo
 
 	setDark func(bool)
 	setSel  func(int)
 	setShow func(bool)
 	setFw   func(int)
-	setInst func(int)
-	setPm   func(int)
 }
 
 func App(_ struct{}) *ui.Node {
@@ -90,8 +86,6 @@ func App(_ struct{}) *ui.Node {
 	sel, setSel := ui.UseState(0)
 	show, setShow := ui.UseState(false)
 	fw, setFw := ui.UseState(0)
-	inst, setInst := ui.UseState(0)
-	pm, setPm := ui.UseState(0)
 	scrollRef, scroll := ui.UseScroll()
 
 	groups := registry()
@@ -101,9 +95,8 @@ func App(_ struct{}) *ui.Node {
 	}
 	a := &app{
 		th: pickTheme(dark), groups: groups, flat: flat, cur: flat[sel],
-		dark: dark, sel: sel, show: show, fw: fw, inst: inst, pm: pm, scroll: scroll,
-		setDark: setDark, setSel: setSel, setShow: setShow,
-		setFw: setFw, setInst: setInst, setPm: setPm,
+		dark: dark, sel: sel, show: show, fw: fw, scroll: scroll,
+		setDark: setDark, setSel: setSel, setShow: setShow, setFw: setFw,
 	}
 
 	content := ui.VStack(28,
@@ -189,8 +182,7 @@ func (a *app) preview() *ui.Node {
 		hline(th),
 		ui.Div(ui.Style(ui.Column, ui.ItemsCenter, ui.JustifyCenter, ui.Bg(th.Muted), ui.PaddingXY(24, 26)),
 			ui.Div(ui.Style(ui.Column, ui.Gap(3), ui.ItemsCenter, ui.Opacity(0.55)),
-				muted(th, fmt.Sprintf("import { %s } from", sym), 12.5),
-				muted(th, fmt.Sprintf("  \"@/components/ui/%s\"", c.pkg), 12.5)),
+				muted(th, fmt.Sprintf("shadcn.%s(…)", sym), 12.5)),
 			vspace(14),
 			shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() { a.setShow(!a.show) }},
 				ui.Text(codeLabel(a.show), ui.FontSize(13)))),
@@ -198,53 +190,30 @@ func (a *app) preview() *ui.Node {
 	if a.show {
 		kids = append(kids, hline(th),
 			ui.Div(ui.Style(ui.Column, ui.Gap(3), ui.Bg(th.Muted), ui.PaddingXY(20, 18)),
-				code(th, fmt.Sprintf("import { %s } from \"@/components/ui/%s\"", sym, c.pkg)),
+				code(th, "import \"github.com/sjm1327605995/tenon/pkg/shadcn\""),
 				vspace(8),
-				code(th, "export function Demo() {"),
-				code(th, fmt.Sprintf("  return <%s />", sym)),
+				code(th, "func Demo() *ui.Node {"),
+				code(th, fmt.Sprintf("  return shadcn.%s(…)", sym)),
 				code(th, "}")))
 	}
 	return ui.Div(kids...)
 }
 
+// install：Tenon 是一个 Go 库，没有单独的组件安装步骤，导入 pkg/shadcn 即可使用。
+// 因此这里只展示 Go 的导入与用法，而不是 shadcn 那样的包管理器安装命令。
 func (a *app) install() *ui.Node {
 	th, c := a.th, a.cur
-	sym := symbol(c.name)
-	names := []string{"pnpm", "npm", "yarn", "bun"}
-	prefix := []string{"pnpm dlx", "npx", "yarn dlx", "bunx"}
-	add := "shadcn@latest add " + c.pkg
-	if a.pm == 3 {
-		add = "--bun shadcn@latest add " + c.pkg
+	box := func(s string) *ui.Node {
+		return ui.Div(ui.Style(ui.Column, ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Clip, ui.Bg(th.Muted)),
+			ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.PaddingXY(16, 16)), code(th, s)))
 	}
-
-	pmTabs := make([]*ui.Node, len(names))
-	for i, name := range names {
-		st := []ui.StyleOpt{ui.PaddingXY(10, 5), ui.Radius(6)}
-		col := th.MutedForeground
-		if i == a.pm {
-			st = append(st, ui.Bg(th.Background))
-			col = th.Foreground
-		}
-		pmTabs[i] = ui.Button(ui.Style(st...), ui.OnClick(func() { a.setPm(i) }),
-			ui.Text(name, ui.FontSize(12.5), ui.TextColor(col)))
-	}
-	cmdRow := ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.Gap(12), ui.PaddingXY(16, 14)),
-		muted(th, "›", 13),
-		ui.HStack(6, ui.Style(ui.Grow(1)), muted(th, prefix[a.pm], 13), ui.Text(add, ui.FontSize(13))),
-		shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Ghost, Size: shadcn.SizeSm}, muted(th, "复制", 12.5)))
-	terminal := ui.Div(ui.Style(ui.Column, ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Clip, ui.Bg(th.Muted)),
-		ui.Div(append([]*ui.Node{ui.Style(ui.Row, ui.Gap(2), ui.Padding(6))}, pmTabs...)...),
-		hline(th), cmdRow)
-	importBox := ui.Div(ui.Style(ui.Column, ui.Border(1, th.Border), ui.Radius(th.Radius+4), ui.Clip, ui.Bg(th.Muted)),
-		ui.Div(ui.Style(ui.Row, ui.ItemsCenter, ui.PaddingXY(16, 16)),
-			code(th, fmt.Sprintf("import { %s } from \"@/components/ui/%s\"", sym, c.pkg))))
-
 	return ui.VStack(16,
 		ui.Text("安装", ui.FontSize(22), ui.Semibold),
-		a.underlineTabs([]string{"命令", "手动"}, a.inst, a.setInst),
-		terminal,
+		muted(th, "Tenon 是一个 Go 库，无需单独安装组件——直接导入 pkg/shadcn 即可使用。", 15),
 		ui.Text("导入", ui.FontSize(16), ui.Semibold),
-		importBox)
+		box("import \"github.com/sjm1327605995/tenon/pkg/shadcn\""),
+		ui.Text("用法", ui.FontSize(16), ui.Semibold),
+		box(fmt.Sprintf("shadcn.%s(…)", symbol(c.name))))
 }
 
 // underlineTabs 是下划线式标签栏（选中项文字加深、底部 2px 下划线），下方带一条整宽分隔线。
