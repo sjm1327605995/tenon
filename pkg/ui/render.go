@@ -12,12 +12,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
-	"github.com/hajimehoshi/ebiten/v2/vector"
-
-	"github.com/sjm1327605995/tenon/pkg/font"
-	"github.com/sjm1327605995/tenon/pkg/svg"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -65,7 +59,7 @@ type renderNode struct {
 	runsRev    int       // 富文本解析版本（resolveRuns 改动字体时自增），用于排版缓存失效
 	wc         wrapCache // 折行缓存（纯文本）
 	rc         richCache // 排版缓存（富文本）
-	face       *text.GoTextFace
+	face       fontFace
 	color      Color
 	lineH      float64
 	fauxBold   bool
@@ -117,7 +111,7 @@ type renderNode struct {
 
 	// image
 	imgSrc    string
-	img       *ebiten.Image
+	img       bitmap
 	objectFit ObjectFit
 
 	// icon（SVG）/ vector（原始像素路径）
@@ -127,9 +121,9 @@ type renderNode struct {
 	iconRaw     bool    // Vector：路径为逻辑像素坐标
 	iconW       float32
 	iconH       float32
-	iconCache   *vector.Path // 已按缩放解析好的路径（局部坐标，绘制时平移到 bounds）
-	iconCacheK  string       // 缓存键：path
-	iconCacheSz float32      // 缓存键：缩放比例
+	iconCache   vecPath // 已按缩放解析好的路径（局部坐标，绘制时平移到 bounds）
+	iconCacheK  string  // 缓存键：path
+	iconCacheSz float32 // 缓存键：缩放比例
 
 	// scroll / clip
 	clip     bool
@@ -235,8 +229,7 @@ func newInputRenderNode() *renderNode {
 			s = rn.placeholder
 		}
 		if s != "" {
-			tw, _ := text.Measure(s, rn.face, rn.lineH)
-			wd = float32(tw) + 8
+			wd = measureW(s, rn.face, rn.lineH) + 8
 		}
 		return yoga.Size{Width: wd, Height: float32(rn.lineH)}
 	})
@@ -249,8 +242,8 @@ func newImageRenderNode() *renderNode {
 		if rn.img == nil {
 			return yoga.Size{}
 		}
-		b := rn.img.Bounds()
-		return yoga.Size{Width: float32(b.Dx()), Height: float32(b.Dy())}
+		iw, ih := rn.img.Size()
+		return yoga.Size{Width: float32(iw), Height: float32(ih)}
 	})
 	return rn
 }
@@ -289,17 +282,15 @@ func (rn *renderNode) iconScale() float32 {
 }
 
 // scaledIconPath 返回按当前缩放解析好的路径（缓存，局部坐标，绘制时再平移）。
-func (rn *renderNode) scaledIconPath() *vector.Path {
+// 无可绘制路径时返回 nil（注意返回真正的 nil 接口，供调用方 != nil 判断）。
+func (rn *renderNode) scaledIconPath() vecPath {
 	sc := rn.iconScale()
 	if rn.iconCache != nil && rn.iconCacheK == rn.iconPath && rn.iconCacheSz == sc {
 		return rn.iconCache
 	}
-	p, err := svg.ParsePathScaled(rn.iconPath, sc)
-	if err != nil {
-		p = nil
-	}
-	rn.iconCache, rn.iconCacheK, rn.iconCacheSz = p, rn.iconPath, sc
-	return p
+	ip := backendNewVecPath(rn.iconPath, sc)
+	rn.iconCache, rn.iconCacheK, rn.iconCacheSz = ip, rn.iconPath, sc
+	return ip
 }
 
 // applyTextStyle 只记录本节点显式设置的文本样式；生效值由 resolveInherited 决定。
@@ -330,10 +321,9 @@ func (rn *renderNode) setEffectiveText(c Color, size float32, weight int, italic
 		rn.effSize, rn.effScale, rn.effWeight, rn.effItalic = size, uiScale, weight, italic
 		px := size * uiScale
 		rn.lineH = float64(px) * 1.3
-		if ff, err := font.GetDefaultFace(px, font.FontWeight(weight), italic); err == nil {
-			rn.face = ff.Face
-			rn.fauxBold = ff.FauxBold
-			rn.fauxItalic = ff.FauxItalic
+		if f := backendNewFont(px, weight, italic); f != nil {
+			rn.face = f
+			_, rn.fauxBold, rn.fauxItalic = f.Metrics()
 		}
 		rn.yn.MarkDirty()
 	}
@@ -422,7 +412,7 @@ func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
 	}
 }
 
-var imgCache = map[string]*ebiten.Image{}
+var imgCache = map[string]bitmap{}
 
 var (
 	imgLoading = map[string]bool{}          // 正在后台加载的 src
@@ -456,7 +446,7 @@ func (rn *renderNode) loadImage() {
 			if err != nil || img == nil {
 				return // 失败：保持未加载（不缓存失败），src 再次设置时会重试
 			}
-			ei := ebiten.NewImageFromImage(img)
+			ei := backendNewBitmap(img)
 			imgCache[src] = ei
 			for _, w := range waiters {
 				if w.imgSrc == src { // 期间 src 可能已改，仅回填仍需要它的节点
@@ -466,7 +456,6 @@ func (rn *renderNode) loadImage() {
 			}
 			if activeGame != nil {
 				activeGame.needsLayout = true
-				activeGame.needsPaint = true
 			}
 		})
 	}()
@@ -749,8 +738,8 @@ func paintNode(p painter, rn *renderNode) {
 		}
 	case rnImage:
 		if rn.img != nil {
-			ib := rn.img.Bounds()
-			dr, needClip := fitRect(float32(ib.Dx()), float32(ib.Dy()), b, rn.objectFit)
+			iw, ih := rn.img.Size()
+			dr, needClip := fitRect(float32(iw), float32(ih), b, rn.objectFit)
 			if needClip { // cover：裁剪到框（遵循圆角）
 				p.PushClip(b, rn.radius)
 				p.DrawImage(rn.img, dr, o)
@@ -792,22 +781,6 @@ func paintNode(p painter, rn *renderNode) {
 		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
 	}
 }
-
-// 离屏图层池（按屏幕尺寸复用）。
-var layerPool []*ebiten.Image
-
-func acquireLayer(w, h int) *ebiten.Image {
-	for i, im := range layerPool {
-		if b := im.Bounds(); b.Dx() == w && b.Dy() == h {
-			layerPool = append(layerPool[:i], layerPool[i+1:]...)
-			im.Clear()
-			return im
-		}
-	}
-	return ebiten.NewImage(w, h)
-}
-
-func releaseLayer(im *ebiten.Image) { layerPool = append(layerPool, im) }
 
 func drawScrollbar(p painter, rn *renderNode) {
 	b := rn.bounds
@@ -886,14 +859,14 @@ func paintInput(p painter, rn *renderNode) {
 	ty := b.Y + (b.H-lineH)/2
 
 	if hasSel && rn.face != nil {
-		wa, _ := text.Measure(val[:selLo], rn.face, rn.lineH)
-		wc, _ := text.Measure(val[:selHi], rn.face, rn.lineH)
-		p.FillRect(tx+float32(wa), ty, float32(wc-wa), lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
+		wa := measureW(val[:selLo], rn.face, rn.lineH)
+		wc := measureW(val[:selHi], rn.face, rn.lineH)
+		p.FillRect(tx+wa, ty, wc-wa, lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
 	}
 	if preLo >= 0 && rn.face != nil { // 预编辑下划线
-		wa, _ := text.Measure(val[:preLo], rn.face, rn.lineH)
-		wc, _ := text.Measure(val[:preHi], rn.face, rn.lineH)
-		p.Line(tx+float32(wa), ty+lineH-1, tx+float32(wc), ty+lineH-1, rn.color)
+		wa := measureW(val[:preLo], rn.face, rn.lineH)
+		wc := measureW(val[:preHi], rn.face, rn.lineH)
+		p.Line(tx+wa, ty+lineH-1, tx+wc, ty+lineH-1, rn.color)
 	}
 
 	if usePlaceholder {
@@ -904,15 +877,14 @@ func paintInput(p painter, rn *renderNode) {
 	if isFocused(rn) && caretVisible() {
 		cx := tx
 		if rn.face != nil && caret > 0 {
-			w, _ := text.Measure(val[:caret], rn.face, rn.lineH)
-			cx += float32(w)
+			cx += measureW(val[:caret], rn.face, rn.lineH)
 		}
 		p.Line(cx, ty, cx, ty+lineH, rn.color)
 	}
 }
 
 // paintSpanRange 逐行为字节区间 [lo,hi) 绘制高亮块或底部下划线（多行输入用）。
-func paintSpanRange(p painter, spans []wrapSpan, lo, hi int, face *text.GoTextFace, lineH float64, tx, ty, lh float32, underline bool) {
+func paintSpanRange(p painter, spans []wrapSpan, lo, hi int, face fontFace, lineH float64, tx, ty, lh float32, underline bool) {
 	for i, sp := range spans {
 		a, c := max(lo, sp.start), min(hi, sp.end)
 		if a >= c {
@@ -926,25 +898,6 @@ func paintSpanRange(p painter, spans []wrapSpan, lo, hi int, face *text.GoTextFa
 		} else {
 			p.FillRect(x0, y, x1-x0, lh, 0, Color{R: 59, G: 130, B: 246, A: 90})
 		}
-	}
-}
-
-func drawText(dst *ebiten.Image, s string, face *text.GoTextFace, c Color, x, y float32, fauxBold, fauxItalic bool) {
-	if face == nil || s == "" {
-		return
-	}
-	draw := func(dx float64) {
-		op := &text.DrawOptions{}
-		if fauxItalic {
-			op.GeoM.Skew(-0.21, 0) // 合成斜体：错切
-		}
-		op.GeoM.Translate(float64(x)+dx, float64(y))
-		op.ColorScale.ScaleWithColor(c)
-		text.Draw(dst, s, face, op)
-	}
-	draw(0)
-	if fauxBold { // 合成粗体：叠一层微偏移使笔画变粗
-		draw(face.Size * 0.045)
 	}
 }
 
@@ -975,14 +928,14 @@ func (rn *renderNode) caretFromX(px float32) int {
 		if i < len(rn.value) && !utf8.RuneStart(rn.value[i]) {
 			continue
 		}
-		w, _ := text.Measure(rn.value[:i], rn.face, rn.lineH)
-		if float32(w) >= rel {
-			if float32(w)-rel < rel-prevW {
+		w := measureW(rn.value[:i], rn.face, rn.lineH)
+		if w >= rel {
+			if w-rel < rel-prevW {
 				return i
 			}
 			return prevIdx
 		}
-		prevIdx, prevW = i, float32(w)
+		prevIdx, prevW = i, w
 	}
 	return len(rn.value)
 }
@@ -1026,8 +979,7 @@ func (rn *renderNode) caretRect(caret int) image.Rectangle {
 	} else {
 		cx = b.X + padL
 		if rn.face != nil && caret > 0 {
-			w, _ := text.Measure(rn.value[:caret], rn.face, rn.lineH)
-			cx += float32(w)
+			cx += measureW(rn.value[:caret], rn.face, rn.lineH)
 		}
 		cy = b.Y + (b.H-lineH)/2
 	}

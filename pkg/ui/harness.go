@@ -39,7 +39,6 @@ func Mount(root *Node, w, h int) *Harness {
 	if h <= 0 {
 		h = 600
 	}
-	initFont()
 	uiScale = 1
 	g := &game{root: root, w: w, h: h}
 	activeGame = g

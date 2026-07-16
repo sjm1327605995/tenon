@@ -1,12 +1,6 @@
 package ui
 
-import (
-	"strings"
-
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
-
-	"github.com/sjm1327605995/tenon/pkg/font"
-)
+import "strings"
 
 // textRun 是富文本中一段样式一致的文本。一个 rnText 节点若持有 runs，即按多段混排绘制。
 type textRun struct {
@@ -14,7 +8,7 @@ type textRun struct {
 	style StyleProps
 
 	// resolveRuns 解析后的生效值（在物理像素下取字体，逻辑同 setEffectiveText）
-	face       *text.GoTextFace
+	face       fontFace
 	color      Color
 	lineH      float64
 	ascent     float32
@@ -118,11 +112,9 @@ func (rn *renderNode) resolveRuns(ctx inhText) {
 		}
 		px := s * uiScale
 		r.lineH = float64(px) * 1.3
-		if ff, err := font.GetDefaultFace(px, font.FontWeight(w), it); err == nil {
-			r.face = ff.Face
-			r.fauxBold = ff.FauxBold
-			r.fauxItalic = ff.FauxItalic
-			r.ascent = float32(ff.Face.Metrics().HAscent)
+		if f := backendNewFont(px, w, it); f != nil {
+			r.face = f
+			r.ascent, r.fauxBold, r.fauxItalic = f.Metrics()
 		}
 		r.rSize, r.rWeight, r.rItalic, r.rScale, r.rValid = s, w, it, uiScale, true
 		rn.runsRev++ // 字体/字号改变 → 令排版缓存失效

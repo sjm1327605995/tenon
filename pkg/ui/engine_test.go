@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sjm1327605995/tenon/pkg/font"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -69,9 +68,6 @@ func findClickable(rn *renderNode) *renderNode {
 
 // TestLocalRerender 验证：子组件 setState 只触发子组件重渲染，父组件不重跑。
 func TestLocalRerender(t *testing.T) {
-	if err := font.InitDefaultFont(); err != nil {
-		t.Fatal(err)
-	}
 	parentRenders, childRenders = 0, 0
 	g := &game{w: 400, h: 400}
 	activeGame = g

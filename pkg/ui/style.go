@@ -43,9 +43,9 @@ type StyleProps struct {
 
 	opacity float32
 
-	// 变换（围绕自身中心）
+	// 变换（围绕自身中心，2D）
 	scale          float32
-	rotate         float32 // 角度
+	rotate         float32 // 角度（绕 Z 轴，2D 旋转）
 	transX, transY float32
 
 	// 阴影（box-shadow）

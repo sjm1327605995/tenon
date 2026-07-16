@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 
-	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/rivo/uniseg"
 )
 
@@ -23,17 +22,16 @@ func tokenize(s string) []string {
 	return toks
 }
 
-func measureW(s string, face *text.GoTextFace, lineH float64) float32 {
-	if s == "" {
+func measureW(s string, face fontFace, lineH float64) float32 {
+	if s == "" || face == nil {
 		return 0
 	}
-	w, _ := text.Measure(s, face, lineH)
-	return float32(w)
+	return face.Measure(s, lineH)
 }
 
 // wrapForWidth 按可用宽度对文本贪心折行；未约束或本就放得下时返回单行。
 // 返回折行结果与实际最大行宽。
-func wrapForWidth(s string, face *text.GoTextFace, lineH float64, width float32) ([]string, float32) {
+func wrapForWidth(s string, face fontFace, lineH float64, width float32) ([]string, float32) {
 	if face == nil || s == "" {
 		return []string{s}, 0
 	}
@@ -72,7 +70,7 @@ func wrapForWidth(s string, face *text.GoTextFace, lineH float64, width float32)
 // 目的：按需重绘时整棵树会重画，但内容不变的文本不必每帧重新 measure/折行。
 type wrapCache struct {
 	text  string
-	face  *text.GoTextFace
+	face  fontFace
 	lineH float64
 	width float32
 	lines []string
@@ -118,7 +116,7 @@ type wrapSpan struct {
 }
 
 // wrapSpans 与 wrapForWidth 折行规则一致，但额外记录每行的字节偏移，用于多行输入的光标/选区映射。
-func wrapSpans(s string, face *text.GoTextFace, lineH float64, width float32) []wrapSpan {
+func wrapSpans(s string, face fontFace, lineH float64, width float32) []wrapSpan {
 	if face == nil || s == "" {
 		return []wrapSpan{{s, 0, len(s)}}
 	}
@@ -138,7 +136,7 @@ func wrapSpans(s string, face *text.GoTextFace, lineH float64, width float32) []
 	return spans
 }
 
-func wrapParaSpans(para string, base int, face *text.GoTextFace, lineH float64, width float32) []wrapSpan {
+func wrapParaSpans(para string, base int, face fontFace, lineH float64, width float32) []wrapSpan {
 	var spans []wrapSpan
 	lineStart := base
 	cur := ""
@@ -159,7 +157,7 @@ func wrapParaSpans(para string, base int, face *text.GoTextFace, lineH float64, 
 }
 
 // xInSpan 返回原始字节偏移 off 在该行内相对行首 tx 的 x 坐标。
-func (sp wrapSpan) xInSpan(off int, face *text.GoTextFace, lineH float64, tx float32) float32 {
+func (sp wrapSpan) xInSpan(off int, face fontFace, lineH float64, tx float32) float32 {
 	rel := off - sp.start
 	if rel < 0 {
 		rel = 0
@@ -171,7 +169,7 @@ func (sp wrapSpan) xInSpan(off int, face *text.GoTextFace, lineH float64, tx flo
 }
 
 // offsetInSpan 返回该行内相对行首 rel-x 处最近的原始字节偏移。
-func (sp wrapSpan) offsetInSpan(relX float32, face *text.GoTextFace, lineH float64) int {
+func (sp wrapSpan) offsetInSpan(relX float32, face fontFace, lineH float64) int {
 	if relX <= 0 || sp.text == "" {
 		return sp.start
 	}

@@ -6,18 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sjm1327605995/tenon/pkg/font"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
 func TestMultilineSpans(t *testing.T) {
-	_ = font.InitDefaultFont()
-	ff, err := font.GetDefaultFace(16, 400, false)
-	if err != nil {
-		t.Fatal(err)
-	}
+	face := gioNewFont(16, 400, false)
 	// 含 \n 时无论宽度都按行分割，且字节偏移正确
-	spans := wrapSpans("ab\ncd", ff.Face, 16*1.3, 0)
+	spans := wrapSpans("ab\ncd", face, 16*1.3, 0)
 	if len(spans) != 2 {
 		t.Fatalf("spans=%d want 2", len(spans))
 	}
@@ -28,7 +23,7 @@ func TestMultilineSpans(t *testing.T) {
 		t.Fatalf("span1=%+v want {cd 3 5}", spans[1])
 	}
 	// 行内偏移映射：行首 x 应回到该行起始字节
-	if off := spans[1].offsetInSpan(0, ff.Face, 16*1.3); off != 3 {
+	if off := spans[1].offsetInSpan(0, face, 16*1.3); off != 3 {
 		t.Fatalf("offsetInSpan(0)=%d want 3", off)
 	}
 }
@@ -43,14 +38,15 @@ func TestFontWeight(t *testing.T) {
 	layoutAll(g)
 	root := g.rootRN
 
-	if w, f := root.children[0].effWeight, root.children[0].fauxBold; w != 700 || !f {
-		t.Fatalf("inherited bold: weight=%d faux=%v want 700/true", w, f)
+	// gio 内部自动合成缺失的粗/斜，故这里只校验解析后的字重/斜体（不再有 faux 标志）。
+	if w := root.children[0].effWeight; w != 700 {
+		t.Fatalf("inherited bold: weight=%d want 700", w)
 	}
-	if w, f := root.children[1].effWeight, root.children[1].fauxBold; w != 400 || f {
-		t.Fatalf("explicit normal: weight=%d faux=%v want 400/false", w, f)
+	if w := root.children[1].effWeight; w != 400 {
+		t.Fatalf("explicit normal: weight=%d want 400", w)
 	}
-	if !root.children[2].fauxItalic {
-		t.Fatal("italic text should be faux-italic (no italic variant registered)")
+	if !root.children[2].effItalic {
+		t.Fatal("italic text should resolve to italic style")
 	}
 }
 
@@ -72,9 +68,9 @@ func TestRichTextRuns(t *testing.T) {
 	if rt.runs[0].color != Hex("#ff0000") {
 		t.Fatalf("run0 color=%v want inherited red", rt.runs[0].color)
 	}
-	// 字重覆盖 -> 合成粗体
-	if !rt.runs[1].fauxBold {
-		t.Fatal("run1 should be faux-bold")
+	// 字重覆盖 -> 粗体（gio 内部合成，校验解析字重）
+	if rt.runs[1].rWeight != 700 {
+		t.Fatalf("run1 weight=%d want 700", rt.runs[1].rWeight)
 	}
 	// 字号覆盖 -> 更大的 lineH 与 ascent
 	if rt.runs[2].lineH <= rt.runs[0].lineH {
@@ -87,7 +83,6 @@ func TestRichTextRuns(t *testing.T) {
 }
 
 func TestRichTextLayoutBaseline(t *testing.T) {
-	_ = font.InitDefaultFont()
 	uiScale = 1
 	runs := []textRun{
 		{text: "A ", style: styleWith(FontSize(16))},
@@ -607,7 +602,6 @@ func TestPreeditRenderInsertion(t *testing.T) {
 }
 
 func newGame() *game {
-	_ = font.InitDefaultFont()
 	g := &game{w: 400, h: 400}
 	activeGame = g
 	return g
