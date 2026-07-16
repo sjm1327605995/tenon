@@ -60,10 +60,13 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 			gioIn.resetFrame()
 			gioIn.process(e.Source)
 
+			// dt 用浮点毫秒：整数 Milliseconds() 会把高刷新率下的帧间隔截断（144Hz 的
+			// 6.9ms 变 6），帧间隔不足 1ms 时更会截成 0，而 tickAnims/tickLoops 遇 dt<=0
+			// 直接返回 —— 动画会卡住不动。
 			var dt float32
 			now := e.Now
 			if !last.IsZero() {
-				dt = float32(now.Sub(last).Milliseconds())
+				dt = float32(now.Sub(last).Seconds() * 1000)
 			}
 			last = now
 			gioFrame(g, dt)
@@ -80,11 +83,15 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 					paint(p, pf.overlayRoot)
 				}
 			}
-			// 声明整窗为输入命中区并请求键盘焦点（引擎自管内部焦点，这里整窗恒接收）。
+			// 声明整窗为输入命中区（引擎自管内部焦点，这里整窗恒接收）。
 			area := clip.Rect{Max: e.Size}.Push(&ops)
 			event.Op(&ops, gioTag)
+			key.InputHintOp{Tag: gioTag, Hint: key.HintAny}.Add(&ops)
 			area.Pop()
-			e.Source.Execute(key.FocusCmd{Tag: gioTag})
+			// 仅在尚未获得焦点时请求一次；每帧无脑请求会和 gio 的焦点管理打架。
+			if !gioIn.focused {
+				e.Source.Execute(key.FocusCmd{Tag: gioTag})
+			}
 
 			e.Frame(&ops)
 			win.Invalidate() // stage1：持续重绘，保证动画/异步图片加载可见

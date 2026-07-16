@@ -24,6 +24,7 @@ type gioInput struct {
 	keyJust        [inKeyCount]bool
 	mods           key.Modifiers
 	typed          []rune
+	focused        bool // gio 是否已把键盘焦点给了 gioTag
 }
 
 var gioIn = &gioInput{}
@@ -68,11 +69,19 @@ var gioKeyName = map[key.Name]inKey{
 }
 
 // gioInputFilters 是每帧向 Source 注册的事件过滤器。
+//
+// key.FocusFilter 必不可少：gio 只用它把 handler 标成 focusable，而
+//   - key.EditEvent（字符/IME 提交文本）只投递给 focusable 的 handler；
+//   - keyQueue.Frame 每帧会把焦点从「不 focusable」的 handler 上撤掉。
+//
+// 少了它，就会既打不了字，又陷入「每帧请求焦点→每帧被撤销」的抖动。
+// 注意 key.Filter 不会设置 focusable，两者都要注册。
 func gioInputFilters() []event.Filter {
 	sc := pointer.ScrollRange{Min: -100000, Max: 100000}
 	navOpt := key.ModShift | key.ModShortcut | key.ModShortcutAlt
 	fs := []event.Filter{
 		pointer.Filter{Target: gioTag, Kinds: pointer.Press | pointer.Release | pointer.Move | pointer.Drag | pointer.Scroll, ScrollX: sc, ScrollY: sc},
+		key.FocusFilter{Target: gioTag},
 	}
 	for _, n := range []key.Name{
 		key.NameTab, key.NameEscape, key.NameReturn, key.NameEnter,
@@ -132,6 +141,8 @@ func (g *gioInput) process(src interface {
 			}
 		case key.EditEvent: // 普通字符输入（含 IME 提交文本）
 			g.typed = append(g.typed, []rune(ev.Text)...)
+		case key.FocusEvent:
+			g.focused = ev.Focus
 		}
 	}
 }
