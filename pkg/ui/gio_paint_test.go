@@ -65,6 +65,33 @@ func TestGioHugeRadiusDoesNotBreakFrame(t *testing.T) {
 	}
 }
 
+// 圆角必须真的画成圆角：填充与描边在角上都应留白，直边中点则必须有色。
+func TestGioRoundedCorners(t *testing.T) {
+	black := Color{0, 0, 0, 255}
+	// 填充：60x60、半径 20 的黑块画在 (20,20)
+	fill := renderOps(t, 100, 100, func(p *gioPainter) {
+		p.FillRect(0, 0, 100, 100, 0, Color{255, 255, 255, 255})
+		p.FillRect(20, 20, 60, 60, 20, black)
+	})
+	if n := darkPixels(fill, 21, 25, 21, 25); n != 0 {
+		t.Errorf("填充左上角应被圆角切掉，却有 %d 个深色像素（圆角没生效）", n)
+	}
+	if n := darkPixels(fill, 45, 55, 21, 25); n == 0 {
+		t.Error("填充上边中点应有颜色")
+	}
+	// 描边：同样的圆角矩形，2px 边框
+	stroke := renderOps(t, 100, 100, func(p *gioPainter) {
+		p.FillRect(0, 0, 100, 100, 0, Color{255, 255, 255, 255})
+		p.StrokeRect(20, 20, 60, 60, 20, 2, black)
+	})
+	if n := darkPixels(stroke, 21, 25, 21, 25); n != 0 {
+		t.Errorf("描边左上角应被圆角切掉，却有 %d 个深色像素（边框圆角没生效）", n)
+	}
+	if n := darkPixels(stroke, 45, 55, 19, 23); n == 0 {
+		t.Error("描边上边中点应有边框")
+	}
+}
+
 // clip 内绘制多段文字（侧边栏的典型形态）：每段都必须可见。
 func TestGioMultipleTextsInsideClip(t *testing.T) {
 	black := Color{0, 0, 0, 255}

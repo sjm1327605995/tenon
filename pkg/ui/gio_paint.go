@@ -61,15 +61,21 @@ func newGioPainter(ops *op.Ops, w, h int) *gioPainter { return &gioPainter{ops: 
 //
 // 圆角必须钳制到短边的一半：调用方常用 Radius(9999) 表示「全圆角/胶囊」（shadcn 的
 // radiusFull），而 gio 的 clip.RRect 不做钳制，半径超过尺寸会让路径退化并破坏整帧绘制。
-func (p *gioPainter) rrectOp(x, y, w, h, r float32) clip.Op {
+func (p *gioPainter) rrect(x, y, w, h, r float32) (clip.RRect, int) {
 	rect := image.Rect(int(x+0.5), int(y+0.5), int(x+w+0.5), int(y+h+0.5))
 	if lim := minf(w, h) / 2; r > lim {
 		r = lim
 	}
-	if ri := int(r + 0.5); ri > 0 {
-		return clip.RRect{Rect: rect, SE: ri, SW: ri, NW: ri, NE: ri}.Op(p.ops)
+	ri := int(r + 0.5)
+	return clip.RRect{Rect: rect, SE: ri, SW: ri, NW: ri, NE: ri}, ri
+}
+
+func (p *gioPainter) rrectOp(x, y, w, h, r float32) clip.Op {
+	rr, ri := p.rrect(x, y, w, h, r)
+	if ri > 0 {
+		return rr.Op(p.ops)
 	}
-	return clip.Rect(rect).Op()
+	return clip.Rect(rr.Rect).Op()
 }
 
 func minf(a, b float32) float32 {
@@ -115,18 +121,26 @@ func (p *gioPainter) FillGradient(x, y, w, h, r float32, from, to Color, angle f
 	st.Pop()
 }
 
+// StrokeRect 描边（可含圆角的）矩形。圆角走 RRect.Path，与填充的圆角一致。
 func (p *gioPainter) StrokeRect(x, y, w, h, r, width float32, c Color) {
-	if c.A == 0 || width <= 0 {
+	if c.A == 0 || width <= 0 || w <= 0 || h <= 0 {
 		return
 	}
-	var pth clip.Path
-	pth.Begin(p.ops)
-	pth.MoveTo(f32.Pt(x, y))
-	pth.LineTo(f32.Pt(x+w, y))
-	pth.LineTo(f32.Pt(x+w, y+h))
-	pth.LineTo(f32.Pt(x, y+h))
-	pth.Close()
-	st := clip.Stroke{Path: pth.End(), Width: width}.Op().Push(p.ops)
+	rr, ri := p.rrect(x, y, w, h, r)
+	var spec clip.PathSpec
+	if ri > 0 {
+		spec = rr.Path(p.ops)
+	} else {
+		var pth clip.Path
+		pth.Begin(p.ops)
+		pth.MoveTo(f32.Pt(x, y))
+		pth.LineTo(f32.Pt(x+w, y))
+		pth.LineTo(f32.Pt(x+w, y+h))
+		pth.LineTo(f32.Pt(x, y+h))
+		pth.Close()
+		spec = pth.End()
+	}
+	st := clip.Stroke{Path: spec, Width: width}.Op().Push(p.ops)
 	gpaint.ColorOp{Color: nrgba(c)}.Add(p.ops)
 	gpaint.PaintOp{}.Add(p.ops)
 	st.Pop()
