@@ -92,6 +92,34 @@ func TestGioRoundedCorners(t *testing.T) {
 	}
 }
 
+// 圆角矩形必须按亚像素坐标绘制：非整数缩放（如 150%）下布局会产生小数坐标，
+// 若把坐标取整塞进 clip.RRect（它的 Rect 是 image.Rectangle），亚像素位移会被抹平，
+// 表现为接缝与抖动。这里用「亚像素位移应当改变边缘的抗锯齿覆盖强度」来验证。
+func TestGioRoundedRectIsSubPixelAccurate(t *testing.T) {
+	black := Color{0, 0, 0, 255}
+	// 累加左边缘那一列的“覆盖强度”（255-亮度）。亚像素位移改变的是抗锯齿的深浅，
+	// 不是被touch的像素个数，所以必须量强度而非计数。
+	edgeCoverage := func(dx float32) int {
+		img := renderOps(t, 60, 40, func(p *gioPainter) {
+			p.FillRect(0, 0, 60, 40, 0, Color{255, 255, 255, 255})
+			p.FillRect(10+dx, 10, 30, 20, 6, black)
+		})
+		sum := 0
+		for y := 10; y < 30; y++ {
+			r, _, _, _ := img.At(10, y).RGBA()
+			sum += 255 - int(r>>8)
+		}
+		return sum
+	}
+	// 特意用 0.25：旧的 int(x+0.5) 取整下 10 与 10.25 都落到 10，输出完全相同，
+	// 因此这个偏移量能真正区分「取整」与「亚像素」（若用 0.5，取整也会整体移 1px 而蒙混过关）。
+	at0, atQuarter := edgeCoverage(0), edgeCoverage(0.25)
+	t.Logf("左边缘覆盖：偏移 0 -> 覆盖 %d，偏移 0.25 -> 覆盖 %d", at0, atQuarter)
+	if at0 == atQuarter {
+		t.Error("四分之一像素的位移没有改变边缘覆盖 —— 坐标被取整了，亚像素精度丢失")
+	}
+}
+
 // clip 内绘制多段文字（侧边栏的典型形态）：每段都必须可见。
 func TestGioMultipleTextsInsideClip(t *testing.T) {
 	black := Color{0, 0, 0, 255}
