@@ -132,8 +132,9 @@ func (g *gioInput) process(src interface {
 			g.mods = ev.Modifiers
 			switch ev.Kind {
 			case pointer.Scroll:
-				g.wheelX += -ev.Scroll.X / 24 // 引擎再乘 24*uiScale，得到 ≈原始像素
-				g.wheelY += -ev.Scroll.Y / 24
+				// gio 的 Scroll 已经是物理像素，原样透传（inputSource 的契约即为物理像素）。
+				g.wheelX += ev.Scroll.X
+				g.wheelY += ev.Scroll.Y
 			case pointer.Press:
 				if ev.Buttons&pointer.ButtonPrimary != 0 && !g.btnDown[btnLeft] {
 					g.btnJust[btnLeft] = true
@@ -191,6 +192,24 @@ func (g *gioInput) process(src interface {
 			}
 		}
 	}
+}
+
+// gioCursor 按光标下的元素挑选系统指针形状：文本框用 I 型、可点击元素用手型。
+// 从命中节点向上冒泡，最内层的语义优先（输入框套在可点击容器里时应显示 I 型）。
+func gioCursor(g *game) pointer.Cursor {
+	if g.rootRN == nil {
+		return pointer.CursorDefault
+	}
+	x, y := gioIn.cursor()
+	for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+		switch {
+		case c.kind == rnInput:
+			return pointer.CursorText
+		case c.onClick != nil:
+			return pointer.CursorPointer
+		}
+	}
+	return pointer.CursorDefault
 }
 
 func (g *gioInput) setButtons(b pointer.Buttons) {

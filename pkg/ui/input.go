@@ -44,7 +44,7 @@ const (
 
 type inputSource interface {
 	cursor() (int, int)             // 光标位置（物理像素）
-	wheel() (float32, float32)      // 本帧滚轮增量（x,y）
+	wheel() (float32, float32)      // 本帧滚轮增量（x,y），单位为物理像素，正值向右/向下
 	mousePressed(mouseBtn) bool     // 按钮当前是否按住
 	mouseJustPressed(mouseBtn) bool // 按钮本帧是否刚按下
 	keyPressed(inKey) bool          // 键当前是否按住

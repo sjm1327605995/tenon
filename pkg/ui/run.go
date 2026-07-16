@@ -260,11 +260,13 @@ func (g *game) handleInput() {
 	g.updateHover()
 
 	// 滚轮：把滚动施加到光标下最近的可滚动祖先。
+	// wheel() 与 bounds 同为物理像素，直接相加即可 —— 不要再乘 uiScale，那会在高 DPI 上
+	// 把滚动速度按缩放倍数放大（150% 缩放下快 1.5 倍）。
 	if _, wy := input.wheel(); wy != 0 {
 		x, y := input.cursor()
 		for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
 			if c.scroll {
-				c.scrollY -= float32(wy) * 24 * uiScale
+				c.scrollY += wy
 				g.needsLayout = true
 				g.boundsDirty = true // 滚动改变绝对 bounds 但不脏化 yoga
 				break

@@ -94,6 +94,7 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 			area := clip.Rect{Max: e.Size}.Push(&ops)
 			event.Op(&ops, gioTag)
 			key.InputHintOp{Tag: gioTag, Hint: key.HintAny}.Add(&ops)
+			gioCursor(g).Add(&ops) // 文本框 I 型、可点击手型
 			area.Pop()
 			// 仅在尚未获得焦点时请求一次；每帧无脑请求会和 gio 的焦点管理打架。
 			if !gioIn.focused {

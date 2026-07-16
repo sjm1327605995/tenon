@@ -7,6 +7,17 @@ import "image"
 // gio 的具体类型；后端定义自己的实现类型（gioFont/gioImage/gioPath），并在其 painter 内部
 // 类型断言回去。保留这层中立边界，将来若要再换/加后端仍然只改后端侧。
 //
+// 与 gio 生态的边界（约定，改动前先想清楚）：
+//
+//   - Tenon 的引擎是 gio 的**对等层**，不是 gio widgets 的使用者：我们有自己的
+//     fiber/hooks 与 yoga 布局，因此 gio 的 layout / widget / material 用不上（范式冲突）。
+//   - gio 的**低层能力必须走它的惯例，不要自己造**：op/clip/paint、text.Shaper、
+//     io/key 的 IME 协议、io/clipboard、io/pointer 的指针与光标语义。
+//     有现成的就照 gio 自己的实现（如 widget.Editor）当参考。
+//   - gio 的**单位与语义原样透传，禁止自创换算**。反例：曾把 gio 的像素滚动量除以 24
+//     伪造成「档位」再让引擎乘回 24*uiScale，白白多乘一次 uiScale，高 DPI 上滚动速度失真。
+//     后端与引擎统一用物理像素。
+//
 // 这样新增/替换一个后端只需：实现 painter 接口 + 提供 fontFace/bitmap/vecPath 的具体类型
 // + 通过下面的构造钩子登记如何新建它们 + 提供 run 循环，而无需改动引擎核心。
 
