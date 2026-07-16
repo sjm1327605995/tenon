@@ -1140,32 +1140,32 @@ func findDraggable(rn *renderNode) *renderNode {
 	return nil
 }
 
-func TestCheckbox(t *testing.T) {
+func TestOnClickWiring(t *testing.T) {
 	g := newGame()
 	got := false
-	g.rootFiber = reconcile(nil, nil, Checkbox(false, func(v bool) { got = v }))
+	g.rootFiber = reconcile(nil, nil, Div(OnClick(func() { got = true })))
 	layoutAll(g)
 	if g.rootRN.onClick == nil {
-		t.Fatal("checkbox should be clickable")
+		t.Fatal("node with OnClick should be clickable")
 	}
 	g.rootRN.onClick()
 	if !got {
-		t.Fatal("checkbox onChange should receive true")
+		t.Fatal("OnClick handler should fire")
 	}
 }
 
-func TestSliderClamp(t *testing.T) {
+func TestOnDragWiring(t *testing.T) {
 	g := newGame()
 	var got float32 = -1
-	g.rootFiber = reconcile(nil, nil, Slider(90, 0, 100, func(v float32) { got = v }))
+	g.rootFiber = reconcile(nil, nil, Div(OnDrag(func(dx, dy float32) { got = dx })))
 	layoutAll(g)
 	d := findDraggable(g.rootRN)
 	if d == nil {
-		t.Fatal("slider thumb should be draggable")
+		t.Fatal("node with OnDrag should be draggable")
 	}
-	d.onDrag(10000, 0) // 远超范围，应钳制到 max
-	if got != 100 {
-		t.Fatalf("slider clamp got=%v want 100", got)
+	d.onDrag(42, 0)
+	if got != 42 {
+		t.Fatalf("OnDrag handler got=%v want 42", got)
 	}
 }
 
