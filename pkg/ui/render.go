@@ -95,10 +95,10 @@ type renderNode struct {
 	caretPos    int
 	selAnchor   int // 选区另一端；等于 caretPos 表示无选区
 
-	// IME 预编辑（未提交的组字串），仅聚焦输入框绘制期有效；不进入 value/onChange。
-	preedit       string
-	preeditAt     int // 预编辑串在 value 中的插入字节位置
-	preeditCaret  int // 光标在预编辑串内的字节偏移
+	// 输入法组字区间（字节偏移）。gio 的模型里组字文本已经写进 value，这里只标出范围
+	// 用于画预编辑下划线；composeHi<=composeLo 表示当前没在组字。
+	composeLo     int
+	composeHi     int
 	onHover       func(bool)
 	onPress       func(bool)
 	onDrag        func(dx, dy float32)
@@ -809,15 +809,13 @@ func paintInput(p painter, rn *renderNode) {
 	tx := b.X + padL
 	lineH := float32(rn.lineH)
 
-	// 组字（IME 预编辑）时把未提交串插入到 caret 处仅用于显示，不进入 value。
+	// 组字（IME 预编辑）：文本本身已在 value 内，这里只取出区间画下划线。
 	val := rn.value
 	caret := clampi(rn.caretPos, 0, len(val))
 	preLo, preHi := -1, -1
-	if isFocused(rn) && rn.preedit != "" {
-		at := clampi(rn.preeditAt, 0, len(val))
-		val = val[:at] + rn.preedit + val[at:]
-		preLo, preHi = at, at+len(rn.preedit)
-		caret = clampi(at+rn.preeditCaret, 0, len(val))
+	if isFocused(rn) && rn.composeHi > rn.composeLo {
+		preLo = clampi(rn.composeLo, 0, len(val))
+		preHi = clampi(rn.composeHi, 0, len(val))
 	}
 	usePlaceholder := val == "" && rn.placeholder != ""
 	selLo := clampi(min(rn.selAnchor, rn.caretPos), 0, len(rn.value))

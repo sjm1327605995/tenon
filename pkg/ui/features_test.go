@@ -581,23 +581,27 @@ func styleWith(opts ...StyleOpt) StyleProps {
 	return st
 }
 
-// 预编辑（IME 组字串）以虚拟方式插入到 caret，不改变受控 value。
-func TestPreeditRenderInsertion(t *testing.T) {
-	rn := &renderNode{kind: rnInput, value: "abcd", caretPos: 2, selAnchor: 2,
-		preedit: "XY", preeditAt: 2, preeditCaret: 2}
-	// 复现 paintInput 中的显示串推导
+// 预编辑（IME 组字串）：gio 的模型里组字文本本身就在 value 内，引擎只用
+// composeLo/composeHi 标出区间来画下划线（不再像旧后端那样把预编辑串虚拟插入显示）。
+func TestPreeditComposeRange(t *testing.T) {
+	rn := &renderNode{kind: rnInput, value: "abXYcd", caretPos: 4, selAnchor: 4,
+		composeLo: 2, composeHi: 4}
+	// 复现 paintInput 中的推导：显示串即 value，下划线取组字区间
 	val := rn.value
-	at := rn.preeditAt
-	disp := val[:at] + rn.preedit + val[at:]
-	if disp != "abXYcd" {
-		t.Fatalf("display=%q want abXYcd", disp)
+	preLo, preHi := -1, -1
+	if rn.composeHi > rn.composeLo {
+		preLo, preHi = rn.composeLo, rn.composeHi
 	}
-	if rn.value != "abcd" {
-		t.Fatalf("controlled value mutated to %q", rn.value)
+	if val != "abXYcd" {
+		t.Fatalf("display=%q want abXYcd", val)
 	}
-	caret := at + rn.preeditCaret
-	if caret != 4 {
-		t.Fatalf("preedit caret=%d want 4", caret)
+	if val[preLo:preHi] != "XY" {
+		t.Fatalf("组字区间=%q want XY", val[preLo:preHi])
+	}
+	// 没在组字时不应有下划线区间
+	rn.composeLo, rn.composeHi = 0, 0
+	if rn.composeHi > rn.composeLo {
+		t.Fatal("组字结束后不应再标出预编辑区间")
 	}
 }
 

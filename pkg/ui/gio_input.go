@@ -26,6 +26,17 @@ type gioInput struct {
 	typed          []rune
 	focused        bool       // gio 是否已把键盘焦点给了 gioTag
 	snippetReq     *key.Range // 本帧输入法索要的上下文范围（SnippetEvent）
+
+	// 输入法编辑：EditEvent 是「替换某 rune 区间」，不是「在光标处追加」。
+	edits      []gioEdit  // 本帧的替换（组字更新与提交都走这里）
+	selEvt     *key.Range // 输入法移动了选区
+	composeEvt *key.Range // 组字中的区间（用于预编辑下划线）；空区间表示组字结束
+}
+
+// gioEdit 是一次「把 rng 这段 rune 替换成 text」的编辑。
+type gioEdit struct {
+	rng  key.Range
+	text string
 }
 
 var gioIn = &gioInput{}
@@ -57,6 +68,8 @@ func (g *gioInput) resetFrame() {
 	g.keyJust = [inKeyCount]bool{}
 	g.typed = g.typed[:0]
 	g.snippetReq = nil
+	g.edits = g.edits[:0]
+	g.selEvt, g.composeEvt = nil, nil
 }
 
 // gioKeyName 把 gio 键名映射到中立键（仅特殊/导航/快捷键；普通字符走 EditEvent）。
@@ -141,13 +154,21 @@ func (g *gioInput) process(src interface {
 					g.keyDown[k] = false
 				}
 			}
-		case key.EditEvent: // 普通字符输入（含 IME 提交的文本）
-			g.typed = append(g.typed, []rune(ev.Text)...)
+		case key.EditEvent:
+			// 必须按 Range 替换：组字过程中输入法反复用新串替换上一次的区间
+			// （"s" -> 用 "shi" 替换 [0,1)）。当成追加会写出 "sshi"。
+			g.edits = append(g.edits, gioEdit{rng: ev.Range, text: ev.Text})
 		case key.FocusEvent:
 			g.focused = ev.Focus
 		case key.SnippetEvent: // 输入法索要上下文文本，本帧稍后回它
 			r := key.Range(ev)
 			g.snippetReq = &r
+		case key.SelectionEvent:
+			r := key.Range(ev)
+			g.selEvt = &r
+		case key.CompositionEvent: // 组字区间（预编辑），用于下划线显示
+			r := key.Range(ev)
+			g.composeEvt = &r
 		}
 	}
 }
