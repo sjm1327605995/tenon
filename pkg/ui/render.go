@@ -1063,15 +1063,27 @@ func nextFocus(list []*renderNode, cur *renderNode, forward bool) *renderNode {
 }
 
 // hitNode 返回包含该点的最深 renderNode（沿途反变换查询点，命中测试跟随 transform）。
+// hitNode 自顶向下找命中的最深节点（子节点逆序遍历 = 上层优先）。
+//
+// 命中必须与绘制用同一套裁剪语义：绘制只在设了 clip 时裁掉后代，所以这里也只有 clip
+// 容器才能拦下后代。曾经无论是否 clip 都用自身 bounds 提前 return，导致溢出到未裁剪父
+// 容器之外的元素「画得出来却点不到」。
+//
+// 代价是非裁剪容器无法靠 bounds 剪枝，命中要走完整棵树；对典型规模的树只是若干次矩形
+// 比较，且悬停只在光标移动时才重算，可以接受。
 func hitNode(rn *renderNode, px, py float32) *renderNode {
 	lx, ly := rn.invTransform(px, py)
-	if !rn.bounds.contains(lx, ly) {
-		return nil
+	inside := rn.bounds.contains(lx, ly)
+	if rn.clip && !inside {
+		return nil // 裁剪容器：框外的后代不可见，也就不可命中（scroll 容器同样置了 clip）
 	}
 	for i := len(rn.children) - 1; i >= 0; i-- {
 		if h := hitNode(rn.children[i], lx, ly); h != nil {
 			return h
 		}
 	}
-	return rn
+	if inside {
+		return rn
+	}
+	return nil
 }
