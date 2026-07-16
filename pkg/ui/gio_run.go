@@ -64,6 +64,8 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 			gioIn.process(e.Source)
 			// 输入法的编辑按 Range 替换，先落到聚焦输入框上，再让引擎跑这一帧。
 			gioIME.applyEdits(g, gioIn)
+			// 剪贴板同样先落地再跑帧：粘贴的文本本帧就能画出来，不用等下一帧。
+			gioClip.flush(e.Source, g)
 
 			// dt 用浮点毫秒：整数 Milliseconds() 会把高刷新率下的帧间隔截断（144Hz 的
 			// 6.9ms 变 6），帧间隔不足 1ms 时更会截成 0，而 tickAnims/tickLoops 遇 dt<=0

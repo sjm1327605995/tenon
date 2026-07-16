@@ -1007,9 +1007,10 @@ func TestInputCaretFromX(t *testing.T) {
 }
 
 func TestClipboard(t *testing.T) {
+	// 还原到真正的默认实现；不能在这里重写一份「看起来像默认」的闭包，
+	// 那会把后端的系统剪贴板接线弄丢，污染后续测试。
 	defer func() {
-		getClipboard = func() string { return clipboardText }
-		setClipboard = func(s string) { clipboardText = s }
+		getClipboard, setClipboard = defaultGetClipboard, defaultSetClipboard
 	}()
 	SetClipboardText("hi")
 	if Clipboard() != "hi" {

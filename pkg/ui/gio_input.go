@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"io"
+
 	"gioui.org/io/event"
 	"gioui.org/io/key"
 	"gioui.org/io/pointer"
+	"gioui.org/io/transfer"
 )
 
 // ---- gio 后端：输入 ----
@@ -108,6 +111,8 @@ func gioInputFilters() []event.Filter {
 	for _, n := range []key.Name{"A", "C", "X", "V"} { // 选中/复制/剪切/粘贴（需快捷修饰键）
 		fs = append(fs, key.Filter{Focus: gioTag, Name: n, Required: key.ModShortcut, Optional: key.ModShift})
 	}
+	// 系统剪贴板读回的数据（Ctrl+V 发出 ReadCmd 后经此送达）。
+	fs = append(fs, transfer.TargetFilter{Target: gioTag, Type: gioClipMime})
 	return fs
 }
 
@@ -144,15 +149,19 @@ func (g *gioInput) process(src interface {
 			}
 		case key.Event:
 			g.mods = ev.Modifiers
-			if k, ok := gioKeyName[ev.Name]; ok {
-				if ev.State == key.Press {
-					if !g.keyDown[k] {
-						g.keyJust[k] = true
-					}
-					g.keyDown[k] = true
-				} else {
-					g.keyDown[k] = false
+			k, ok := gioKeyName[ev.Name]
+			switch {
+			case !ok:
+			case k == keyV && ev.State == key.Press && ev.Modifiers.Contain(key.ModShortcut):
+				// 粘贴由后端接管：系统剪贴板是异步读的，让引擎同步读缓存会粘到过期内容。
+				gioClip.pasteRequested = true
+			case ev.State == key.Press:
+				if !g.keyDown[k] {
+					g.keyJust[k] = true
 				}
+				g.keyDown[k] = true
+			default:
+				g.keyDown[k] = false
 			}
 		case key.EditEvent:
 			// 必须按 Range 替换：组字过程中输入法反复用新串替换上一次的区间
@@ -169,6 +178,17 @@ func (g *gioInput) process(src interface {
 		case key.CompositionEvent: // 组字区间（预编辑），用于下划线显示
 			r := key.Range(ev)
 			g.composeEvt = &r
+		case transfer.DataEvent: // 系统剪贴板读回的文本
+			if ev.Type == gioClipMime {
+				if rc := ev.Open(); rc != nil {
+					b, err := io.ReadAll(rc)
+					rc.Close()
+					if err == nil {
+						s := string(b)
+						gioClip.pastedText = &s
+					}
+				}
+			}
 		}
 	}
 }
