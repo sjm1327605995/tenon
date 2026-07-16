@@ -92,6 +92,11 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 			if !gioIn.focused {
 				e.Source.Execute(key.FocusCmd{Tag: gioTag})
 			}
+			// 把聚焦输入框的光标位置与上下文文本发布给输入法（否则无法组字，只能打英文）。
+			if gioIn.snippetReq != nil {
+				gioIME.handleSnippetReq(e.Source, g, *gioIn.snippetReq)
+			}
+			gioIME.sync(e.Source, g)
 
 			e.Frame(&ops)
 			win.Invalidate() // stage1：持续重绘，保证动画/异步图片加载可见

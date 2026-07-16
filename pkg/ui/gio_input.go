@@ -24,7 +24,8 @@ type gioInput struct {
 	keyJust        [inKeyCount]bool
 	mods           key.Modifiers
 	typed          []rune
-	focused        bool // gio 是否已把键盘焦点给了 gioTag
+	focused        bool       // gio 是否已把键盘焦点给了 gioTag
+	snippetReq     *key.Range // 本帧输入法索要的上下文范围（SnippetEvent）
 }
 
 var gioIn = &gioInput{}
@@ -55,6 +56,7 @@ func (g *gioInput) resetFrame() {
 	g.btnJust = [2]bool{}
 	g.keyJust = [inKeyCount]bool{}
 	g.typed = g.typed[:0]
+	g.snippetReq = nil
 }
 
 // gioKeyName 把 gio 键名映射到中立键（仅特殊/导航/快捷键；普通字符走 EditEvent）。
@@ -139,10 +141,13 @@ func (g *gioInput) process(src interface {
 					g.keyDown[k] = false
 				}
 			}
-		case key.EditEvent: // 普通字符输入（含 IME 提交文本）
+		case key.EditEvent: // 普通字符输入（含 IME 提交的文本）
 			g.typed = append(g.typed, []rune(ev.Text)...)
 		case key.FocusEvent:
 			g.focused = ev.Focus
+		case key.SnippetEvent: // 输入法索要上下文文本，本帧稍后回它
+			r := key.Range(ev)
+			g.snippetReq = &r
 		}
 	}
 }
