@@ -434,6 +434,19 @@ var (
 // imgHTTPClient 带超时，避免后台加载 goroutine 因网络挂起而永久泄漏。
 var imgHTTPClient = &http.Client{Timeout: 15 * time.Second}
 
+// setImage 安装一张已解码的图片（SrcImage）。没有 IO 也没有解码，故不像 loadImage 那样
+// 绕后台 goroutine 与 Post，直接同步建位图 —— 当帧即可见，不会先闪一帧空白。
+// 仍进同一份 LRU：同一 key 的多个节点共用一张位图。
+func (rn *renderNode) setImage(img image.Image) {
+	if b, ok := lookupImage(rn.imgSrc); ok {
+		rn.img = b
+		return
+	}
+	b := backendNewBitmap(img)
+	storeImage(rn.imgSrc, b)
+	rn.img = b
+}
+
 // loadImage 异步加载图片：命中缓存立即返回；否则在后台 goroutine 解码，完成后经
 // Post 回到渲染线程安装缓存并触发重绘。imgCache/imgLoading/imgWaiters 仅在渲染线程
 // （reconcile 与 drainPosts）访问，故无需加锁；后台 goroutine 只做 IO/解码。
@@ -527,7 +540,11 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 		rn.objectFit = hp.objectFit
 		if hp.src != "" && rn.imgSrc != hp.src {
 			rn.imgSrc = hp.src
-			rn.loadImage()
+			if hp.imgData != nil {
+				rn.setImage(hp.imgData)
+			} else {
+				rn.loadImage()
+			}
 			rn.yn.MarkDirty()
 		}
 	}

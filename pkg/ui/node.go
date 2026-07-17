@@ -1,6 +1,9 @@
 package ui
 
-import "reflect"
+import (
+	"image"
+	"reflect"
+)
 
 type nodeType int
 
@@ -82,6 +85,7 @@ type hostProps struct {
 
 	// img
 	src       string
+	imgData   image.Image // SrcImage：已在内存里的图，非空则不走读盘/解码
 	objectFit ObjectFit
 }
 
@@ -273,9 +277,22 @@ func Multiline() *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.multiline = true }}
 }
 
-// Src 设置图片来源（文件路径）。
+// Src 设置图片来源（文件路径或 http(s) URL）。图片在后台 goroutine 读取并解码。
 func Src(v string) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.src = v }}
+}
+
+// SrcImage 用一张已在内存里的图片作为来源，跳过 Src 的读盘与解码。
+// 给自己管图的调用方用：从压缩包里取出的、程序生成的、或解码后还要再加工（裁剪/缩放/
+// 叠遮罩）的图 —— 这些都没有一个可供 Src 读取的路径。
+//
+// key 是缓存键，必须唯一标识 img 的内容：同一个 key 只建一次位图，之后即便传入不同的 img
+// 也仍取缓存里那张。内容变了就换 key（把加工参数拼进去，如 "card:1234:thumb"）。
+// 位图与 Src 的共用同一份按字节预算的 LRU（见 ImageCacheBudget），故内存有上限。淘汰只丢
+// 缓存里的引用，正在显示的节点不受影响；之后再有节点用同一 key 时，用调用方传入的 img
+// 重建即可，始终不读盘。
+func SrcImage(key string, img image.Image) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.src, hp.imgData = key, img }}
 }
 
 // ObjectFit 决定图片如何适配其框：FitFill 拉伸（默认）/ FitContain 完整放入留白 / FitCover 填满并裁剪。
