@@ -44,6 +44,7 @@ type StyleProps struct {
 	// 定位
 	absolute               bool
 	posT, posR, posB, posL float32
+	zIndex                 int // 绘制/命中的层叠顺序（见 ZIndex）
 
 	opacity float32
 
@@ -251,6 +252,14 @@ func Shadow(c Color, offX, offY, blur, spread float32) StyleOpt {
 func Animated(s *StyleProps) { s.animateLayout = true }
 
 // ---- 定位 ----
+
+// ZIndex 设置同一父容器内的层叠顺序：值大的画在上面（默认 0）。
+//
+// 同值时按兄弟顺序（后来的在上），与不设时的行为一致。它只在同一父容器的兄弟之间比较 ——
+// 不像 CSS 会引入层叠上下文，父容器的 ZIndex 不会把子元素整体抬到别的分支之上。
+//
+// 命中测试跟随同一顺序（自上而下），所以画在上面的就是点得到的那个。
+func ZIndex(v int) StyleOpt { return func(s *StyleProps) { s.zIndex = v } }
 
 // Absolute 使元素脱离流，按 Top/Left/Right/Bottom 相对父容器定位。
 func Absolute(s *StyleProps)    { s.absolute = true }

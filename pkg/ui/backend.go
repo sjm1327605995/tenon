@@ -41,8 +41,8 @@ type vecPath interface{ isVecPath() }
 // 后端构造钩子：由当前激活的渲染后端在 init 时登记。引擎在需要新建句柄/启动窗口时经此调用，
 // 从而不硬编码任何具体后端类型。px 均为物理像素（已乘 uiScale）。
 var (
-	backendNewFont    func(px float32, weight int, italic bool) fontFace  // 取字体句柄；失败可返回 nil
-	backendNewBitmap  func(img image.Image) bitmap                        // 解码后的图像 -> 位图句柄
-	backendNewVecPath func(svgPath string, scale float32) vecPath         // SVG 路径 d -> 矢量句柄；无内容返回 nil
-	backendRun        func(root *Node, w, h int, title string, sync bool) // 启动窗口与渲染/事件循环（阻塞）
+	backendNewFont    func(px float32, weight int, italic bool) fontFace // 取字体句柄；失败可返回 nil
+	backendNewBitmap  func(img image.Image) bitmap                       // 解码后的图像 -> 位图句柄
+	backendNewVecPath func(svgPath string, scale float32) vecPath        // SVG 路径 d -> 矢量句柄；无内容返回 nil
+	backendRun        func(root *Node, cfg windowConfig)                 // 启动窗口与渲染/事件循环（阻塞）
 )

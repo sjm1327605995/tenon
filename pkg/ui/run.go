@@ -56,19 +56,44 @@ type game struct {
 // FrameSync 预留：控制是否跟随刷新率（gio 循环当前恒重绘，暂未使用）。
 var FrameSync = true
 
-// 初始窗口逻辑尺寸（可用 ui.WindowSize 覆盖）。
-var initWinW, initWinH = 800, 600
+// windowConfig 是窗口的启动配置。后端中立：gio 侧（gioRun）把它映射成 app.Option。
+// 尺寸都是逻辑像素（dp），由后端按屏幕缩放换算。
+type windowConfig struct {
+	w, h       int
+	title      string
+	minW, minH int // 0 = 不限制
+	maxW, maxH int // 0 = 不限制
+	fullscreen bool
+	sync       bool
+}
+
+var winCfg = windowConfig{w: 800, h: 600, title: "Tenon UI"}
 
 // WindowSize 设置初始窗口的逻辑尺寸（须在 Run 之前调用）。
 func WindowSize(w, h int) {
 	if w > 0 && h > 0 {
-		initWinW, initWinH = w, h
+		winCfg.w, winCfg.h = w, h
 	}
 }
 
+// WindowTitle 设置窗口标题（须在 Run 之前调用）。
+func WindowTitle(t string) { winCfg.title = t }
+
+// WindowMinSize 设置窗口的最小逻辑尺寸，防止被拖到布局撑不开的宽度（0=不限制）。
+func WindowMinSize(w, h int) { winCfg.minW, winCfg.minH = w, h }
+
+// WindowMaxSize 设置窗口的最大逻辑尺寸（0=不限制）。
+func WindowMaxSize(w, h int) { winCfg.maxW, winCfg.maxH = w, h }
+
+// WindowFullscreen 让窗口以全屏启动。
+func WindowFullscreen(on bool) { winCfg.fullscreen = on }
+
 // Run 启动应用；root 通常是一个 Use(...) 组件节点。窗口与事件循环由 gio 后端（backendRun）提供。
+// 窗口相关设置（WindowSize/WindowTitle/...）须在此之前调用。
 func Run(root *Node) {
-	backendRun(root, initWinW, initWinH, "Tenon UI", FrameSync)
+	cfg := winCfg
+	cfg.sync = FrameSync
+	backendRun(root, cfg)
 }
 
 // tickLayoutAnim 逐帧推进布局动画：检测位置变化注入残余偏移，并指数衰减到 0。

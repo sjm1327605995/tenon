@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -141,6 +142,7 @@ type renderNode struct {
 	transZ           float32
 	perspective      float32
 	scene3D          bool
+	zIndex           int
 
 	// 投影（box-shadow）
 	shadowColor              Color
@@ -640,6 +642,7 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.transZ = s.transZ * k           // Z 位移随 uiScale 换算到物理像素
 	rn.perspective = s.perspective * k // 透视距离同为物理像素，与投影坐标同一量纲
 	rn.scene3D = s.scene3D
+	rn.zIndex = s.zIndex
 
 	rn.hasShadow = s.hasShadow
 	rn.shadowColor = s.shadowColor
@@ -742,6 +745,28 @@ func layerOf(rn *renderNode, cam *camera3D) layerTransform {
 	return t
 }
 
+// paintOrder 返回子节点的绘制顺序：按 zIndex 升序（大的后画=在上面），同值保持兄弟顺序。
+//
+// 绘制正序遍历它、命中测试逆序遍历它 —— 必须共用这一个函数，否则「画在上面的」和
+// 「点得到的」会是两个元素（本仓已两次栽在绘制与命中各算一套上：e19e310、27f5ce5）。
+func paintOrder(rn *renderNode) []*renderNode {
+	sorted := false
+	for _, c := range rn.children {
+		if c.zIndex != 0 {
+			sorted = true
+			break
+		}
+	}
+	if !sorted { // 绝大多数容器没人设 zIndex：直接用原切片，不排序不分配
+		return rn.children
+	}
+	out := make([]*renderNode, len(rn.children))
+	copy(out, rn.children)
+	// 必须是稳定排序：同 zIndex 时保持兄弟顺序，与不设 zIndex 的行为一致
+	sort.SliceStable(out, func(i, j int) bool { return out[i].zIndex < out[j].zIndex })
+	return out
+}
+
 func paint(p painter, rn *renderNode) { paintIn(p, rn, nil) }
 
 // paintIn 绘制 rn；cam 非 nil 表示 rn 是某个 Scene3D 的直接子元素，应透过该相机投影。
@@ -776,7 +801,7 @@ func paintScene(p painter, rn *renderNode, outer *camera3D) {
 	rn.opacity = o
 	p.EndLayer(t)
 	// 场景的 Clip 在 3D 下不生效：裁剪矩形是未投影的，会把卡切错（见 Scene3D 文档）。
-	for _, c := range rn.children {
+	for _, c := range paintOrder(rn) {
 		paintIn(p, c, cam)
 	}
 	if rn.scroll && rn.contentH > b.H {
@@ -804,12 +829,12 @@ func paintNode(p painter, rn *renderNode, cam *camera3D) {
 	// 裁剪：把子节点画进自身矩形（越界部分被裁掉；有圆角则裁到圆角）。
 	if rn.clip {
 		p.PushClip(b, rn.radius)
-		for _, c := range rn.children {
+		for _, c := range paintOrder(rn) {
 			paintIn(p, c, cam)
 		}
 		p.PopClip()
 	} else {
-		for _, c := range rn.children {
+		for _, c := range paintOrder(rn) {
 			paintIn(p, c, cam)
 		}
 	}
@@ -1190,8 +1215,10 @@ func hitNodeIn(rn *renderNode, px, py float32, cam *camera3D) *renderNode {
 	if rn.scene3D {
 		cx, cy, childCam = px, py, cameraOf(rn)
 	}
-	for i := len(rn.children) - 1; i >= 0; i-- {
-		if h := hitNodeIn(rn.children[i], cx, cy, childCam); h != nil {
+	// 逆着绘制顺序找：上层优先。与 paint 共用 paintOrder，顺序不可能分岔。
+	order := paintOrder(rn)
+	for i := len(order) - 1; i >= 0; i-- {
+		if h := hitNodeIn(order[i], cx, cy, childCam); h != nil {
 			return h
 		}
 	}

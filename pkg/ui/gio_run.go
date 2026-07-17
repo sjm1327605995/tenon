@@ -33,12 +33,29 @@ func init() {
 	input = gioIn
 }
 
-func gioRun(root *Node, w, h int, title string, sync bool) {
-	g := &game{root: root, w: w, h: h}
+// gioWindowOptions 把中立的 windowConfig 映射成 gio 的窗口选项。
+// 注意 app.Size 会把模式重置为 Windowed，所以全屏必须放在它之后。
+func gioWindowOptions(cfg windowConfig) []app.Option {
+	dp := func(v int) unit.Dp { return unit.Dp(float32(v)) }
+	opts := []app.Option{app.Title(cfg.title), app.Size(dp(cfg.w), dp(cfg.h))}
+	if cfg.minW > 0 || cfg.minH > 0 {
+		opts = append(opts, app.MinSize(dp(cfg.minW), dp(cfg.minH)))
+	}
+	if cfg.maxW > 0 || cfg.maxH > 0 {
+		opts = append(opts, app.MaxSize(dp(cfg.maxW), dp(cfg.maxH)))
+	}
+	if cfg.fullscreen {
+		opts = append(opts, app.Fullscreen.Option())
+	}
+	return opts
+}
+
+func gioRun(root *Node, cfg windowConfig) {
+	g := &game{root: root, w: cfg.w, h: cfg.h}
 	activeGame = g
 
 	win := new(app.Window)
-	win.Option(app.Title(title), app.Size(unit.Dp(float32(w)), unit.Dp(float32(h))))
+	win.Option(gioWindowOptions(cfg)...)
 	backendWake = win.Invalidate // 后台任务（Post）用它唤醒睡着的循环；可跨 goroutine 调用
 	defer func() { backendWake = nil }()
 
