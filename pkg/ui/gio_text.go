@@ -23,14 +23,24 @@ var (
 )
 
 func gioShaper() *text.Shaper {
-	gioShaperOnce.Do(func() {
-		var faces []giofont.FontFace
-		if f, err := opentype.Parse(cjkFont); err == nil {
-			faces = []giofont.FontFace{{Font: giofont.Font{Typeface: "OPPOSans"}, Face: f}}
-		}
-		gioShaperInst = text.NewShaper(text.WithCollection(faces))
-	})
+	gioShaperOnce.Do(func() { gioShaperInst = newGioShaper() })
 	return gioShaperInst
+}
+
+// newGioShaper 用内置字体建 shaper。
+//
+// 解析失败必须炸：cjkFont 是 //go:embed 进来的资源，解析不了只可能是资源本身坏了或
+// 换错了文件 —— 属于构建期问题，不是运行期可恢复的状况。而如果在这里静默吞掉错误，
+// text.NewShaper 会回落到系统字体：开发机上通常装着中文字体、看起来一切正常，
+// 换到没有 CJK 字体的机器上就是满屏豆腐，且没有任何线索指向真正的原因。
+func newGioShaper() *text.Shaper {
+	face, err := opentype.Parse(cjkFont)
+	if err != nil {
+		panic("ui: 内置字体解析失败（assets/OPPOSans-Medium.ttf 可能损坏或被替换）: " + err.Error())
+	}
+	return text.NewShaper(text.WithCollection(
+		[]giofont.FontFace{{Font: giofont.Font{Typeface: "OPPOSans"}, Face: face}},
+	))
 }
 
 func f2i(v float32) fixed.Int26_6 { return fixed.Int26_6(v*64 + 0.5) }
