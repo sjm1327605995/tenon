@@ -15,9 +15,41 @@ jobs:
         with:
           go-version: "1.24"
 
-      # Ebiten needs OpenGL/X headers to build on Linux (tests build but don't open a window).
+      # Gio 在 Linux 上通过 cgo 链接 X11 与 Wayland，缺头文件时连 go vet 都过不去
+      # （vet 要做类型检查，就得先编译这些 cgo 包）。
+      #
+      # 这份清单直接对应 gio 源码里的 #cgo pkg-config 指令：
+      #   egl wayland-egl / wayland-client wayland-cursor
+      #   x11 xkbcommon xkbcommon-x11 x11-xcb xcursor xfixes
+      # 改依赖前先跑 `grep -rh "pkg-config" $(go env GOMODCACHE)/gioui.org@*/ --include=*.go`
+      # 对一遍，别照着报错一个个试。
+      #
+      # 曾经这里装的是 ebiten 的依赖（libgl1-mesa-dev/xorg-dev/libasound2-dev）——
+      # ebiten 早已从项目中删除，而那套只盖住了 X11 那半边：wayland-*、xkbcommon 全缺，
+      # CI 因此一直挂在 vet 上。
       - name: Install build deps
-        run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev xorg-dev libasound2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config libwayland-dev libx11-dev libx11-xcb-dev \
+            libxkbcommon-dev libxkbcommon-x11-dev \
+            libgles2-mesa-dev libegl1-mesa-dev libffi-dev \
+            libxcursor-dev libxfixes-dev libvulkan-dev
+
+      # 装完先自检：缺哪个 .pc 就在这里直接点名，而不是把报错留给下面的 vet/build，
+      # 那里的错误信息（"build constraints exclude all Go files"）根本指不出真正的原因。
+      - name: Verify gio's C deps resolve
+        run: |
+          missing=""
+          for p in egl wayland-egl wayland-client wayland-cursor \
+                   x11 xkbcommon xkbcommon-x11 x11-xcb xcursor xfixes; do
+            pkg-config --exists "$p" || missing="$missing $p"
+          done
+          if [ -n "$missing" ]; then
+            echo "gio 需要的 pkg-config 包缺失:$missing"
+            exit 1
+          fi
+          echo "gio 的 C 依赖齐全"
 
       - name: gofmt
         run: |
