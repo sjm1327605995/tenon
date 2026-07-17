@@ -171,7 +171,7 @@ func TestAsyncImageLoad(t *testing.T) {
 	if rn.img == nil {
 		t.Fatal("image did not load asynchronously within timeout")
 	}
-	if _, ok := imgCache[path]; !ok {
+	if _, ok := lookupImage(path); !ok {
 		t.Fatal("loaded image was not cached")
 	}
 }
@@ -197,7 +197,7 @@ func TestAsyncImageLoadFailure(t *testing.T) {
 	if rn.img != nil {
 		t.Fatal("failed load must leave node unloaded")
 	}
-	if _, ok := imgCache[missing]; ok {
+	if _, ok := lookupImage(missing); ok {
 		t.Fatal("failed load must not be cached (so it can retry later)")
 	}
 }

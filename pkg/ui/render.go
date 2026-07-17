@@ -423,8 +423,7 @@ func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
 	}
 }
 
-var imgCache = map[string]bitmap{}
-
+// 图片缓存见 imgcache.go（按字节预算的 LRU）。
 var (
 	imgLoading = map[string]bool{}          // 正在后台加载的 src
 	imgWaiters = map[string][]*renderNode{} // 等待同一 src 完成的节点
@@ -437,7 +436,7 @@ var imgHTTPClient = &http.Client{Timeout: 15 * time.Second}
 // Post 回到渲染线程安装缓存并触发重绘。imgCache/imgLoading/imgWaiters 仅在渲染线程
 // （reconcile 与 drainPosts）访问，故无需加锁；后台 goroutine 只做 IO/解码。
 func (rn *renderNode) loadImage() {
-	if img, ok := imgCache[rn.imgSrc]; ok {
+	if img, ok := lookupImage(rn.imgSrc); ok {
 		rn.img = img
 		return
 	}
@@ -458,7 +457,7 @@ func (rn *renderNode) loadImage() {
 				return // 失败：保持未加载（不缓存失败），src 再次设置时会重试
 			}
 			ei := backendNewBitmap(img)
-			imgCache[src] = ei
+			storeImage(src, ei)
 			for _, w := range waiters {
 				if w.imgSrc == src { // 期间 src 可能已改，仅回填仍需要它的节点
 					w.img = ei
@@ -600,6 +599,12 @@ func syncYoga(rn *renderNode, s StyleProps) {
 
 	if s.hasDir {
 		yn.StyleSetFlexDirection(s.dir)
+	}
+	if s.hasWrap {
+		yn.StyleSetFlexWrap(s.wrap)
+	}
+	if s.hasCont {
+		yn.StyleSetAlignContent(s.content)
 	}
 	if s.hasAl {
 		yn.StyleSetAlignItems(s.align)

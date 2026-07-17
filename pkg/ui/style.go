@@ -23,9 +23,13 @@ type StyleProps struct {
 	dir     yoga.FlexDirection
 	align   yoga.Align
 	justify yoga.Justify
+	wrap    yoga.Wrap
+	content yoga.Align // align-content：多行时行与行之间怎么排（仅换行时有意义）
 	hasDir  bool
 	hasAl   bool
 	hasJu   bool
+	hasWrap bool
+	hasCont bool
 
 	bg          Color
 	gradFrom    Color
@@ -137,6 +141,32 @@ func JustifyStart(s *StyleProps)   { s.justify, s.hasJu = yoga.JustifyFlexStart,
 func JustifyCenter(s *StyleProps)  { s.justify, s.hasJu = yoga.JustifyCenter, true }
 func JustifyEnd(s *StyleProps)     { s.justify, s.hasJu = yoga.JustifyFlexEnd, true }
 func JustifyBetween(s *StyleProps) { s.justify, s.hasJu = yoga.JustifySpaceBetween, true }
+
+// ---- 换行（flex-wrap）----
+//
+// 默认不换行：子元素挤在一行里被压缩。Wrap 让放不下的子元素折到下一行，
+// 用于图片墙、标签云、卡组编辑器一类「装得下多少算多少」的布局。
+
+// Wrap 允许子元素折行（flex-wrap: wrap）。
+func Wrap(s *StyleProps) { s.wrap, s.hasWrap = yoga.WrapWrap, true }
+
+// WrapReverse 折行且交叉轴方向翻转（flex-wrap: wrap-reverse）：新行往上/往左堆。
+func WrapReverse(s *StyleProps) { s.wrap, s.hasWrap = yoga.WrapWrapReverse, true }
+
+// NoWrap 显式禁止折行（flex-wrap: nowrap），即默认值。
+func NoWrap(s *StyleProps) { s.wrap, s.hasWrap = yoga.WrapNoWrap, true }
+
+// ---- 多行的对齐（align-content）----
+//
+// 只在换行后有多行时才有意义：它管的是「行与行」在交叉轴上怎么排，
+// 而 ItemsCenter 那组（align-items）管的是「一行内的子元素」怎么对齐。
+
+func ContentStart(s *StyleProps)   { s.content, s.hasCont = yoga.AlignFlexStart, true }
+func ContentCenter(s *StyleProps)  { s.content, s.hasCont = yoga.AlignCenter, true }
+func ContentEnd(s *StyleProps)     { s.content, s.hasCont = yoga.AlignFlexEnd, true }
+func ContentStretch(s *StyleProps) { s.content, s.hasCont = yoga.AlignStretch, true }
+func ContentBetween(s *StyleProps) { s.content, s.hasCont = yoga.AlignSpaceBetween, true }
+func ContentAround(s *StyleProps)  { s.content, s.hasCont = yoga.AlignSpaceAround, true }
 
 // ---- 外观 ----
 
