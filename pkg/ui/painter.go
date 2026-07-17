@@ -30,6 +30,20 @@ type layerTransform struct {
 	rotateX, rotateY float32
 	transZ           float32
 	perspective      float32
+
+	// 共享相机（Scene3D）：投影原点改用 camX,camY，元素按自身在场景中的位置投影。
+	// 于是同一场景里所有元素的灭点一致 —— 摆一桌卡才像同一张桌子。
+	// hasCam 为假时原点就是元素自身中心（等价于 CSS 的 transform: perspective(...)）。
+	camX, camY float32
+	hasCam     bool
+}
+
+// origin 是投影原点：有相机用相机原点，否则用元素中心。
+func (t layerTransform) origin() (float32, float32) {
+	if t.hasCam {
+		return t.camX, t.camY
+	}
+	return t.cx, t.cy
 }
 
 func (t layerTransform) is3D() bool {

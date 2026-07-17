@@ -140,6 +140,7 @@ type renderNode struct {
 	rotateX, rotateY float32
 	transZ           float32
 	perspective      float32
+	scene3D          bool
 
 	// 投影（box-shadow）
 	shadowColor              Color
@@ -633,6 +634,7 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.rotateX, rn.rotateY = s.rotateX, s.rotateY
 	rn.transZ = s.transZ * k           // Z 位移随 uiScale 换算到物理像素
 	rn.perspective = s.perspective * k // 透视距离同为物理像素，与投影坐标同一量纲
+	rn.scene3D = s.scene3D
 
 	rn.hasShadow = s.hasShadow
 	rn.shadowColor = s.shadowColor
@@ -697,34 +699,121 @@ func computeBounds(rn *renderNode, ox, oy float32) {
 }
 
 // paint 是绘制入口；需要变换/整组透明度时先合成到离屏图层再变换绘制。
-func paint(p painter, rn *renderNode) {
-	if rn.needsLayer() {
-		paintLayer(p, rn)
+// camera3D 是一台共享相机：由 Scene3D 容器确立，为其直接子元素提供同一个投影原点与
+// 视角，使它们灭点一致。见 Scene3D 的文档。
+type camera3D struct {
+	ox, oy           float32 // 投影原点 = 场景中心
+	rotateX, rotateY float32 // 场景平面的倾角
+	perspective      float32
+}
+
+func paint(p painter, rn *renderNode) { paintIn(p, rn, nil) }
+
+// paintIn 绘制 rn；cam 非 nil 表示 rn 是某个 Scene3D 的直接子元素，应透过该相机投影。
+func paintIn(p painter, rn *renderNode, cam *camera3D) {
+	if rn.scene3D {
+		paintScene(p, rn, cam)
 		return
 	}
-	paintNode(p, rn)
+	if rn.needsLayer() || cam != nil {
+		paintLayer(p, rn, cam)
+		return
+	}
+	paintNode(p, rn, nil)
+}
+
+// paintScene 画一个共享相机场景：自身（背景/边框）按相机投影，然后每个直接子元素
+// 各自成层、共用这台相机 —— 关键在于子元素不能被卷进场景自己的图层，
+// 否则就退化成「把整块桌子当一个元素倾斜」，尺寸一大投影就失真。
+func paintScene(p painter, rn *renderNode, outer *camera3D) {
+	b := rn.bounds
+	cam := &camera3D{
+		ox: b.X + b.W/2, oy: b.Y + b.H/2,
+		rotateX: rn.rotateX, rotateY: rn.rotateY, perspective: rn.perspective,
+	}
+	// 场景自身（桌面）：原点就是自己的中心，故与无相机时等价 —— 也就是说它照样受
+	// 「大元素失真」的约束：640x420 的桌面在 50° 下内容斜切达 211px（自身高度的 50%），
+	// 画出来是被斜切的平行四边形而非梯形。卡牌没这个问题（78x104 只斜 6px）。
+	// 要让桌面精确，得按投影四边形直接填充而不是走仿射 —— 那需要一个新的绘制原语，
+	// 尚未做。眼下：陡角度下别指望场景自身的背景当桌面，或把倾角放缓。
+	o := rn.opacity
+	rn.opacity = 1
+	p.BeginLayer()
+	paintSelf(p, rn)
+	rn.opacity = o
+	p.EndLayer(layerTransform{
+		cx: cam.ox, cy: cam.oy, w: b.W, h: b.H,
+		scale: rn.scale, rotate: rn.rotate,
+		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
+		rotateX: rn.rotateX, rotateY: rn.rotateY,
+		transZ: rn.transZ, perspective: rn.perspective,
+	})
+	// 场景的 Clip 在 3D 下不生效：裁剪矩形是未投影的，会把卡切错（见 Scene3D 文档）。
+	for _, c := range rn.children {
+		paintIn(p, c, cam)
+	}
+	if rn.scroll && rn.contentH > b.H {
+		drawScrollbar(p, rn)
+	}
+	_ = outer // 场景不嵌套：内层场景自成相机，不继承外层
 }
 
 // paintLayer 把子树合成到独立图层，再围绕中心做 scale/rotate/translate 及整组透明度合回。
-func paintLayer(p painter, rn *renderNode) {
+// cam 非 nil 时改走共享相机投影：角度叠加到相机上，投影原点用场景中心。
+func paintLayer(p painter, rn *renderNode, cam *camera3D) {
 	o := rn.opacity
 	rn.opacity = 1 // 组透明度在合成时统一施加，内部按不透明绘制
 	p.BeginLayer()
-	paintNode(p, rn)
+	paintNode(p, rn, nil) // 子树在本图层内扁平化
 	rn.opacity = o
 
 	b := rn.bounds
-	p.EndLayer(layerTransform{
+	t := layerTransform{
 		cx: b.X + b.W/2, cy: b.Y + b.H/2,
 		w: b.W, h: b.H,
 		scale: rn.scale, rotate: rn.rotate,
 		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
 		rotateX: rn.rotateX, rotateY: rn.rotateY,
 		transZ: rn.transZ, perspective: rn.perspective,
-	})
+	}
+	if cam != nil {
+		t.camX, t.camY, t.hasCam = cam.ox, cam.oy, true
+		t.perspective = cam.perspective
+		t.rotateX += cam.rotateX // 欧拉角相加，非严格矩阵复合（见 Scene3D 文档）
+		t.rotateY += cam.rotateY
+	}
+	p.EndLayer(t)
 }
 
-func paintNode(p painter, rn *renderNode) {
+func paintNode(p painter, rn *renderNode, cam *camera3D) {
+	paintSelf(p, rn)
+	b := rn.bounds
+
+	// 裁剪：把子节点画进自身矩形（越界部分被裁掉；有圆角则裁到圆角）。
+	if rn.clip {
+		p.PushClip(b, rn.radius)
+		for _, c := range rn.children {
+			paintIn(p, c, cam)
+		}
+		p.PopClip()
+	} else {
+		for _, c := range rn.children {
+			paintIn(p, c, cam)
+		}
+	}
+
+	if rn.scroll && rn.contentH > b.H {
+		drawScrollbar(p, rn)
+	}
+
+	// 键盘焦点环
+	if rn.focusable && isFocused(rn) {
+		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
+	}
+}
+
+// paintSelf 只画元素自身（阴影/背景/边框/文字/图片/图标），不含子节点。
+func paintSelf(p painter, rn *renderNode) {
 	b := rn.bounds
 	o := rn.opacity
 	if rn.hasShadow {
@@ -775,27 +864,6 @@ func paintNode(p painter, rn *renderNode) {
 		}
 	}
 
-	// 裁剪：把子节点画进自身矩形（越界部分被裁掉；有圆角则裁到圆角）。
-	if rn.clip {
-		p.PushClip(b, rn.radius)
-		for _, c := range rn.children {
-			paint(p, c)
-		}
-		p.PopClip()
-	} else {
-		for _, c := range rn.children {
-			paint(p, c)
-		}
-	}
-
-	if rn.scroll && rn.contentH > b.H {
-		drawScrollbar(p, rn)
-	}
-
-	// 键盘焦点环
-	if rn.focusable && isFocused(rn) {
-		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
-	}
 }
 
 func drawScrollbar(p painter, rn *renderNode) {

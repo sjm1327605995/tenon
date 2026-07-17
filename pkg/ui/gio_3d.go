@@ -73,9 +73,10 @@ func project3D(t layerTransform, ox, oy float32) f32.Point {
 		x2 *= s
 		y2 *= s
 	}
+	orgX, orgY := t.origin() // 投影原点：无相机=元素中心，有相机=场景中心
 	return f32.Pt(
-		t.cx+float32(x2*cosZ-y2*sinZ)+t.tx,
-		t.cy+float32(x2*sinZ+y2*cosZ)+t.ty,
+		orgX+float32(x2*cosZ-y2*sinZ)+t.tx,
+		orgY+float32(x2*sinZ+y2*cosZ)+t.ty,
 	)
 }
 
@@ -99,10 +100,14 @@ func projAffine(sx0, sy0, sx1, sy1 float32, d0, d1, d2 f32.Point) f32.Affine2D {
 // projErr 量化内容的斜切程度：仿射把第四角映到哪、与真透视差多少。轮廓由裁剪保证，
 // 所以这不是形状误差，只是卡面内部图案的偏差。元素越大、倾角越陡越大。仅用于测试与诊断。
 func projErr(t layerTransform) float32 {
-	d0, d1, d2 := project3D(t, -t.w/2, -t.h/2), project3D(t, t.w/2, -t.h/2), project3D(t, -t.w/2, t.h/2)
-	d3 := project3D(t, t.w/2, t.h/2)
+	ox, oy := t.origin()
 	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
-	got := projAffine(x0, y0, x0+t.w, y0+t.h, d0, d1, d2).Transform(f32.Pt(x0+t.w, y0+t.h))
+	x1, y1 := x0+t.w, y0+t.h
+	d0 := project3D(t, x0-ox, y0-oy)
+	d1 := project3D(t, x1-ox, y0-oy)
+	d2 := project3D(t, x0-ox, y1-oy)
+	d3 := project3D(t, x1-ox, y1-oy)
+	got := projAffine(x0, y0, x1, y1, d0, d1, d2).Transform(f32.Pt(x1, y1))
 	return absf(got.X-d3.X) + absf(got.Y-d3.Y)
 }
 
@@ -117,11 +122,15 @@ func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 	if t.opacity <= 0 || t.w <= 0 || t.h <= 0 {
 		return
 	}
-	d0 := project3D(t, -t.w/2, -t.h/2) // 左上
-	d1 := project3D(t, t.w/2, -t.h/2)  // 右上
-	d2 := project3D(t, -t.w/2, t.h/2)  // 左下
-	d3 := project3D(t, t.w/2, t.h/2)   // 右下
+	// 角点相对投影原点的偏移。无相机时原点即元素中心，偏移就是 ±w/2、±h/2；
+	// 有相机时原点是场景中心，元素按自身位置投影，因此同场景元素灭点一致。
+	ox, oy := t.origin()
 	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
+	x1, y1 := x0+t.w, y0+t.h
+	d0 := project3D(t, x0-ox, y0-oy) // 左上
+	d1 := project3D(t, x1-ox, y0-oy) // 右上
+	d2 := project3D(t, x0-ox, y1-oy) // 左下
+	d3 := project3D(t, x1-ox, y1-oy) // 右下
 
 	var quad clip.Path
 	quad.Begin(p.ops)
@@ -132,7 +141,7 @@ func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 	quad.Close()
 	cl := clip.Outline{Path: quad.End()}.Op().Push(p.ops)
 
-	tr := op.Affine(projAffine(x0, y0, x0+t.w, y0+t.h, d0, d1, d2)).Push(p.ops)
+	tr := op.Affine(projAffine(x0, y0, x1, y1, d0, d1, d2)).Push(p.ops)
 	var os gpaint.OpacityStack
 	if t.opacity < 1 {
 		os = gpaint.PushOpacity(p.ops, t.opacity)

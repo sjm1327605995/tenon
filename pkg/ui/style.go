@@ -53,6 +53,7 @@ type StyleProps struct {
 	rotateX, rotateY float32 // 角度
 	transZ           float32 // Z 位移（正值朝观察者，需配合 Perspective 才有远近感）
 	perspective      float32 // 透视距离（px，越小透视越强；0=正交无透视）
+	scene3D          bool    // 作为共享相机的场景根（见 Scene3D）
 
 	// 阴影（box-shadow）
 	shadowColor              Color
@@ -184,6 +185,26 @@ func TranslateZ(z float32) StyleOpt { return func(s *StyleProps) { s.transZ = z 
 // Perspective 设置本元素 3D 变换的透视距离（px，越小透视越强；0=正交无透视）。
 // 透视锚定在元素中心，等价于 CSS transform 里的 perspective(px)。
 func Perspective(px float32) StyleOpt { return func(s *StyleProps) { s.perspective = px } }
+
+// Scene3D 把本元素变成一台共享相机：它自己的 Perspective/RotateX/RotateY 定义了一个
+// 倾斜的平面与视角，而它的每个直接子元素各自投影到这个平面上、共用同一个灭点。
+//
+// 这解决的是「摆一桌卡」的问题。不加 Scene3D 时每个元素绕自己的中心做透视，
+// 灭点各不相同，并排摆开就不像同一张桌子；而把整块桌子当一个元素来倾斜也不行 ——
+// 投影是按元素尺寸近似的，元素越大越不准（见 gio_3d.go 的「已知边界」）。
+//
+// 用法：桌子加 Scene3D + Perspective + RotateX，卡牌作为直接子元素按布局摆放即可，
+// 它们无需自己声明 3D。子元素自身的 RotateX/RotateY 会叠加到相机的角度上
+// （欧拉角相加，不是严格的矩阵复合；对「桌上的卡再翻一下」这类用法足够）。
+// TranslateZ 照常生效，用来让卡片浮离桌面。
+//
+// 边界：
+//   - 只对直接子元素生效 —— 中间再套一层容器，那层会被当作一个整体投影，尺寸一大就失真。
+//     卡牌请直接挂在场景下（决斗盘那种按区绝对定位正合适）。
+//   - 场景自身的背景同样受「大元素失真」约束（见 gio_3d.go），陡角度下会被画成斜切的
+//     平行四边形而不是梯形。子元素只要够小就不受影响。
+//   - 场景自身的 Clip 在 3D 下不生效（裁剪矩形是未投影的，会切错）。
+func Scene3D(s *StyleProps) { s.scene3D = true }
 
 // Shadow 设置投影（box-shadow）：颜色、水平/垂直偏移、模糊半径、扩散。offY 正值向下。
 // 叶子与容器均可用；柔和边缘由分层近似实现。
