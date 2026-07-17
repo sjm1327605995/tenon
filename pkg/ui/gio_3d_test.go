@@ -4,7 +4,6 @@ import (
 	"image"
 	"testing"
 
-	"gioui.org/f32"
 	"gioui.org/gpu/headless"
 	"gioui.org/op"
 	gpaint "gioui.org/op/paint"
@@ -35,7 +34,7 @@ func TestProject3DBasics(t *testing.T) {
 	base := layerTransform{cx: 100, cy: 100, w: 80, h: 60, scale: 1, opacity: 1}
 
 	// 没有 3D 时，投影只是把偏移搬到中心
-	if got := project3D(base, 10, -5); got != f32.Pt(110, 95) {
+	if got := project3D(base, 10, -5); got != (pt{110, 95}) {
 		t.Fatalf("无 3D 时 project3D=%v want (110,95)", got)
 	}
 
@@ -54,19 +53,19 @@ func TestProject3DBasics(t *testing.T) {
 
 // 投影仿射必须精确落在三个角上（第四角是近似，由裁剪兜底，不校验）。
 func TestProjAffineMapsCorners(t *testing.T) {
-	d0, d1, d2 := f32.Pt(10, 20), f32.Pt(40, 25), f32.Pt(12, 60)
+	d0, d1, d2 := pt{10, 20}, pt{40, 25}, pt{12, 60}
 	a := projAffine(0, 0, 10, 20, d0, d1, d2)
 
 	for _, c := range []struct {
-		src  f32.Point
-		want f32.Point
+		src  pt
+		want pt
 		name string
 	}{
-		{f32.Pt(0, 0), d0, "左上"},
-		{f32.Pt(10, 0), d1, "右上"},
-		{f32.Pt(0, 20), d2, "左下"},
+		{pt{0, 0}, d0, "左上"},
+		{pt{10, 0}, d1, "右上"},
+		{pt{0, 20}, d2, "左下"},
 	} {
-		got := a.Transform(c.src)
+		got := a.transform(c.src)
 		if absf(got.X-c.want.X) > 0.01 || absf(got.Y-c.want.Y) > 0.01 {
 			t.Errorf("%s角: 映射到 %v want %v", c.name, got, c.want)
 		}

@@ -707,6 +707,36 @@ type camera3D struct {
 	perspective      float32
 }
 
+// cameraOf 返回某个 Scene3D 场景根确立的相机。
+func cameraOf(rn *renderNode) *camera3D {
+	b := rn.bounds
+	return &camera3D{
+		ox: b.X + b.W/2, oy: b.Y + b.H/2,
+		rotateX: rn.rotateX, rotateY: rn.rotateY, perspective: rn.perspective,
+	}
+}
+
+// layerOf 构造某节点合成时施加的变换。绘制与命中测试必须共用它 —— 两边各算一套正是
+// 「画得到却点不到」的根源（本仓已因此修过一次：e19e310）。
+func layerOf(rn *renderNode, cam *camera3D) layerTransform {
+	b := rn.bounds
+	t := layerTransform{
+		cx: b.X + b.W/2, cy: b.Y + b.H/2,
+		w: b.W, h: b.H,
+		scale: rn.scale, rotate: rn.rotate,
+		tx: rn.effTransX(), ty: rn.effTransY(), opacity: rn.opacity,
+		rotateX: rn.rotateX, rotateY: rn.rotateY,
+		transZ: rn.transZ, perspective: rn.perspective,
+	}
+	if cam != nil {
+		t.camX, t.camY, t.hasCam = cam.ox, cam.oy, true
+		t.perspective = cam.perspective
+		t.rotateX += cam.rotateX // 欧拉角相加，非严格矩阵复合（见 Scene3D 文档）
+		t.rotateY += cam.rotateY
+	}
+	return t
+}
+
 func paint(p painter, rn *renderNode) { paintIn(p, rn, nil) }
 
 // paintIn 绘制 rn；cam 非 nil 表示 rn 是某个 Scene3D 的直接子元素，应透过该相机投影。
@@ -727,10 +757,8 @@ func paintIn(p painter, rn *renderNode, cam *camera3D) {
 // 否则就退化成「把整块桌子当一个元素倾斜」，尺寸一大投影就失真。
 func paintScene(p painter, rn *renderNode, outer *camera3D) {
 	b := rn.bounds
-	cam := &camera3D{
-		ox: b.X + b.W/2, oy: b.Y + b.H/2,
-		rotateX: rn.rotateX, rotateY: rn.rotateY, perspective: rn.perspective,
-	}
+	cam := cameraOf(rn)
+	t := layerOf(rn, nil) // 场景自身不透过自己的相机：原点本就是自己的中心
 	// 场景自身（桌面）：原点就是自己的中心，故与无相机时等价 —— 也就是说它照样受
 	// 「大元素失真」的约束：640x420 的桌面在 50° 下内容斜切达 211px（自身高度的 50%），
 	// 画出来是被斜切的平行四边形而非梯形。卡牌没这个问题（78x104 只斜 6px）。
@@ -741,13 +769,7 @@ func paintScene(p painter, rn *renderNode, outer *camera3D) {
 	p.BeginLayer()
 	paintSelf(p, rn)
 	rn.opacity = o
-	p.EndLayer(layerTransform{
-		cx: cam.ox, cy: cam.oy, w: b.W, h: b.H,
-		scale: rn.scale, rotate: rn.rotate,
-		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
-		rotateX: rn.rotateX, rotateY: rn.rotateY,
-		transZ: rn.transZ, perspective: rn.perspective,
-	})
+	p.EndLayer(t)
 	// 场景的 Clip 在 3D 下不生效：裁剪矩形是未投影的，会把卡切错（见 Scene3D 文档）。
 	for _, c := range rn.children {
 		paintIn(p, c, cam)
@@ -761,27 +783,12 @@ func paintScene(p painter, rn *renderNode, outer *camera3D) {
 // paintLayer 把子树合成到独立图层，再围绕中心做 scale/rotate/translate 及整组透明度合回。
 // cam 非 nil 时改走共享相机投影：角度叠加到相机上，投影原点用场景中心。
 func paintLayer(p painter, rn *renderNode, cam *camera3D) {
+	t := layerOf(rn, cam) // 先取，下面会临时改 rn.opacity
 	o := rn.opacity
 	rn.opacity = 1 // 组透明度在合成时统一施加，内部按不透明绘制
 	p.BeginLayer()
 	paintNode(p, rn, nil) // 子树在本图层内扁平化
 	rn.opacity = o
-
-	b := rn.bounds
-	t := layerTransform{
-		cx: b.X + b.W/2, cy: b.Y + b.H/2,
-		w: b.W, h: b.H,
-		scale: rn.scale, rotate: rn.rotate,
-		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
-		rotateX: rn.rotateX, rotateY: rn.rotateY,
-		transZ: rn.transZ, perspective: rn.perspective,
-	}
-	if cam != nil {
-		t.camX, t.camY, t.hasCam = cam.ox, cam.oy, true
-		t.perspective = cam.perspective
-		t.rotateX += cam.rotateX // 欧拉角相加，非严格矩阵复合（见 Scene3D 文档）
-		t.rotateY += cam.rotateY
-	}
 	p.EndLayer(t)
 }
 
@@ -1092,9 +1099,14 @@ func hitTest(rn *renderNode, px, py float32) func() {
 }
 
 // invTransform 把父空间坐标反变换到本节点的未变换（布局）空间。
-func (rn *renderNode) invTransform(px, py float32) (float32, float32) {
-	if !rn.hasTransform() {
+func (rn *renderNode) invTransform(px, py float32, cam *camera3D) (float32, float32) {
+	if !rn.hasTransform() && cam == nil {
 		return px, py
+	}
+	if t := layerOf(rn, cam); t.is3D() {
+		// 3D：绘制施加的就是 contentAffine，这里取它的逆 —— 同一个矩阵，画哪点哪。
+		q := contentAffine(t).invert().transform(pt{px, py})
+		return q.X, q.Y
 	}
 	b := rn.bounds
 	cx, cy := b.X+b.W/2, b.Y+b.H/2
@@ -1155,14 +1167,26 @@ func nextFocus(list []*renderNode, cur *renderNode, forward bool) *renderNode {
 //
 // 代价是非裁剪容器无法靠 bounds 剪枝，命中要走完整棵树；对典型规模的树只是若干次矩形
 // 比较，且悬停只在光标移动时才重算，可以接受。
-func hitNode(rn *renderNode, px, py float32) *renderNode {
-	lx, ly := rn.invTransform(px, py)
+func hitNode(rn *renderNode, px, py float32) *renderNode { return hitNodeIn(rn, px, py, nil) }
+
+// hitNodeIn 的相机走向必须与 paintIn 逐字对应，否则又会「画在一处、点在另一处」：
+//
+//   - 场景根：子元素各自透过相机独立投影、不跟随场景自身的变换（对应 paintScene），
+//     所以子节点拿到的是原始屏幕点 + 相机，而不是场景反变换后的点。
+//   - 其他节点：子树随本节点一起被变换、在层内是扁平的（对应 paintLayer 传 nil），
+//     所以子节点拿反变换后的点、且不再带相机。
+func hitNodeIn(rn *renderNode, px, py float32, cam *camera3D) *renderNode {
+	lx, ly := rn.invTransform(px, py, cam)
 	inside := rn.bounds.contains(lx, ly)
 	if rn.clip && !inside {
 		return nil // 裁剪容器：框外的后代不可见，也就不可命中（scroll 容器同样置了 clip）
 	}
+	cx, cy, childCam := lx, ly, (*camera3D)(nil)
+	if rn.scene3D {
+		cx, cy, childCam = px, py, cameraOf(rn)
+	}
 	for i := len(rn.children) - 1; i >= 0; i-- {
-		if h := hitNode(rn.children[i], lx, ly); h != nil {
+		if h := hitNodeIn(rn.children[i], cx, cy, childCam); h != nil {
 			return h
 		}
 	}

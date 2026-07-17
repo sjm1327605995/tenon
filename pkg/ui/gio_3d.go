@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"math"
-
 	"gioui.org/f32"
 	"gioui.org/op"
 	"gioui.org/op/clip"
@@ -43,72 +41,11 @@ import (
 // 铺了层铁丝网。裁剪外扩、仿射外扩、两者同扩都试过，都盖不住。教训是：形状错了一眼可见，
 // 内容斜切几乎看不见，所以该把裁剪的精度用在轮廓上，而不是去细分内容。
 
-// project3D 把元素平面上的一点（相对元素中心的偏移）投影到屏幕坐标。
-// 顺序与 CSS 的 rotateX(rx) rotateY(ry) 书写序一致：先绕 Y 再绕 X，然后透视除法，
-// 最后叠加 2D 的缩放/绕 Z 旋转/平移。
-func project3D(t layerTransform, ox, oy float32) f32.Point {
-	sinX, cosX := math.Sincos(float64(t.rotateX) * math.Pi / 180)
-	sinY, cosY := math.Sincos(float64(t.rotateY) * math.Pi / 180)
-	sinZ, cosZ := math.Sincos(float64(t.rotate) * math.Pi / 180)
+// gioPt / gioAffine 是中立投影数学（project3d.go）到 gio 类型的适配 —— 边界只在这里。
+func gioPt(p pt) f32.Point { return f32.Pt(p.X, p.Y) }
 
-	x, y, z := float64(ox), float64(oy), float64(t.transZ)
-	// 绕 Y 轴
-	x1 := x*cosY + z*sinY
-	z1 := -x*sinY + z*cosY
-	// 绕 X 轴
-	y2 := y*cosX - z1*sinX
-	z2 := y*sinX + z1*cosX
-	x2 := x1
-
-	if p := float64(t.perspective); p > 0 {
-		// 透视除法：Z 朝观察者(正)则放大，远离则缩小。
-		denom := 1 - z2/p
-		if denom < 0.05 { // 越过视平面时钳制，避免坐标发散/翻转
-			denom = 0.05
-		}
-		x2 /= denom
-		y2 /= denom
-	}
-	if s := float64(t.scale); s != 0 {
-		x2 *= s
-		y2 *= s
-	}
-	orgX, orgY := t.origin() // 投影原点：无相机=元素中心，有相机=场景中心
-	return f32.Pt(
-		orgX+float32(x2*cosZ-y2*sinZ)+t.tx,
-		orgY+float32(x2*sinZ+y2*cosZ)+t.ty,
-	)
-}
-
-// projAffine 求把源矩形 [sx0,sx1]×[sy0,sy1] 映射到 (d0,d1,d2) 的仿射矩阵，
-// 其中 d0/d1/d2 分别是左上/右上/左下角的投影点。三点唯一确定一个仿射。
-func projAffine(sx0, sy0, sx1, sy1 float32, d0, d1, d2 f32.Point) f32.Affine2D {
-	w, h := sx1-sx0, sy1-sy0
-	if w == 0 || h == 0 {
-		return f32.AffineId()
-	}
-	sx := (d1.X - d0.X) / w // ∂x/∂sx
-	hx := (d2.X - d0.X) / h // ∂x/∂sy
-	hy := (d1.Y - d0.Y) / w // ∂y/∂sx
-	sy := (d2.Y - d0.Y) / h // ∂y/∂sy
-	return f32.NewAffine2D(
-		sx, hx, d0.X-sx0*sx-sy0*hx,
-		hy, sy, d0.Y-sx0*hy-sy0*sy,
-	)
-}
-
-// projErr 量化内容的斜切程度：仿射把第四角映到哪、与真透视差多少。轮廓由裁剪保证，
-// 所以这不是形状误差，只是卡面内部图案的偏差。元素越大、倾角越陡越大。仅用于测试与诊断。
-func projErr(t layerTransform) float32 {
-	ox, oy := t.origin()
-	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
-	x1, y1 := x0+t.w, y0+t.h
-	d0 := project3D(t, x0-ox, y0-oy)
-	d1 := project3D(t, x1-ox, y0-oy)
-	d2 := project3D(t, x0-ox, y1-oy)
-	d3 := project3D(t, x1-ox, y1-oy)
-	got := projAffine(x0, y0, x1, y1, d0, d1, d2).Transform(f32.Pt(x1, y1))
-	return absf(got.X-d3.X) + absf(got.Y-d3.Y)
+func gioAffine(a affine2D) f32.Affine2D {
+	return f32.NewAffine2D(a.sx, a.hx, a.ox, a.hy, a.sy, a.oy)
 }
 
 // drawProjected 把录制好的图层按透视贴回：形状和内容分开处理。
@@ -134,14 +71,14 @@ func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 
 	var quad clip.Path
 	quad.Begin(p.ops)
-	quad.MoveTo(d0)
-	quad.LineTo(d1)
-	quad.LineTo(d3)
-	quad.LineTo(d2)
+	quad.MoveTo(gioPt(d0))
+	quad.LineTo(gioPt(d1))
+	quad.LineTo(gioPt(d3))
+	quad.LineTo(gioPt(d2))
 	quad.Close()
 	cl := clip.Outline{Path: quad.End()}.Op().Push(p.ops)
 
-	tr := op.Affine(projAffine(x0, y0, x1, y1, d0, d1, d2)).Push(p.ops)
+	tr := op.Affine(gioAffine(contentAffine(t))).Push(p.ops)
 	var os gpaint.OpacityStack
 	if t.opacity < 1 {
 		os = gpaint.PushOpacity(p.ops, t.opacity)
