@@ -87,6 +87,7 @@ type hostProps struct {
 	// img
 	src       string
 	imgData   image.Image // SrcImage：已在内存里的图，非空则不走读盘/解码
+	planeImg  image.Image // PlaneImage：作为 Scene3D 地板铺满场景平面的图
 	objectFit ObjectFit
 }
 
@@ -303,6 +304,24 @@ func Src(v string) *Node {
 // 重建即可，始终不读盘。
 func SrcImage(key string, img image.Image) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.src, hp.imgData = key, img }}
+}
+
+// PlaneImage 把一张图当作 Scene3D 的地板，铺满整个场景平面。
+//
+// 与普通 Img 的区别在精度：Scene3D 用仿射画内容，偏差随元素尺寸增长，地板是场上最大的
+// 元素、又是卡牌落位的参照系，仿射画出来是斜切的平行四边形（640x420 的桌面在 50° 下第四角
+// 偏 211px），格线不朝灭点收敛、卡和格子对不上。PlaneImage 改用精确的单应把图 CPU 预变形
+// 一次再正着贴，误差为 0，且变形所用的投影与卡牌同源，因此二者严丝合缝。
+//
+// key 是缓存键，须唯一标识 img 的内容（同 SrcImage）。预变形结果另按场景参数缓存，
+// 倾角/尺寸/窗口缩放变化会触发重算 —— 一次约毫秒级，之后每帧零成本。
+//
+// 只对 Scene3D 的直接子元素有意义；不在场景里时退化为普通的内存图（等同 SrcImage）。
+// 适用于静态图：逐帧变化的图（视频）每帧都要重新变形，会很贵。
+func PlaneImage(key string, img image.Image) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) {
+		hp.src, hp.imgData, hp.planeImg = key, img, img
+	}}
 }
 
 // ObjectFit 决定图片如何适配其框：FitFill 拉伸（默认）/ FitContain 完整放入留白 / FitCover 填满并裁剪。

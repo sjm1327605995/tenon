@@ -113,6 +113,7 @@ type renderNode struct {
 
 	// image
 	imgSrc    string
+	planeImg  image.Image // PlaneImage：非空则作为场景地板精确预变形（见 plane_image.go）
 	img       bitmap
 	objectFit ObjectFit
 
@@ -540,6 +541,7 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 		rn.yn.MarkDirty()
 	case rnImage:
 		rn.objectFit = hp.objectFit
+		rn.planeImg = hp.planeImg
 		if hp.src != "" && rn.imgSrc != hp.src {
 			rn.imgSrc = hp.src
 			if hp.imgData != nil {
@@ -792,6 +794,10 @@ func paint(p painter, rn *renderNode) { paintIn(p, rn, nil) }
 func paintIn(p painter, rn *renderNode, cam *camera3D) {
 	if rn.scene3D {
 		paintScene(p, rn, cam)
+		return
+	}
+	// 地板：必须绕开图层+仿射那条路 —— 精确投影正是靠「不走仿射」得来的。
+	if rn.planeImg != nil && cam != nil && paintPlaneImage(p, rn, cam) {
 		return
 	}
 	if rn.needsLayer() || cam != nil {

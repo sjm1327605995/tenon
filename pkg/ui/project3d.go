@@ -115,3 +115,88 @@ func projErr(t layerTransform) float32 {
 	got := contentAffine(t).transform(pt{x0 + t.w, y0 + t.h})
 	return absf(got.X-d3.X) + absf(got.Y-d3.Y)
 }
+
+// ---- 平面单应（PlaneImage 用）----
+//
+// 一个平面被透视投影后的像，数学上就是一个单应变换（homography）：3x3 齐次矩阵，8 个
+// 自由度，正好能把矩形映成任意凸四边形 —— 这是仿射（6 个自由度）做不到的，也正是
+// drawProjected 只能近似的原因。
+//
+// 但如果内容是一张静态图，就不必在每帧的绘制路径里对付它：可以离线按精确单应把图预变形
+// 一次，结果是一张普通位图，正着贴上去即可。这里提供那份数学。
+//
+// 关键在于它必须与 Scene3D 给子元素用的投影完全一致，否则地板的格子和卡牌会对不上。
+// 所以四角一律取自 projCorners —— 与卡牌同一份 project3D，不另算一套。
+
+// homography 是 3x3 齐次变换：(x,y,1) -> (a*x+b*y+c, d*x+e*y+f, g*x+h*y+i)，
+// 结果再除以第三个分量。
+type homography struct{ a, b, c, d, e, f, g, h, i float32 }
+
+// transform 施加变换；返回的 ok 为假表示该点落在消失线上（第三分量为 0），结果无意义。
+func (m homography) transform(p pt) (pt, bool) {
+	w := m.g*p.X + m.h*p.Y + m.i
+	if w == 0 {
+		return pt{}, false
+	}
+	return pt{(m.a*p.X + m.b*p.Y + m.c) / w, (m.d*p.X + m.e*p.Y + m.f) / w}, true
+}
+
+// unitToQuad 求把单位正方形 (0,0),(1,0),(1,1),(0,1) 映到给定四边形的单应。
+// 经典构造（Heckbert），四点顺序须为 左上/右上/右下/左下。
+func unitToQuad(d0, d1, d3, d2 pt) homography {
+	// d0=左上(0,0) d1=右上(1,0) d3=右下(1,1) d2=左下(0,1)
+	sx := d0.X - d1.X + d3.X - d2.X
+	sy := d0.Y - d1.Y + d3.Y - d2.Y
+	if sx == 0 && sy == 0 { // 退化为仿射（平行四边形），无透视
+		return homography{
+			d1.X - d0.X, d2.X - d0.X, d0.X,
+			d1.Y - d0.Y, d2.Y - d0.Y, d0.Y,
+			0, 0, 1,
+		}
+	}
+	dx1, dx2 := d1.X-d3.X, d2.X-d3.X
+	dy1, dy2 := d1.Y-d3.Y, d2.Y-d3.Y
+	den := dx1*dy2 - dx2*dy1
+	if den == 0 {
+		return homography{1, 0, 0, 0, 1, 0, 0, 0, 1} // 四点共线：无解，返回恒等
+	}
+	g := (sx*dy2 - dx2*sy) / den
+	h := (dx1*sy - sx*dy1) / den
+	return homography{
+		d1.X - d0.X + g*d1.X, d2.X - d0.X + h*d2.X, d0.X,
+		d1.Y - d0.Y + g*d1.Y, d2.Y - d0.Y + h*d2.Y, d0.Y,
+		g, h, 1,
+	}
+}
+
+// invert 求逆（伴随矩阵；齐次矩阵差一个常数因子不影响结果，故不必除行列式）。
+func (m homography) invert() homography {
+	return homography{
+		m.e*m.i - m.f*m.h, m.c*m.h - m.b*m.i, m.b*m.f - m.c*m.e,
+		m.f*m.g - m.d*m.i, m.a*m.i - m.c*m.g, m.c*m.d - m.a*m.f,
+		m.d*m.h - m.e*m.g, m.b*m.g - m.a*m.h, m.a*m.e - m.b*m.d,
+	}
+}
+
+// planeHomography 返回「元素自身的矩形 -> 它在场景中被投影出的四边形」的单应。
+// 四角取自 projCorners，因此与同场景的卡牌共用同一份投影，格子和卡不会错位。
+func planeHomography(t layerTransform) homography {
+	d0, d1, d2, d3 := projCorners(t)
+	// 先把元素矩形归一化到单位正方形，再映到投影四边形
+	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
+	toUnit := homography{
+		1 / t.w, 0, -x0 / t.w,
+		0, 1 / t.h, -y0 / t.h,
+		0, 0, 1,
+	}
+	return unitToQuad(d0, d1, d3, d2).mul(toUnit)
+}
+
+// mul 返回 m∘n（先 n 后 m）。
+func (m homography) mul(n homography) homography {
+	return homography{
+		m.a*n.a + m.b*n.d + m.c*n.g, m.a*n.b + m.b*n.e + m.c*n.h, m.a*n.c + m.b*n.f + m.c*n.i,
+		m.d*n.a + m.e*n.d + m.f*n.g, m.d*n.b + m.e*n.e + m.f*n.h, m.d*n.c + m.e*n.f + m.f*n.i,
+		m.g*n.a + m.h*n.d + m.i*n.g, m.g*n.b + m.h*n.e + m.i*n.h, m.g*n.c + m.h*n.f + m.i*n.i,
+	}
+}
