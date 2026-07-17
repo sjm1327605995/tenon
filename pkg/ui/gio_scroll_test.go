@@ -24,7 +24,7 @@ func TestScrollAppliedInPhysicalPixelsRegardlessOfDPI(t *testing.T) {
 		}
 		before := sc.scrollY
 
-		gioIn.curX, gioIn.curY = 50, 50
+		gioIn.setCursor(50, 50)
 		gioIn.wheelY = 120 // 物理像素
 		g.handleInput()
 		gioIn.wheelY = 0

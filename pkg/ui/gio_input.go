@@ -19,7 +19,7 @@ import (
 var gioTag = new(int)
 
 type gioInput struct {
-	curX, curY     int
+	curX, curY     float32 // 光标位置，原样保留 gio 给的亚像素精度
 	wheelX, wheelY float32
 	btnDown        [2]bool // btnLeft/btnRight 当前按住
 	btnJust        [2]bool // 本帧刚按下
@@ -44,7 +44,10 @@ type gioEdit struct {
 
 var gioIn = &gioInput{}
 
-func (g *gioInput) cursor() (int, int)               { return g.curX, g.curY }
+func (g *gioInput) cursor() (float32, float32) { return g.curX, g.curY }
+
+// setCursor 记录光标位置（物理像素，保留亚像素精度）。
+func (g *gioInput) setCursor(x, y float32)           { g.curX, g.curY = x, y }
 func (g *gioInput) wheel() (float32, float32)        { return g.wheelX, g.wheelY }
 func (g *gioInput) mousePressed(b mouseBtn) bool     { return g.btnDown[b] }
 func (g *gioInput) mouseJustPressed(b mouseBtn) bool { return g.btnJust[b] }
@@ -128,7 +131,7 @@ func (g *gioInput) process(src interface {
 		}
 		switch ev := ev.(type) {
 		case pointer.Event:
-			g.curX, g.curY = int(ev.Position.X), int(ev.Position.Y)
+			g.setCursor(ev.Position.X, ev.Position.Y) // 原样透传，不取整
 			g.mods = ev.Modifiers
 			switch ev.Kind {
 			case pointer.Scroll:
@@ -201,7 +204,7 @@ func gioCursor(g *game) pointer.Cursor {
 		return pointer.CursorDefault
 	}
 	x, y := gioIn.cursor()
-	for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+	for c := g.hitTop(x, y); c != nil; c = c.parent {
 		switch {
 		case c.kind == rnInput:
 			return pointer.CursorText

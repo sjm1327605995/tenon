@@ -43,7 +43,10 @@ const (
 )
 
 type inputSource interface {
-	cursor() (int, int)             // 光标位置（物理像素）
+	// cursor 返回光标位置：物理像素，保留亚像素精度。
+	// 不可取整 —— 元素 bounds 是小数（非整数缩放下尤其如此），整数光标在边界处会差到 1px，
+	// 表现为「贴着边框时 hover 时有时无」。
+	cursor() (float32, float32)
 	wheel() (float32, float32)      // 本帧滚轮增量（x,y），单位为物理像素，正值向右/向下
 	mousePressed(mouseBtn) bool     // 按钮当前是否按住
 	mouseJustPressed(mouseBtn) bool // 按钮本帧是否刚按下

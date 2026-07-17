@@ -35,11 +35,11 @@ type game struct {
 	pressedNode          *renderNode
 	inputSelecting       bool
 
-	hoverX, hoverY int // 上次计算悬停链时的光标位置（用于空闲时跳过重算）
+	hoverX, hoverY float32 // 上次计算悬停链时的光标位置（用于空闲时跳过重算）
 
 	// 多击检测（双击选词 / 三击选全部）
 	lastClickAt            time.Time
-	lastClickX, lastClickY int
+	lastClickX, lastClickY float32
 	clickCount             int
 
 	portals  []*Fiber
@@ -264,7 +264,7 @@ func (g *game) handleInput() {
 	// 把滚动速度按缩放倍数放大（150% 缩放下快 1.5 倍）。
 	if _, wy := input.wheel(); wy != 0 {
 		x, y := input.cursor()
-		for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+		for c := g.hitTop(x, y); c != nil; c = c.parent {
 			if c.scroll {
 				c.scrollY += wy
 				g.needsLayout = true
@@ -276,13 +276,13 @@ func (g *game) handleInput() {
 
 	if input.mouseJustPressed(btnLeft) {
 		x, y := input.cursor()
-		n := g.hitTop(float32(x), float32(y))
+		n := g.hitTop(x, y)
 		// 聚焦：命中 input 则聚焦；单击定位光标并开始拖选，双击选词，三击选全部
 		if n != nil && n.kind == rnInput {
 			g.focusedFiber = n.owner
-			c := n.caretAt(float32(x), float32(y))
+			c := n.caretAt(x, y)
 			now := time.Now()
-			if iabs(x-g.lastClickX) < 4 && iabs(y-g.lastClickY) < 4 && now.Sub(g.lastClickAt) < 400*time.Millisecond {
+			if absf(x-g.lastClickX) < 4 && absf(y-g.lastClickY) < 4 && now.Sub(g.lastClickAt) < 400*time.Millisecond {
 				g.clickCount++
 			} else {
 				g.clickCount = 1
@@ -333,7 +333,7 @@ func (g *game) handleInput() {
 	// 右键：向上冒泡找第一个 onContextMenu，回调光标逻辑坐标
 	if input.mouseJustPressed(btnRight) {
 		x, y := input.cursor()
-		for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+		for c := g.hitTop(x, y); c != nil; c = c.parent {
 			if c.onContextMenu != nil {
 				c.onContextMenu(float32(x)/uiScale, float32(y)/uiScale)
 				break
@@ -345,13 +345,6 @@ func (g *game) handleInput() {
 	g.handleKeyboardNav()
 	g.updateDrag()
 	g.editFocusedInput()
-}
-
-func iabs(v int) int {
-	if v < 0 {
-		return -v
-	}
-	return v
 }
 
 // updateInputSelection 在聚焦输入框上拖动鼠标时扩展选区（单行）。
@@ -635,7 +628,7 @@ func (g *game) updateHover() {
 	}
 	g.hoverX, g.hoverY = x, y
 	now := map[*renderNode]bool{}
-	for c := g.hitTop(float32(x), float32(y)); c != nil; c = c.parent {
+	for c := g.hitTop(x, y); c != nil; c = c.parent {
 		if c.onHover != nil {
 			now[c] = true
 		}
