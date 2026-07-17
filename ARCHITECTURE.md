@@ -16,7 +16,7 @@ renderNode      a yoga.Node + paint data; the only thing that enters layout/pain
 
 ## Hooks
 
-Rendering is single-threaded (Ebiten's `Update`), so the hook dispatcher is just a package-level "current fiber" + slot index (`hooks.go`). `UseState` stores state on the fiber by call order; the returned setter closes over the fiber and, when called, marks it dirty. Rules of Hooks (stable call order) apply.
+Rendering is single-threaded (Gio's frame loop), so the hook dispatcher is just a package-level "current fiber" + slot index (`hooks.go`). `UseState` stores state on the fiber by call order; the returned setter closes over the fiber and, when called, marks it dirty. Rules of Hooks (stable call order) apply.
 
 ## Frame loop (`run.go`)
 

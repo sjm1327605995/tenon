@@ -1,6 +1,6 @@
 # Tenon
 
-> A declarative, **React-style** GUI toolkit for Go — function components and hooks, on [Yoga](https://www.yogalayout.dev/) flexbox layout and [Ebiten](https://ebiten.org) rendering.
+> A declarative, **React-style** GUI toolkit for Go — function components and hooks, on [Yoga](https://www.yogalayout.dev/) flexbox layout and [Gio](https://gioui.org) rendering.
 
 [![Go](https://img.shields.io/badge/go-%3E%3D1.24-blue)](https://golang.org)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -17,7 +17,7 @@
 
 ## ⚠️ Status
 
-Young but coherent. The core (`pkg/ui`) is stable in shape and covered by tests; APIs may still change before a 1.0. Good for tools, dashboards, in-app/game UIs and prototypes. See [ROADMAP.md](ROADMAP.md) for what's done and what's next. Highlights: rich text (weights/italic, IME, UAX#14 wrapping), on-demand repaint + list virtualization, accessibility (focus trap, arrow-key nav), SVG icons / gradients / rounded clipping, and a ~60-component shadcn library. Not covered: OS-native integration (multi-window, native menus) — bounded by Ebiten.
+Young but coherent. The core (`pkg/ui`) is stable in shape and covered by tests; APIs may still change before a 1.0. Good for tools, dashboards, in-app/game UIs and prototypes. See [ROADMAP.md](ROADMAP.md) for what's done and what's next. Highlights: rich text (synthesized weights/italic, IME, UAX#14 wrapping), on-demand repaint + list virtualization, accessibility (focus trap, arrow-key nav), SVG icons / gradients / rounded clipping, and a ~60-component shadcn library. Not covered: OS-native integration (multi-window, native menus) — not implemented yet; Gio itself supports multiple windows.
 
 ## What is Tenon?
 
@@ -26,7 +26,7 @@ Tenon brings the React mental model to native Go GUIs:
 - **Function components + hooks** — `UseState`, `UseEffect`, `UseReducer`, `UseMemo`, `UseCallback`, `UseRef`, `UseContext`. No classes, no manual invalidation.
 - **Automatic, local re-render** — a state setter re-renders only its own component (fiber).
 - **HTML-like elements** — `Div`, `Span`, `Button`, `Input`, `Img`, `Text`, `ScrollView`, `Portal`, `Fragment`.
-- **Yoga flexbox** for layout, **Ebiten `vector` + `text/v2`** for rendering (antialiased, HiDPI-aware).
+- **Yoga flexbox** for layout, **Gio** for rendering (GPU-accelerated vector paths and text; antialiased, HiDPI-aware).
 - **Batteries included** — animation (tween/transition/FLIP), transforms, drag/hover/keyboard, a base component kit, and a **shadcn/ui-style** library (~41 components).
 
 Internally it's a three-tree design like React: immutable `Node` description → persistent `Fiber` (identity + hooks) → `renderNode` (yoga node + paint). Layout is incremental — paint-only updates don't recompute layout. See [ARCHITECTURE.md](ARCHITECTURE.md).

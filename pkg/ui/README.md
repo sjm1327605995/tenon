@@ -1,6 +1,6 @@
 # tenon/pkg/ui
 
-A declarative, React-style GUI toolkit for Go, built on **[yoga](../../yoga)** for flexbox layout and **[Ebiten](https://ebiten.org)** (`vector` + `text/v2`) for rendering.
+A declarative, React-style GUI toolkit for Go, built on **[yoga](../../yoga)** for flexbox layout and **[Gio](https://gioui.org)** for rendering (GPU-accelerated vector paths and text).
 
 - **HTML-like elements** — `Div`, `Span`, `Button`, `Input`, `Img`, `Text`, `ScrollView`.
 - **React-latest hooks** — `UseState`, `UseEffect`, `UseReducer`, `UseMemo`, `UseCallback`, `UseRef`, `UseContext`.
@@ -82,7 +82,7 @@ Helpers: `If(cond, node)` conditional; nil children are ignored.
 - **Appearance**: `Bg(Color)`, `Radius`, `Border(w, Color)`, `Opacity`, `Clip`
 - **Position**: `Absolute`, `Top/Right/Bottom/Left`
 - **Transform** (around center): `Scale`, `Rotate(deg)`, `TranslateXY`
-- **Text** (inherited by descendants): `TextColor(Color)`, `FontSize`, `FontWeight(int)` / `Bold` / `Semibold` / `Medium`, `Italic`
+- **Text** (inherited by descendants): `TextColor(Color)`, `FontSize`, `FontWeight(int)` / `Bold` / `Semibold` / `Medium`, `Italic`. Only one face ships (OPPOSans Medium), so bold and italic are **synthesized** — bold by stroking the glyph outline, italic by shearing it. That makes weight effectively binary: `Semibold` (600) and above look the same, and 400/500 look the same.
 - **Animation**: `Animated` (FLIP — slides to new position when its layout moves)
 
 Colors: `Hex("#rrggbb"|"#rrggbbaa")`, `Color{R,G,B,A}`, `c.Alpha(f)`, plus `White/Black/Red/Green/Blue/Gray/...`.
@@ -196,7 +196,7 @@ Run with `go run ./example/<name>`:
 
 ## Testing
 
-`ui.Mount` gives a **headless harness** — the real reconcile → layout → hit-test → event path, without an Ebiten window — so you can assert behavior, not just that a constructor returned non-nil:
+`ui.Mount` gives a **headless harness** — the real reconcile → layout → hit-test → event path, without opening a window — so you can assert behavior, not just that a constructor returned non-nil:
 
 ```go
 h := ui.Mount(Use(Counter, struct{}{}), 300, 100) // or ui.MountDefault(node)
@@ -219,7 +219,7 @@ if !h.Root().ByText("1").Exists() {   // re-query after state changes the tree
 ## Notes & limits
 
 - **Incremental layout**: yoga child links are only rebuilt when a node's children actually change, so paint-only updates (color/hover/opacity/transform) keep yoga's cache valid and `CalculateLayout` is a no-op. On window resize, only size-dependent subtrees recompute; fixed-size subtrees are reused. Idle frames run no layout at all.
-- **Crisp edges**: the scene is rendered at `DeviceScaleFactor × SuperSample` (default 2×, capped at 2.5×) and downscaled by Ebiten, so rounded corners, circles, and borders are antialiased. Author everything in logical pixels; the engine scales layout, fonts, and pointer deltas. Lower `ui.SuperSample` (e.g. to 1) to trade sharpness for performance.
-- Rendering runs on Ebiten's single Update/Draw loop. Call state setters from callbacks/effects (the render goroutine). **From other goroutines** (network callbacks, timers) wrap updates in `ui.Post(func(){ ... })` — it queues the closure to run on the render goroutine before the next frame, so `setState` inside it is safe.
+- **Crisp edges**: Gio rasterizes vector paths on the GPU with built-in antialiasing, so rounded corners, circles, and borders are smooth at any scale — there is no supersampling knob to tune. Author everything in logical pixels; the engine scales layout, fonts, and pointer deltas by the display's density.
+- Rendering runs on Gio's single-threaded frame loop. Call state setters from callbacks/effects (the render goroutine). **From other goroutines** (network callbacks, timers) wrap updates in `ui.Post(func(){ ... })` — it queues the closure to run on the render goroutine before the next frame, so `setState` inside it is safe.
 - Per-node `Opacity` on a container becomes a **group** opacity (composited via an offscreen layer); transforms also use a layer.
-- Not yet implemented: `Img` object-fit, horizontal scroll, rich-text spans, multiple font families/weights (one embedded CJK face is the default).
+- Not yet implemented: horizontal scroll; loading additional font families at runtime (one CJK face is embedded; see the note on synthesized bold/italic above); drag-and-drop drop targets; an accessibility tree; multi-window.

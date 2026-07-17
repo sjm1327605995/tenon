@@ -3,6 +3,7 @@ package ui
 import (
 	"sync"
 
+	"gioui.org/f32"
 	giofont "gioui.org/font"
 	"gioui.org/font/opentype"
 	"gioui.org/op"
@@ -107,10 +108,30 @@ func (f *gioFont) measureAscent() float32 {
 	return float32(asc) / 64
 }
 
-func (f *gioFont) Metrics() (float32, bool, bool) { return f.ascent, false, false }
+// Metrics 报告基线位置，以及是否需要合成粗体/斜体。
+//
+// 内置字体集只有一张 OPPOSans Medium（Regular 字形、常规字重）。gio 不会自己合成 ——
+// 它只会在字体集里挑最接近的那张，于是 Bold 和 Regular 会渲染得一模一样（实测字形 ID
+// 与宽度完全相同）。所以字重/斜体只能由我们合成，painter 接口早就为此留了这两个参数。
+func (f *gioFont) Metrics() (float32, bool, bool) {
+	return f.ascent, f.weight >= giofont.Weight(fauxBoldMinWeight-400), f.style == giofont.Italic
+}
+
+// fauxBoldMinWeight 是启用合成粗体的 CSS 字重阈值（Semibold 起）。
+const fauxBoldMinWeight = 600
+
+// fauxBoldWidth 是合成粗体的描边宽度：在填充之外再描一圈，让字形整体变粗。
+// 取字号的比例，这样各字号下的观感一致。
+func fauxBoldWidth(px float32) float32 { return px / 22 }
+
+// fauxItalicShear 是合成斜体的倾角（弧度，约 12 度），与常见字体的斜角接近。
+// 注意 gio 的 Shear 收的是弧度（内部取 tan），不是斜率。
+const fauxItalicShear = 0.21
 
 // drawGioText 把一行文本绘制到 ops：(x,y) 为该行左上角，基线落在 y+ascent。
-func drawGioText(ops *op.Ops, f *gioFont, s string, c Color, x, y float32) {
+// fauxBold/fauxItalic 由调用方从 Metrics 取得：内置字体只有一张常规face，粗体与斜体
+// 必须在这里合成，否则 ui.Bold 会完全没有效果。
+func drawGioText(ops *op.Ops, f *gioFont, s string, c Color, x, y float32, fauxBold, fauxItalic bool) {
 	if s == "" {
 		return
 	}
@@ -127,12 +148,25 @@ func drawGioText(ops *op.Ops, f *gioFont, s string, c Color, x, y float32) {
 	if len(glyphs) == 0 {
 		return
 	}
-	tr := op.Affine(gioOffset(x, y+f.ascent)).Push(ops)
+	aff := gioOffset(x, y+f.ascent)
+	if fauxItalic {
+		// 必须「先在字形坐标里剪切、再平移」：Mul 是矩阵乘（A.Mul(B) = 先 B 后 A），
+		// 写反了剪切就作用在屏幕坐标上，整行字会被 y 推着横向平移而不是倾斜。
+		// 字形在基线以上是负 y，故用负角度让上半部右倾。
+		aff = aff.Mul(f32.Affine2D{}.Shear(f32.Pt(0, 0), -fauxItalicShear, 0))
+	}
+	tr := op.Affine(aff).Push(ops)
 	gpaint.ColorOp{Color: nrgba(c)}.Add(ops)
 	path := sh.Shape(glyphs)
 	cl := clip.Outline{Path: path}.Op().Push(ops)
 	gpaint.PaintOp{}.Add(ops)
 	cl.Pop()
+	if fauxBold {
+		// 在填充之外再描一圈轮廓：字形整体向外扩，即合成粗体
+		st := clip.Stroke{Path: path, Width: fauxBoldWidth(f.px)}.Op().Push(ops)
+		gpaint.PaintOp{}.Add(ops)
+		st.Pop()
+	}
 	if call := sh.Bitmaps(glyphs); call != (op.CallOp{}) {
 		call.Add(ops)
 	}

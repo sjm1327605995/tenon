@@ -198,7 +198,7 @@ func (p *gioPainter) Line(x0, y0, x1, y1 float32, c Color) {
 }
 
 func (p *gioPainter) DrawText(s string, face fontFace, c Color, x, y float32, fauxBold, fauxItalic bool) {
-	drawGioText(p.ops, face.(*gioFont), s, c, x, y)
+	drawGioText(p.ops, face.(*gioFont), s, c, x, y, fauxBold, fauxItalic)
 }
 
 func (p *gioPainter) DrawImage(img bitmap, d Rect, opacity float32) {

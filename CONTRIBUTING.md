@@ -85,37 +85,61 @@ When adding new features, please respect the existing architecture (see [ARCHITE
 
 ## 🎯 Component Development Guide
 
-When adding a new component to `pkg/components/`:
+Components are **plain functions** of props returning a `*ui.Node` — there is no base type to
+embed and no `Draw` method to implement. The engine (`pkg/ui`) owns rendering; a component only
+describes what it wants.
 
-1. Embed `core.BaseHost`
-2. Call `Init(self)` in the constructor
-3. Implement `Draw(screen *ebiten.Image)` for rendering
-4. Implement `HandleEvent(e *core.Event) bool` for interaction
-5. Provide fluent chained API methods
-6. Set `focusable = true` if the component should receive keyboard focus
-
-Example:
+A public constructor wraps the function with `ui.Use`, which gives it a fiber identity so hooks
+have somewhere to live:
 
 ```go
-type MyComponent struct {
-    core.BaseHost
+// SwitchProps 是组件的输入。用 props 结构体而不是链式方法：字段可选、可比较，
+// 引擎据此做浅比较来跳过没必要的重渲染。
+type SwitchProps struct {
+    Checked  bool
+    Disabled bool
+    OnChange func(bool)
 }
 
-func NewMyComponent() *MyComponent {
-    m := &MyComponent{}
-    m.Init(m)
-    m.SetFocusable(true) // if interactive
-    return m
-}
+// 公开构造函数：ui.Use 把函数与一个 fiber 绑定，hooks 的状态就存在那上面。
+func Switch(p SwitchProps) *ui.Node { return ui.Use(switchC, p) }
 
-func (m *MyComponent) Draw(screen *ebiten.Image) {
-    // rendering logic
-}
+// 内部实现：读 props、调 hooks、返回节点树。
+func switchC(p SwitchProps) *ui.Node {
+    th := ui.UseTheme()                       // 主题
+    x := ui.UseTween(bool2f(p.Checked), 140, ui.EaseOut) // 动画
 
-func (m *MyComponent) HandleEvent(e *core.Event) bool {
-    // event handling logic
-    return false
+    attrs := []*ui.Node{ui.Style(
+        ui.Width(32), ui.Height(18), ui.Radius(9999),
+        ui.Bg(ui.Mix(th.Input, th.Primary, x)),
+    )}
+    if !p.Disabled {
+        attrs = append(attrs, ui.OnClick(func() {
+            if p.OnChange != nil {
+                p.OnChange(!p.Checked)
+            }
+        }))
+    }
+    return ui.Div(attrs...)
 }
+```
+
+Rules of Hooks apply: call them unconditionally, in the same order every render (no hooks inside
+`if`/loops), or state will bind to the wrong slot.
+
+Where things go:
+
+- `pkg/ui` — the engine: elements, hooks, layout, style, input, painting. Backend-neutral except
+  the `gio_*.go` files; see the boundary rule at the top of `pkg/ui/backend.go` before touching them.
+- `pkg/shadcn` — the component library (shadcn/ui port). New general-purpose components go here.
+
+Test behavior, not construction. `ui.Mount` gives a headless harness that drives the real
+reconcile → layout → hit-test → event path, so assert what a user would observe:
+
+```go
+h := ui.Mount(Switch(SwitchProps{Checked: false, OnChange: set}), 200, 100)
+h.ClickAt(16, 9)
+// 断言 OnChange 真的被调用了，而不是断言构造函数返回了非 nil
 ```
 
 ## 📄 License

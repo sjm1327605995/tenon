@@ -19,9 +19,9 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 - `VirtualList` for large lists — `UseScroll` feeds scroll offset/viewport back to the component so only the visible window (+overscan) renders; 100k rows stay smooth.
 
 **Rendering**
-- `ebiten/vector` rounded rects / borders, `text/v2` text, images; supersampling AA; HiDPI (device-scale) rendering.
+- Gio-rendered rounded rects / borders / text / images — GPU vector rasterization with built-in AA; HiDPI (device-scale) rendering.
 - SVG icons: `Icon`/`IconFill` render `pkg/svg` paths (stroke or fill), color inherited like text; a small built-in lucide set (`IconCheck`, `IconChevronDown`, …). Rounded-rect clipping (a rounded container clips its children to the corners via an offscreen mask). Linear gradients (`LinearGradient(from, to, angle)` background, follows the corner radius). `Img` object-fit (`Fit(FitContain/FitCover/FitFill)`).
-- Paint goes through a `painter` backend interface (draw primitives + clip + layer), so the render walk is backend-agnostic — an ebiten backend for the window, a recording backend for headless golden tests (and room for a future Skia backend).
+- Paint goes through a `painter` backend interface (draw primitives + clip + layer), so the render walk is backend-agnostic — a Gio backend for the window, a recording backend for headless golden tests. The boundary rule lives at the top of `pkg/ui/backend.go`.
 
 **Animation**
 - `UseTween` + easings; `UseTransition` (enter/exit); FLIP layout animation; transforms (scale/rotate/translate, hit-test aware); per-node and group opacity.
@@ -29,7 +29,7 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 **Input & text**
 - Click (bubbling), hover, drag, wheel scroll; keyboard: Tab focus nav, Enter/Space activate, Esc stack; press state. Modal focus trapping (`Portal(TrapFocus(), …)`) — Tab stays inside the top modal; wired into shadcn Dialog/Sheet. Roving arrow-key navigation (`ArrowNav(NavVertical/NavHorizontal)`) inside menus/lists/tabs — wired into shadcn Tabs (←→) and DropdownMenu (↑↓).
 - Controlled `Input` with caret, multi-line (`Multiline`), selection (Shift+arrows/drag/Ctrl+A, double-click word, triple-click all) and cut/copy/paste (pluggable clipboard); IME composition (`exp/textinput`) with underlined preedit at the caret. Grapheme-aware caret/backspace/delete and word-wise nav/delete (Ctrl+←→/Backspace) via `rivo/uniseg` — emoji, combining marks, ZWJ sequences move & delete as one unit.
-- Text wrapping via Unicode line-breaking (UAX#14, `rivo/uniseg`) — hyphen breaks, CJK per-char, closing punctuation never at line start, non-breaking spaces; style inheritance, font weights/italic, rich-text spans (`RichText`), embedded CJK font, anchored overlays (`UseMeasure`).
+- Text wrapping via Unicode line-breaking (UAX#14, `rivo/uniseg`) — hyphen breaks, CJK per-char, closing punctuation never at line start, non-breaking spaces; style inheritance, synthesized font weights/italic (one embedded CJK face — weight is effectively binary), rich-text spans (`RichText`), anchored overlays (`UseMeasure`).
 
 **Components**
 - Base kit (Checkbox/Switch/Radio/Slider/Progress/Spinner/Badge/Avatar/Divider/Card/Tabs).
@@ -47,9 +47,9 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 2. **Accessibility** — ~~focus trapping in modals~~ **done** (`TrapFocus()`); ~~arrow-key navigation inside menus/lists~~ **done** (`ArrowNav`, roving focus). Still: an accessibility tree for screen readers (needs AccessKit/platform APIs).
 3. **Performance at scale** — ~~list virtualization~~ **done** (`VirtualList` + `UseScroll` renders only the visible window; 100k rows stay smooth). Still: sub-tree-scoped `resolveInherited`.
 4. **Rendering extras** — ~~SVG icons~~, ~~rounded-rect clipping~~, ~~linear gradients~~, ~~`Img` object-fit~~ **all done**. (Remaining polish: radial gradients, image filters/blur — lower priority.)
-5. **Native integration** — OS clipboard binding, native file/context menus; (multi-window is bounded by Ebiten).
+5. **Native integration** — ~~OS clipboard binding~~ **done**; still: native file/context menus, multi-window (Gio supports it; tenon's `Run` only opens one).
 
-**Recently done:** the text layer is now feature-complete — font weights/italic, rich-text spans (`RichText`), and IME composition (`exp/textinput`, underlined preedit) join wrapping, style inheritance, and multi-line selection. A headless test-mount helper (`ui.Mount`) lets `pkg/shadcn` and app code assert real click/input/hover behavior.
+**Recently done:** migrated the renderer from Ebiten to **Gio** (Ebiten is gone from `go.mod`). Pseudo-3D (`Perspective`/`RotateX`/`RotateY`/`TranslateZ`) plus `Scene3D` — a shared camera so a table of elements agrees on one vanishing point — and `PlaneImage` for an exactly-projected floor texture. Hit-testing follows the 3D projection. Also: `SrcImage` (in-memory image source), `OnSubmit` (Enter on a single-line `Input`), `ZIndex`, flex `Wrap`, an LRU budget on the image cache, and window title / min-max size / fullscreen.
 
 ## Non-goals (for now)
 
