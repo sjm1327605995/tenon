@@ -239,10 +239,16 @@ func (g *game) layoutPortals(windowChanged bool) {
 }
 
 // hitTop 自顶向下命中：先浮层（逆序），再主树。
+//
+// 浮层根是覆盖全窗的容器，它本身不是可命中的目标 —— 只有它的内容才是。hitNode 在没命中
+// 任何子节点时会返回容器自己，这里必须把「只命中到浮层根」当作没命中，让点穿透到主树。
+// 否则任一浮层存在就会吞掉整个界面的命中，并形成自激：悬停触发器 -> 弹出 Tooltip 浮层 ->
+// 浮层根吞掉命中 -> 触发器 unhover -> 浮层收起 -> 又命中到触发器 -> 再弹出，每帧一次，
+// 看起来就是 hover 框在闪。
 func (g *game) hitTop(x, y float32) *renderNode {
 	for i := len(g.portals) - 1; i >= 0; i-- {
 		if r := g.portals[i].overlayRoot; r != nil {
-			if h := hitNode(r, x, y); h != nil {
+			if h := hitNode(r, x, y); h != nil && h != r {
 				return h
 			}
 		}
