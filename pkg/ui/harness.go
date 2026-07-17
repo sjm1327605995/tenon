@@ -195,12 +195,34 @@ func (h *Harness) Arrow(orient NavOrient, forward bool) *Query {
 	return h.Focused()
 }
 
-// Enter activates the focused element (Enter/Space) — fires its onClick unless
-// it is an input. Returns whether a handler fired. Settles afterward.
+// Enter presses the Enter key on the focused element, driving the same code the
+// real frame loop does: it fires onClick on a focused clickable, OnSubmit on a
+// focused single-line Input, and inserts a newline in a Multiline one.
+// Returns whether a handler fired. Settles afterward.
+//
+// 这里必须真的「按键」而不是直接调 activateFocused：后者只是生产路径的一半，
+// 用它测出来的绿灯不代表用户按回车会得到同样的结果。
 func (h *Harness) Enter() bool {
-	ok := h.g.activateFocused()
-	h.settle()
-	return ok
+	fired := false
+	if rn := h.focusedRN(); rn != nil {
+		before := rn.value
+		h.pressKey(keyEnter)
+		// 单行提交、可点击元素被激活、多行插入换行 —— 任一发生都算「处理了」
+		fired = (rn.kind == rnInput && !rn.multiline && rn.onSubmit != nil) ||
+			(rn.kind != rnInput && rn.onClick != nil) ||
+			(rn.kind == rnInput && rn.multiline && rn.value != before)
+		return fired
+	}
+	h.pressKey(keyEnter)
+	return fired
+}
+
+// focusedRN 返回当前聚焦节点的 renderNode（无焦点时为 nil）。
+func (h *Harness) focusedRN() *renderNode {
+	if h.g.focusedFiber == nil || h.g.focusedFiber.unmounted {
+		return nil
+	}
+	return h.g.focusedFiber.rnode
 }
 
 // Escape fires the Esc action: the topmost UseEscape handler if any is active,

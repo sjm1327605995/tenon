@@ -478,6 +478,9 @@ func (g *game) activateFocused() bool {
 		return false
 	}
 	rn := g.focusedFiber.rnode
+	// 输入框在这里必须跳过：它的回车由 editFocusedInput 处理（单行提交、多行换行）。
+	// 同一帧里 handleKeyboardNav 与 editFocusedInput 都会跑，两边都提交就会触发两次
+	// —— 聊天消息发两遍，且这里拿到的 rn.value 还是本帧编辑前的旧值。
 	if rn != nil && rn.kind != rnInput && rn.onClick != nil {
 		rn.onClick()
 		return true
@@ -631,19 +634,30 @@ func (g *game) editFocusedInput() {
 		caret = len(val)
 		afterMove()
 	}
-	if rn.multiline && input.keyJustPressed(keyEnter) {
-		if hasSel() {
-			delSel()
+	submit := false
+	if input.keyJustPressed(keyEnter) {
+		if rn.multiline {
+			if hasSel() {
+				delSel()
+			}
+			val = val[:caret] + "\n" + val[caret:]
+			caret++
+			anchor = caret
+		} else {
+			// 单行：回车提交。留到本函数末尾、onChange 之后再触发。
+			submit = rn.onSubmit != nil
 		}
-		val = val[:caret] + "\n" + val[caret:]
-		caret++
-		anchor = caret
 	}
 
 	rn.caretPos = clampi(caret, 0, len(val))
 	rn.selAnchor = clampi(anchor, 0, len(val))
 	if val != rn.value && rn.onChange != nil {
 		rn.onChange(val)
+	}
+	// 提交排在 onChange 之后：受控组件靠 onChange 拿到新值，若先提交，
+	// OnSubmit 看到的会是上一帧的值（例如按下回车前刚输入的最后一个字符会丢）。
+	if submit {
+		rn.onSubmit(val)
 	}
 }
 

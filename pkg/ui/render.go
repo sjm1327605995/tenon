@@ -93,6 +93,7 @@ type renderNode struct {
 	placeholder string
 	multiline   bool
 	onChange    func(string)
+	onSubmit    func(string)
 	caretPos    int
 	selAnchor   int // 选区另一端；等于 caretPos 表示无选区
 
@@ -529,6 +530,7 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 		rn.placeholder = hp.placeholder
 		rn.multiline = hp.multiline
 		rn.onChange = hp.onChange
+		rn.onSubmit = hp.onSubmit
 		if rn.caretPos > len(rn.value) {
 			rn.caretPos = len(rn.value)
 		}

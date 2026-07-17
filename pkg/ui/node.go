@@ -70,6 +70,7 @@ type hostProps struct {
 	value         string
 	hasValue      bool
 	onChange      func(string)
+	onSubmit      func(string)
 	placeholder   string
 	multiline     bool
 	onHover       func(bool)
@@ -245,6 +246,15 @@ func Value(v string) *Node {
 // OnChange 在输入内容变化时回调（受控组件）。
 func OnChange(fn func(string)) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.onChange = fn }}
+}
+
+// OnSubmit 在单行 Input 上按下回车时回调，参数是当前值。语义对齐 HTML 表单的 submit：
+// 聊天框、搜索框、地址栏这类输入，回车提交是肌肉记忆。
+//
+// 多行 Input（Multiline）不触发 —— 那里回车是换行。
+// 别拿 OnClick 代替：可点击元素的回车激活会跳过输入框，而且点击聚焦时就会误触发。
+func OnSubmit(fn func(value string)) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.onSubmit = fn }}
 }
 
 // OnHover 在指针进入/离开元素时回调（true=进入，false=离开）。
