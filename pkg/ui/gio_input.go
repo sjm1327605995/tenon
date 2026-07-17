@@ -131,6 +131,7 @@ func (g *gioInput) process(src interface {
 		}
 		switch ev := ev.(type) {
 		case pointer.Event:
+			debugPointer(ev)
 			g.setCursor(ev.Position.X, ev.Position.Y) // 原样透传，不取整
 			g.mods = ev.Modifiers
 			switch ev.Kind {

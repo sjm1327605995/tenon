@@ -635,11 +635,13 @@ func (g *game) updateHover() {
 	}
 	for rn := range now {
 		if !g.hovered[rn] {
+			debugHover("enter", rn, x, y)
 			rn.onHover(true)
 		}
 	}
 	for rn := range g.hovered {
 		if !now[rn] {
+			debugHover("leave", rn, x, y)
 			rn.onHover(false)
 		}
 	}

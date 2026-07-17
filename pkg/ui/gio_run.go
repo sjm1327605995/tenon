@@ -108,6 +108,7 @@ func gioRun(root *Node, w, h int, title string, sync bool) {
 
 			e.Frame(&ops)
 			scheduleNextFrame(e, g, layoutMoving)
+			debugFrame(g, wantsNextFrame(g, layoutMoving))
 		}
 	}
 }
@@ -125,9 +126,14 @@ const caretBlinkPeriod = 500 * time.Millisecond
 //
 // 注意不能用 g.hasLayoutAnim 判断：它只表示「树里存在 Animated 节点」且置位后从不复位，
 // 拿它当条件会让循环永远醒着。要用 tickLayoutAnim 的返回值（是否真的还在移动）。
+// wantsNextFrame 表示引擎还有事情要做、需要立刻再出一帧。
+func wantsNextFrame(g *game, layoutMoving bool) bool {
+	return g.needsLayout || len(g.dirty) > 0 || len(g.anims) > 0 || len(g.loops) > 0 ||
+		layoutMoving || g.inputSelecting || g.imeComposing
+}
+
 func scheduleNextFrame(e app.FrameEvent, g *game, layoutMoving bool) {
-	if g.needsLayout || len(g.dirty) > 0 || len(g.anims) > 0 || len(g.loops) > 0 ||
-		layoutMoving || g.inputSelecting || g.imeComposing {
+	if wantsNextFrame(g, layoutMoving) {
 		e.Source.Execute(op.InvalidateCmd{})
 		return
 	}
