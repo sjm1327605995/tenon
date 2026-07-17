@@ -48,6 +48,12 @@ type StyleProps struct {
 	rotate         float32 // 角度（绕 Z 轴，2D 旋转）
 	transX, transY float32
 
+	// 伪 3D（仅影响绘制，不参与布局）：绕 X/Y 轴旋转 + Z 位移 + 透视，
+	// 对应 CSS 的 transform: perspective(p) rotateX(rx) rotateY(ry) translateZ(tz)。
+	rotateX, rotateY float32 // 角度
+	transZ           float32 // Z 位移（正值朝观察者，需配合 Perspective 才有远近感）
+	perspective      float32 // 透视距离（px，越小透视越强；0=正交无透视）
+
 	// 阴影（box-shadow）
 	shadowColor              Color
 	shadowX, shadowY         float32
@@ -160,6 +166,24 @@ func Rotate(deg float32) StyleOpt { return func(s *StyleProps) { s.rotate = deg 
 func TranslateXY(x, y float32) StyleOpt {
 	return func(s *StyleProps) { s.transX, s.transY = x, y }
 }
+
+// ---- 伪 3D 变换（只影响绘制，不参与 yoga 布局，因此不会改变排版）----
+//
+// 与 CSS 的 transform: perspective(p) rotateX(rx) rotateY(ry) translateZ(tz) 对应。
+// 这不是真 3D：内容仍是平面，只是把它按透视投影贴回屏幕（做倾斜卡片一类的效果）。
+
+// RotateX 绕水平 X 轴旋转（度），产生上/下翻起的立体感。需配合 Perspective。
+func RotateX(deg float32) StyleOpt { return func(s *StyleProps) { s.rotateX = deg } }
+
+// RotateY 绕垂直 Y 轴旋转（度），产生左/右翻转的立体感。需配合 Perspective。
+func RotateY(deg float32) StyleOpt { return func(s *StyleProps) { s.rotateY = deg } }
+
+// TranslateZ 沿 Z 轴平移（px，正值朝观察者）；需配合 Perspective 才有远近缩放。
+func TranslateZ(z float32) StyleOpt { return func(s *StyleProps) { s.transZ = z } }
+
+// Perspective 设置本元素 3D 变换的透视距离（px，越小透视越强；0=正交无透视）。
+// 透视锚定在元素中心，等价于 CSS transform 里的 perspective(px)。
+func Perspective(px float32) StyleOpt { return func(s *StyleProps) { s.perspective = px } }
 
 // Shadow 设置投影（box-shadow）：颜色、水平/垂直偏移、模糊半径、扩散。offY 正值向下。
 // 叶子与容器均可用；柔和边缘由分层近似实现。

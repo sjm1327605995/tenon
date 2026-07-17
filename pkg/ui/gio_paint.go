@@ -262,7 +262,12 @@ func (p *gioPainter) EndLayer(t layerTransform) {
 	call := p.layers[n].Stop()
 	p.layers = p.layers[:n]
 
-	// 仅 2D：绕中心缩放/旋转 + 平移（伪 3D 的 rotateX/Y/透视在 gio 上忽略）。
+	if t.is3D() { // 伪 3D：仿射表达不了透视，改走网格投影重放
+		p.drawProjected(call, t)
+		return
+	}
+
+	// 纯 2D：绕中心缩放/旋转 + 平移。
 	aff := f32.Affine2D{}
 	ctr := f32.Pt(t.cx, t.cy)
 	if t.scale != 1 && t.scale != 0 {

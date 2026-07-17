@@ -18,12 +18,22 @@ type painter interface {
 	EndLayer(t layerTransform)
 }
 
-// layerTransform 是一个离屏图层合回时施加的 2D 变换 + 整组透明度（围绕中心）。
+// layerTransform 是一个图层合回时施加的变换 + 整组透明度（围绕中心 cx,cy）。
 type layerTransform struct {
-	cx, cy        float32
+	cx, cy        float32 // 元素中心（变换与透视的锚点）
+	w, h          float32 // 元素尺寸（伪 3D 投影按它划分网格）
 	scale, rotate float32 // 2D 缩放 + 绕 Z 轴旋转
 	tx, ty        float32
 	opacity       float32
+
+	// 伪 3D：绕 X/Y 轴旋转 + Z 位移 + 透视距离（0=无透视）。任一非零即走投影路径。
+	rotateX, rotateY float32
+	transZ           float32
+	perspective      float32
+}
+
+func (t layerTransform) is3D() bool {
+	return t.rotateX != 0 || t.rotateY != 0 || t.transZ != 0
 }
 
 // ---- 录制后端（测试用，无需 GPU）----

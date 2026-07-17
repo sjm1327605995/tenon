@@ -136,6 +136,11 @@ type renderNode struct {
 	rotate         float32
 	transX, transY float32
 
+	// 伪 3D（仅绘制阶段，不入 yoga）
+	rotateX, rotateY float32
+	transZ           float32
+	perspective      float32
+
 	// 投影（box-shadow）
 	shadowColor              Color
 	shadowX, shadowY         float32
@@ -152,8 +157,13 @@ type renderNode struct {
 func (rn *renderNode) effTransX() float32 { return rn.transX + rn.offX }
 func (rn *renderNode) effTransY() float32 { return rn.transY + rn.offY }
 
+// has3D 表示本节点带伪 3D 变换（需要走投影绘制路径）。
+func (rn *renderNode) has3D() bool {
+	return rn.rotateX != 0 || rn.rotateY != 0 || rn.transZ != 0
+}
+
 func (rn *renderNode) hasTransform() bool {
-	return rn.scale != 1 || rn.rotate != 0 || rn.effTransX() != 0 || rn.effTransY() != 0
+	return rn.scale != 1 || rn.rotate != 0 || rn.effTransX() != 0 || rn.effTransY() != 0 || rn.has3D()
 }
 
 func (rn *renderNode) needsLayer() bool {
@@ -620,6 +630,9 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.scale = s.scale
 	rn.rotate = s.rotate
 	rn.transX, rn.transY = s.transX*k, s.transY*k
+	rn.rotateX, rn.rotateY = s.rotateX, s.rotateY
+	rn.transZ = s.transZ * k           // Z 位移随 uiScale 换算到物理像素
+	rn.perspective = s.perspective * k // 透视距离同为物理像素，与投影坐标同一量纲
 
 	rn.hasShadow = s.hasShadow
 	rn.shadowColor = s.shadowColor
@@ -703,8 +716,11 @@ func paintLayer(p painter, rn *renderNode) {
 	b := rn.bounds
 	p.EndLayer(layerTransform{
 		cx: b.X + b.W/2, cy: b.Y + b.H/2,
+		w: b.W, h: b.H,
 		scale: rn.scale, rotate: rn.rotate,
 		tx: rn.effTransX(), ty: rn.effTransY(), opacity: o,
+		rotateX: rn.rotateX, rotateY: rn.rotateY,
+		transZ: rn.transZ, perspective: rn.perspective,
 	})
 }
 
