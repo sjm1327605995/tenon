@@ -15,7 +15,7 @@ import (
 //
 // 把 painter 原语翻译成 gio 的 op.Ops。坐标为物理像素，与 gio 的 op 像素空间 1:1。
 // 裁剪/图层用 clip 栈、op.Record 宏 + op.Affine + gpaint.PushOpacity 表达。
-// 注：伪 3D（rotateX/Y/透视）在 gio 上不支持，EndLayer 只施加 2D 仿射 + 整组透明度。
+// 伪 3D（rotateX/Y/透视）由 EndLayer 分流到 gio_3d.go；纯 2D 时只施加仿射 + 整组透明度。
 
 func nrgba(c Color) color.NRGBA           { return color.NRGBA{R: c.R, G: c.G, B: c.B, A: c.A} }
 func gioOffset(x, y float32) f32.Affine2D { return f32.Affine2D{}.Offset(f32.Pt(x, y)) }
@@ -262,7 +262,7 @@ func (p *gioPainter) EndLayer(t layerTransform) {
 	call := p.layers[n].Stop()
 	p.layers = p.layers[:n]
 
-	if t.is3D() { // 伪 3D：仿射表达不了透视，改走网格投影重放
+	if t.is3D() { // 伪 3D：单个仿射表达不了透视，改走裁剪+仿射的投影路径
 		p.drawProjected(call, t)
 		return
 	}

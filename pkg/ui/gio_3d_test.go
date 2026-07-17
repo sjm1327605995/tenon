@@ -52,10 +52,10 @@ func TestProject3DBasics(t *testing.T) {
 	}
 }
 
-// 网格仿射必须精确落在三个角上（第四角是近似，不校验）。
-func TestCellAffineMapsCorners(t *testing.T) {
+// 投影仿射必须精确落在三个角上（第四角是近似，由裁剪兜底，不校验）。
+func TestProjAffineMapsCorners(t *testing.T) {
 	d0, d1, d2 := f32.Pt(10, 20), f32.Pt(40, 25), f32.Pt(12, 60)
-	a := cellAffine(0, 0, 10, 20, d0, d1, d2)
+	a := projAffine(0, 0, 10, 20, d0, d1, d2)
 
 	for _, c := range []struct {
 		src  f32.Point
@@ -136,9 +136,9 @@ func TestGio3DCardIsProjected(t *testing.T) {
 	}
 }
 
-// 卡片里的文字必须跟着一起投影变形。这正是网格重放相对「逐图元投影」的价值所在：
+// 卡片里的文字必须跟着一起投影变形。这正是「重放整棵子树」相对「逐图元投影」的价值所在：
 // 字形轮廓由 shaper 给出（clip.PathSpec），拿不到顶点、无法自己重投影，
-// 但整棵子树可以被重放到每个投影格里。
+// 但整棵子树可以被套上投影仿射重放一遍。
 func TestGio3DWarpsTextToo(t *testing.T) {
 	win, err := headless.NewWindow(300, 240)
 	if err != nil {

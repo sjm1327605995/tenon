@@ -21,7 +21,7 @@ type painter interface {
 // layerTransform 是一个图层合回时施加的变换 + 整组透明度（围绕中心 cx,cy）。
 type layerTransform struct {
 	cx, cy        float32 // 元素中心（变换与透视的锚点）
-	w, h          float32 // 元素尺寸（伪 3D 投影按它划分网格）
+	w, h          float32 // 元素尺寸（伪 3D 按四角投影求仿射时要用）
 	scale, rotate float32 // 2D 缩放 + 绕 Z 轴旋转
 	tx, ty        float32
 	opacity       float32

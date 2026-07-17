@@ -11,20 +11,37 @@ import (
 
 // ---- gio 后端：伪 3D 投影 ----
 //
-// 把已录制的图层（op.Record 宏）按透视投影贴回屏幕，实现 CSS 的
+// 把已录制的图层（op.Record 宏）按透视贴回屏幕，实现 CSS 的
 // transform: perspective(p) rotateX(rx) rotateY(ry) translateZ(tz)。内容仍是平面，
-// 只是被投影到一个四边形上 —— 所谓「伪 3D」。
+// 只是被贴到一个倾斜的四边形上 —— 所谓「伪 3D」。
 //
-// 做法：Ebiten 那套（离屏纹理 + 带 UV 的贴图网格）在 gio 上行不通，gio 的公开 API
-// 既不提供渲染到纹理、也没有逐顶点贴图。但 gio 的宏（op.CallOp）可以被反复重放，
-// 于是改成：把元素划成 n×n 网格，每个小格「裁剪到投影后的四边形 + 施加该格的仿射」
-// 再重放一次整棵子树。单个仿射无法表达透视，但每个小格内的透视近似为仿射，网格够密
-// 就足够像。文字与图片也因此会跟着变形（若逐图元投影则做不到，字形轮廓无法重投影）。
+// 做法是把「形状」和「内容」分开（细节见 drawProjected）：
 //
-// 代价是子树被重放 n×n 次，所以网格取得克制。
-
-// gio3DGrid 是每个方向上的网格数。密度越高越接近真实透视，代价是子树重放次数按平方增长。
-const gio3DGrid = 8
+//   - 形状用裁剪：裁到四角真实投影出的四边形，于是远端真的更窄 —— 透视收缩靠它。
+//   - 内容用仿射：由其中三角唯一确定，重放整棵子树。文字和图片因此会一起变形
+//     （逐图元投影做不到这点：字形轮廓是 shaper 给的不透明 PathSpec，无法重投影）。
+//
+// Ebiten 那套「离屏纹理 + 带 UV 的贴图网格」在 gio 上行不通：公开 API 既不提供渲染到
+// 纹理，也没有逐顶点贴图；而 op.Affine 是仿射，表达不了透视。
+//
+// # 已知边界：这是近似，不是精确投影
+//
+// 仿射有 6 个自由度、四角是 8 个约束，所以内容只能匹配三角，第四角必然偏（见 projErr）。
+// 由此有两处近似，都实测过、都不显眼：
+//
+//   - 内容是斜切而非透视。偏差随元素尺寸与倾角增长（80×110 的卡 45° 下约 21px；
+//     150×180 在 60° 强透视下约 68px）。它连续平滑，读起来像「图案所在平面略有偏差」。
+//   - 可见轮廓是「裁剪梯形 ∩ 仿射平行四边形」，不是纯梯形 —— 内容并不总能填满裁剪，
+//     实测覆盖率 80%~99%（见 TestProjectedContentFillsClipQuad）。但两个凸四边形的交集
+//     仍是凸四边形，看上去就是一张角度略有不同的卡，覆盖率 0.80 时肉眼也看不出缺角。
+//
+// 要消掉这两点就得把仿射放大到包住裁剪四边形，代价是卡面内容被放大、边缘被裁掉 ——
+// 那个代价比这两处偏差显眼得多，所以不做。
+//
+// 曾用 n×n 网格逐格近似来消除这个斜切，结果远比它糟（见 git 历史）：每格各用一个仿射，
+// 内容跨格对不上会撕裂，且格内内容填不满自己的裁剪格、缺口露出底色 —— 密度越高越像
+// 铺了层铁丝网。裁剪外扩、仿射外扩、两者同扩都试过，都盖不住。教训是：形状错了一眼可见，
+// 内容斜切几乎看不见，所以该把裁剪的精度用在轮廓上，而不是去细分内容。
 
 // project3D 把元素平面上的一点（相对元素中心的偏移）投影到屏幕坐标。
 // 顺序与 CSS 的 rotateX(rx) rotateY(ry) 书写序一致：先绕 Y 再绕 X，然后透视除法，
@@ -62,10 +79,9 @@ func project3D(t layerTransform, ox, oy float32) f32.Point {
 	)
 }
 
-// cellAffine 求把源矩形 [sx0,sx1]×[sy0,sy1] 映射到 (d0,d1,d2) 的仿射矩阵，
-// 其中 d0/d1/d2 分别是该格左上/右上/左下角的投影点。三点唯一确定一个仿射；
-// 第四角的偏差就是本格内以仿射近似透视的误差，网格越密越小。
-func cellAffine(sx0, sy0, sx1, sy1 float32, d0, d1, d2 f32.Point) f32.Affine2D {
+// projAffine 求把源矩形 [sx0,sx1]×[sy0,sy1] 映射到 (d0,d1,d2) 的仿射矩阵，
+// 其中 d0/d1/d2 分别是左上/右上/左下角的投影点。三点唯一确定一个仿射。
+func projAffine(sx0, sy0, sx1, sy1 float32, d0, d1, d2 f32.Point) f32.Affine2D {
 	w, h := sx1-sx0, sy1-sy0
 	if w == 0 || h == 0 {
 		return f32.AffineId()
@@ -80,57 +96,51 @@ func cellAffine(sx0, sy0, sx1, sy1 float32, d0, d1, d2 f32.Point) f32.Affine2D {
 	)
 }
 
-// drawProjected 用网格重放把录制好的图层按透视贴回。
+// projErr 量化内容的斜切程度：仿射把第四角映到哪、与真透视差多少。轮廓由裁剪保证，
+// 所以这不是形状误差，只是卡面内部图案的偏差。元素越大、倾角越陡越大。仅用于测试与诊断。
+func projErr(t layerTransform) float32 {
+	d0, d1, d2 := project3D(t, -t.w/2, -t.h/2), project3D(t, t.w/2, -t.h/2), project3D(t, -t.w/2, t.h/2)
+	d3 := project3D(t, t.w/2, t.h/2)
+	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
+	got := projAffine(x0, y0, x0+t.w, y0+t.h, d0, d1, d2).Transform(f32.Pt(x0+t.w, y0+t.h))
+	return absf(got.X-d3.X) + absf(got.Y-d3.Y)
+}
+
+// drawProjected 把录制好的图层按透视贴回：形状和内容分开处理。
+//
+//   - 形状：裁到四角真实投影出的四边形 —— 透视收缩（远端更窄）由它带来。
+//   - 内容：用三角仿射重放 —— 内部略有斜切，但连续、无撕裂。
+//
+// 内容并不总能填满裁剪四边形（实测覆盖 80%~99%），所以可见轮廓其实是两者的交集。
+// 那仍是个凸四边形、看着就是张卡，不值得为此放大内容去硬填满 —— 见文件头「已知边界」。
 func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 	if t.opacity <= 0 || t.w <= 0 || t.h <= 0 {
 		return
 	}
-	const n = gio3DGrid
+	d0 := project3D(t, -t.w/2, -t.h/2) // 左上
+	d1 := project3D(t, t.w/2, -t.h/2)  // 右上
+	d2 := project3D(t, -t.w/2, t.h/2)  // 左下
+	d3 := project3D(t, t.w/2, t.h/2)   // 右下
 	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
 
-	// 先算好 (n+1)² 个网格顶点的投影，供相邻格共用（保证格与格严丝合缝）。
-	pts := make([]f32.Point, (n+1)*(n+1))
-	for j := 0; j <= n; j++ {
-		for i := 0; i <= n; i++ {
-			ox := -t.w/2 + t.w*float32(i)/n
-			oy := -t.h/2 + t.h*float32(j)/n
-			pts[j*(n+1)+i] = project3D(t, ox, oy)
-		}
-	}
+	var quad clip.Path
+	quad.Begin(p.ops)
+	quad.MoveTo(d0)
+	quad.LineTo(d1)
+	quad.LineTo(d3)
+	quad.LineTo(d2)
+	quad.Close()
+	cl := clip.Outline{Path: quad.End()}.Op().Push(p.ops)
 
+	tr := op.Affine(projAffine(x0, y0, x0+t.w, y0+t.h, d0, d1, d2)).Push(p.ops)
 	var os gpaint.OpacityStack
 	if t.opacity < 1 {
 		os = gpaint.PushOpacity(p.ops, t.opacity)
 	}
-	for j := 0; j < n; j++ {
-		for i := 0; i < n; i++ {
-			d0 := pts[j*(n+1)+i]       // 左上
-			d1 := pts[j*(n+1)+i+1]     // 右上
-			d2 := pts[(j+1)*(n+1)+i]   // 左下
-			d3 := pts[(j+1)*(n+1)+i+1] // 右下
-
-			sx0 := x0 + t.w*float32(i)/n
-			sy0 := y0 + t.h*float32(j)/n
-			sx1 := x0 + t.w*float32(i+1)/n
-			sy1 := y0 + t.h*float32(j+1)/n
-
-			// 裁到投影后的四边形：相邻格共用顶点，因此彼此贴合、不重不漏。
-			var quad clip.Path
-			quad.Begin(p.ops)
-			quad.MoveTo(d0)
-			quad.LineTo(d1)
-			quad.LineTo(d3)
-			quad.LineTo(d2)
-			quad.Close()
-			cl := clip.Outline{Path: quad.End()}.Op().Push(p.ops)
-
-			tr := op.Affine(cellAffine(sx0, sy0, sx1, sy1, d0, d1, d2)).Push(p.ops)
-			call.Add(p.ops) // 重放整棵子树，只有本格内的部分能透过裁剪显出来
-			tr.Pop()
-			cl.Pop()
-		}
-	}
+	call.Add(p.ops)
 	if t.opacity < 1 {
 		os.Pop()
 	}
+	tr.Pop()
+	cl.Pop()
 }
