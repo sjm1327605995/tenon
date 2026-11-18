@@ -157,6 +157,11 @@ type renderNode struct {
 	hasPrevPos         bool
 	prevPosX, prevPosY float32
 	offX, offY         float32
+
+	// 数据绑定（Signal 直写）：按信号身份去重的活跃订阅。
+	// effect 闭包随每次 attach 刷新（见 sigSub），故 map 只负责去重不负责比较闭包。
+	sigSubs   map[uintptr]*sigSub // 文本内容绑定（Bind）
+	inputSubs map[uintptr]*sigSub // 输入框值绑定（BindInput）
 }
 
 func (rn *renderNode) effTransX() float32 { return rn.transX + rn.offX }
@@ -511,8 +516,8 @@ func decodeImageSource(src string) (image.Image, error) {
 	return img, err
 }
 
-// applyHostProps 把某个 host 元素的属性写入其 renderNode。
-func applyHostProps(rn *renderNode, hp hostProps) {
+// applyHostProps 把某个 host 元素的属性写入其 renderNode。f 用于登记绑定清理（BindInput）。
+func applyHostProps(f *Fiber, rn *renderNode, hp hostProps) {
 	syncYoga(rn, hp.style)
 	rn.onClick = hp.onClick
 	rn.onHover = hp.onHover
@@ -527,7 +532,12 @@ func applyHostProps(rn *renderNode, hp hostProps) {
 	switch rn.kind {
 	case rnInput:
 		rn.applyTextStyle(hp.style)
-		rn.value = hp.value
+		if hp.bindValue != nil {
+			// 双向绑定：值由信号接管（含打字回写），订阅幂等（按信号身份去重）。
+			hp.bindValue.attach(f, rn)
+		} else {
+			rn.value = hp.value
+		}
 		rn.placeholder = hp.placeholder
 		rn.multiline = hp.multiline
 		rn.onChange = hp.onChange

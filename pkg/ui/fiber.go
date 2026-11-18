@@ -37,10 +37,16 @@ type Fiber struct {
 	queued    bool
 	unmounted bool
 
+	// cleanups 是卸载时要执行的清理（Store/Signal 订阅退订等），由 addCleanup 登记。
+	cleanups []func()
+
 	// 错误边界（ErrorBoundary）：捕获后代 render 期的 panic
 	errBoundary bool
 	caughtErr   any
 }
+
+// addCleanup 登记卸载清理（订阅退订等）。多次登记的函数按登记顺序执行。
+func (f *Fiber) addCleanup(fn func()) { f.cleanups = append(f.cleanups, fn) }
 
 // boundaryCount 是活动 ErrorBoundary 数量；为 0 时 renderComponent 走无 defer 的快路径。
 var boundaryCount int
@@ -109,11 +115,12 @@ func mountFiber(parent *Fiber, n *Node) *Fiber {
 		f.tag = n.tag
 		f.rnode = newHostRenderNode(n.tag)
 		f.rnode.owner = f
-		applyHostProps(f.rnode, buildHostProps(n))
+		applyHostProps(f, f.rnode, buildHostProps(n))
 		f.children = mountList(f, n.kids)
 	case typeText:
 		f.rnode = newTextRenderNode(n.text, n.textStyle, cloneRuns(n.runs))
 		f.rnode.owner = f
+		attachTextBinds(f, n.binds, f.rnode)
 	case typeIcon:
 		f.rnode = newIconRenderNode(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
 		f.rnode.owner = f
@@ -159,10 +166,16 @@ func updateFiber(f *Fiber, n *Node) {
 		f.portalTrap = n.trap
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeHost:
-		applyHostProps(f.rnode, buildHostProps(n))
+		applyHostProps(f, f.rnode, buildHostProps(n))
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeText:
-		f.rnode.setText(n.text, n.textStyle, cloneRuns(n.runs))
+		if len(n.binds) > 0 {
+			// 绑定节点：文本由 Signal 直写，样式仍随 render 更新；占位 text 不覆盖活值。
+			f.rnode.applyTextStyle(n.textStyle)
+			attachTextBinds(f, n.binds, f.rnode)
+		} else {
+			f.rnode.setText(n.text, n.textStyle, cloneRuns(n.runs))
+		}
 	case typeIcon:
 		f.rnode.setIcon(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
 	}
@@ -229,6 +242,11 @@ func unmount(f *Fiber) {
 			e.cleanup = nil
 		}
 	}
+	// 通用清理（Store/Signal 订阅退订等）。
+	for _, c := range f.cleanups {
+		c()
+	}
+	f.cleanups = nil
 	for _, c := range f.children {
 		unmount(c)
 	}

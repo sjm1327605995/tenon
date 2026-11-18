@@ -7,7 +7,10 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/sjm1327605995/tenon/pkg/shadcn"
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
@@ -45,6 +48,9 @@ func registry() []group {
 			c("Switch", "switch", "在开启与关闭两种状态间切换的开关。", pvSwitch),
 			c("Radio Group", "radio-group", "一组单选项，同一时刻只能选中其中一个。", pvRadio),
 			c("Slider", "slider", "通过拖动在给定范围内选择一个数值。", pvSlider),
+		}},
+		{"状态", []comp{
+			c("Store & Signal", "store", "树外共享状态（Store，组件级重渲染）与高频叶子绑定（Signal，直写节点）。", pvStore),
 		}},
 		{"展示", []comp{
 			c("Badge", "badge", "用于标注状态或分类的小徽标。", pvBadge),
@@ -426,6 +432,59 @@ func pvTabs(_ struct{}) *ui.Node {
 func pvTooltip(_ struct{}) *ui.Node {
 	return shadcn.Tooltip("这是一个提示浮层",
 		shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline}, ui.Text("悬停我")))
+}
+
+// ---------- Store & Signal 数据绑定 ----------
+
+var (
+	pvCount = ui.NewStore(0)    // 树外共享状态：两个互不嵌套的组件读写同一份
+	pvFeed  = ui.NewSignal(0.0) // 高频值：signal 直写文本节点，不走组件重渲染
+	pvName  = ui.NewSignal("")  // 输入框双向绑定
+	feedOnce sync.Once
+)
+
+// startFeed 模拟一个后台数据源：每秒推一个值，经 ui.Post 回 UI 线程写信号。
+// 懒启动：第一次渲染该预览时才起 goroutine；信号无订阅者时 Set 不唤醒渲染循环。
+func startFeed() {
+	feedOnce.Do(func() {
+		go func() {
+			for now := range time.Tick(time.Second) {
+				v := 24 + 8*math.Sin(float64(now.Unix()))
+				ui.Post(func() { pvFeed.Set(v) })
+			}
+		}()
+	})
+}
+
+func pvStore(_ struct{}) *ui.Node {
+	th := ui.UseTheme()
+	startFeed()
+	return ui.VStack(20, ui.Style(ui.Width(360)),
+		ui.VStack(6,
+			shadcn.Label("Store：两个独立组件共享计数"),
+			ui.HStack(10, storeCounterBtn(), storeCounterBtn())),
+		ui.VStack(6,
+			shadcn.Label("Signal：每秒直写文本（零重渲染）"),
+			ui.Text("", ui.FontSize(26), ui.Semibold,
+				ui.Bind(pvFeed, func(v float64) string { return fmt.Sprintf("%.1f ℃", v) })),
+			muted(th, "更新绕过组件 reconcile，只重排这一个文本节点", 12)),
+		ui.VStack(6,
+			shadcn.Label("Signal：输入框双向绑定"),
+			ui.Input(ui.Style(ui.Height(36), ui.Width(280), ui.PaddingXY(12, 0), ui.Radius(th.Radius),
+				ui.Border(1, th.Input), ui.FontSize(14)), ui.BindInput(pvName)),
+			ui.Text("", ui.FontSize(13), ui.Bind(pvName, func(v string) string {
+				if v == "" {
+					return "输入内容实时同步到这里"
+				}
+				return "你输入了：" + v
+			}))))
+}
+
+func storeCounterBtn() *ui.Node {
+	n := ui.UseStore(pvCount, func(s int) int { return s })
+	return shadcn.Button(shadcn.ButtonProps{Variant: shadcn.Outline, OnClick: func() {
+		pvCount.Update(func(v int) int { return v + 1 })
+	}}, ui.Text(fmt.Sprintf("计数 %d", n)))
 }
 
 // ---------- 滚动淡入容器 ----------

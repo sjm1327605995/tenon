@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"image"
 	"reflect"
 )
@@ -33,6 +34,7 @@ type Node struct {
 	text      string
 	textStyle StyleProps
 	runs      []textRun // 富文本：多段混排样式（RichText）
+	binds     []textBinding // Signal 内容绑定（Bind），变化直写 renderNode
 
 	// icon（SVG 图标）/ vector（原始像素坐标路径）
 	iconPath   string
@@ -69,6 +71,7 @@ type hostProps struct {
 	// input
 	value         string
 	hasValue      bool
+	bindValue     valueBinding // BindInput：非 nil 时 value/onChange 由信号接管
 	onChange      func(string)
 	onSubmit      func(string)
 	placeholder   string
@@ -158,13 +161,25 @@ func grouped(t nodeType, args []*Node) *Node {
 	return n
 }
 
-// Text 是文本节点，可选自带样式（颜色/字号）。
-func Text(s string, opts ...StyleOpt) *Node {
+// Text 是文本节点，可选自带样式（颜色/字号）。args 里可混入 *Binding[T]（ui.Bind 产生）：
+// 信号变化时直写文本、组件不重渲染；此时 s 只是占位，挂载即被 format(sig.Get()) 覆盖。
+func Text(s string, args ...any) *Node {
 	st := newStyleProps()
-	for _, o := range opts {
-		o(&st)
+	var binds []textBinding
+	for _, a := range args {
+		switch v := a.(type) {
+		case StyleOpt:
+			v(&st)
+		case func(*StyleProps):
+			// 裸 func 字面量（未经 StyleOpt 类型转换）也要认，保持旧签名 ...StyleOpt 的隐式转换行为。
+			v(&st)
+		case textBinding:
+			binds = append(binds, v)
+		default:
+			panic(fmt.Sprintf("ui.Text: 不支持的参数类型 %T（允许 StyleOpt 或 ui.Bind 产生的绑定）", a))
+		}
 	}
-	return &Node{typ: typeText, text: s, textStyle: st}
+	return &Node{typ: typeText, text: s, textStyle: st, binds: binds}
 }
 
 // RichText 在单个文本节点内混排多段不同样式的文字（富文本 span）。
