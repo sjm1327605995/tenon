@@ -16,6 +16,15 @@ type painter interface {
 	PopClip()
 	BeginLayer()
 	EndLayer(t layerTransform)
+	// 投影层（伪 3D）：逐元素录制、逐元素仿射回放。BeginProjected/EndProjected 之间
+	// 用 BeginProjectedElement/EndProjectedElement 成对包裹每个元素的绘制（第一个元素
+	// 应是层自身，rect 传层的 bounds）；回放时每个元素贴自己四角投影的前三角 ——
+	// 斜切误差从「整层尺寸」降到「元素尺寸」。命中端用 elementContentAffine 的逆，
+	// 与绘制端共用同一份 projAffine，画哪点哪。
+	BeginProjected(t layerTransform)
+	BeginProjectedElement(r Rect)
+	EndProjectedElement()
+	EndProjected()
 }
 
 // layerTransform 是一个图层合回时施加的变换 + 整组透明度（围绕中心 cx,cy）。
@@ -55,7 +64,7 @@ func (t layerTransform) is3D() bool {
 // PaintOp 是一条绘制指令记录。Harness.Paint 返回其有序列表，用于无头断言"画了什么"
 // （黄金测试）：颜色、位置、文本、裁剪/图层边界都可检查，无需真实渲染。
 type PaintOp struct {
-	Kind           string // rect / stroke / shadow / line / text / image / clip / unclip / layer / unlayer
+	Kind           string // rect / stroke / shadow / line / text / image / clip / unclip / layer / unlayer / projlayer / unprojlayer / projelement / unprojelement
 	Rect           Rect
 	Radius, Width  float32
 	Color          Color
@@ -101,4 +110,17 @@ func (p *recordPainter) PopClip()    { p.ops = append(p.ops, PaintOp{Kind: "uncl
 func (p *recordPainter) BeginLayer() { p.ops = append(p.ops, PaintOp{Kind: "layer"}) }
 func (p *recordPainter) EndLayer(t layerTransform) {
 	p.ops = append(p.ops, PaintOp{Kind: "unlayer", Opacity: t.opacity})
+}
+func (p *recordPainter) BeginProjected(t layerTransform) {
+	p.ops = append(p.ops, PaintOp{Kind: "projlayer",
+		Rect: Rect{X: t.cx - t.w/2, Y: t.cy - t.h/2, W: t.w, H: t.h}, Opacity: t.opacity})
+}
+func (p *recordPainter) BeginProjectedElement(r Rect) {
+	p.ops = append(p.ops, PaintOp{Kind: "projelement", Rect: r})
+}
+func (p *recordPainter) EndProjectedElement() {
+	p.ops = append(p.ops, PaintOp{Kind: "unprojelement"})
+}
+func (p *recordPainter) EndProjected() {
+	p.ops = append(p.ops, PaintOp{Kind: "unprojlayer"})
 }

@@ -35,7 +35,8 @@ func TestHitFollows3DProjection(t *testing.T) {
 		tree := Div(Style(Width(900), Height(900), ItemsCenter, JustifyCenter), Div(rowNodes...))
 		h := Mount(Use(func(struct{}) *Node { return tree }, struct{}{}), 900, 900)
 
-		// 牌桌（带 3D 的那层）的仿射决定卡被画到哪
+		// 牌桌（带 3D 的那层）的层变换；内容按「元素」投影（paintProjectedLayer），
+		// 每张卡属于它所在的那一行（board 的直接子元素），要用行自己的三角仿射算画面位置。
 		var board *renderNode
 		var find func(*renderNode)
 		find = func(r *renderNode) {
@@ -50,15 +51,30 @@ func TestHitFollows3DProjection(t *testing.T) {
 		if board == nil {
 			t.Fatal("没找到带 3D 的牌桌")
 		}
-		aff := contentAffine(layerOf(board, nil))
+		lt := layerOf(board, nil)
+		// 沿祖先链找到 board 的直接子元素（= 投影元素）。
+		elementOf := func(rn *renderNode) *renderNode {
+			for r := rn; r != nil; r = r.parent {
+				if r.parent == board {
+					return r
+				}
+			}
+			return nil
+		}
 
 		miss, maxShift := 0, float32(0)
 		for r := 0; r < rows; r++ {
 			for c := 0; c < cols; c++ {
 				name := fmt.Sprintf("r%dc%d", r, c)
 				rn := h.Root().ByText(name).rn.parent
-				// 卡牌中心实际被画到哪：用绘制所用的同一个仿射
+				// 卡牌中心实际被画到哪：用该投影元素（行）的同一个仿射
 				cb := rn.bounds
+				el := elementOf(rn)
+				if el == nil {
+					t.Fatalf("%s 不在牌桌上？", name)
+				}
+				eb := el.bounds
+				aff := elementContentAffine(lt, eb)
 				ctr := aff.transform(pt{cb.X + cb.W/2, cb.Y + cb.H/2})
 				if d := absf(ctr.Y - (cb.Y + cb.H/2)); d > maxShift {
 					maxShift = d

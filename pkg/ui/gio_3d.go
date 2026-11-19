@@ -13,33 +13,37 @@ import (
 // transform: perspective(p) rotateX(rx) rotateY(ry) translateZ(tz)。内容仍是平面，
 // 只是被贴到一个倾斜的四边形上 —— 所谓「伪 3D」。
 //
-// 做法是把「形状」和「内容」分开（细节见 drawProjected）：
+// 做法是把「形状」和「内容」分开（细节见 replayProjected）：
 //
 //   - 形状用裁剪：裁到四角真实投影出的四边形，于是远端真的更窄 —— 透视收缩靠它。
-//   - 内容用仿射：由其中三角唯一确定，重放整棵子树。文字和图片因此会一起变形
-//     （逐图元投影做不到这点：字形轮廓是 shaper 给的不透明 PathSpec，无法重投影）。
+//   - 内容用仿射：每个元素贴自己四角投影的前三角，重放该元素的宏。文字和图片因此
+//     会一起变形（逐图元投影做不到这点：字形轮廓是 shaper 给的不透明 PathSpec，
+//     无法重投影）。
+//
+// 内容按「元素」拆分（paintProjectedLayer）：一个投影层 = 层自身 + 每个直接子元素
+// 各录一个宏，回放时各用自己的三角仿射。仿射第四角的误差随元素尺寸增长，拆到元素
+// 粒度后，层里一行 150×20 的文字斜切只有亚像素级；仍带可见斜切的只剩「元素自身
+// 就是一大块图」的情形（铺满层的大图）—— 那正是 PlaneImage 用精确单应解决的场景。
 //
 // Ebiten 那套「离屏纹理 + 带 UV 的贴图网格」在 gio 上行不通：公开 API 既不提供渲染到
 // 纹理，也没有逐顶点贴图；而 op.Affine 是仿射，表达不了透视。
 //
-// # 已知边界：这是近似，不是精确投影
+// # 已知边界：元素级近似，不是精确投影
 //
-// 仿射有 6 个自由度、四角是 8 个约束，所以内容只能匹配三角，第四角必然偏（见 projErr）。
-// 由此有两处近似，都实测过、都不显眼：
+// 仿射有 6 个自由度、四角是 8 个约束，所以单个元素的内容只能匹配三角，第四角必然偏
+//（误差随元素尺寸与倾角增长，见 projErr）。逐元素拆分把它从「整层尺寸」压到「元素
+// 尺寸」：80×110 的卡 45° 下曾斜 21px，卡内一行文字现在只剩零点几 px。它连续平滑，
+// 读起来像「图案所在平面略有偏差」。
 //
-//   - 内容是斜切而非透视。偏差随元素尺寸与倾角增长（80×110 的卡 45° 下约 21px；
-//     150×180 在 60° 强透视下约 68px）。它连续平滑，读起来像「图案所在平面略有偏差」。
-//   - 可见轮廓是「裁剪梯形 ∩ 仿射平行四边形」，不是纯梯形 —— 内容并不总能填满裁剪，
-//     实测覆盖率 80%~99%（见 TestProjectedContentFillsClipQuad）。但两个凸四边形的交集
-//     仍是凸四边形，看上去就是一张角度略有不同的卡，覆盖率 0.80 时肉眼也看不出缺角。
-//
-// 要消掉这两点就得把仿射放大到包住裁剪四边形，代价是卡面内容被放大、边缘被裁掉 ——
-// 那个代价比这两处偏差显眼得多，所以不做。
+// 可见轮廓仍是「裁剪梯形 ∩ 仿射平行四边形」的交集，不是纯梯形 —— 内容并不总能填满
+// 裁剪（实测覆盖率 80%~99%），但两个凸四边形的交集仍是凸四边形，看上去就是一张角度
+// 略有不同的卡，不值得为此放大内容去硬填满。
 //
 // 曾用 n×n 网格逐格近似来消除这个斜切，结果远比它糟（见 git 历史）：每格各用一个仿射，
 // 内容跨格对不上会撕裂，且格内内容填不满自己的裁剪格、缺口露出底色 —— 密度越高越像
-// 铺了层铁丝网。裁剪外扩、仿射外扩、两者同扩都试过，都盖不住。教训是：形状错了一眼可见，
-// 内容斜切几乎看不见，所以该把裁剪的精度用在轮廓上，而不是去细分内容。
+// 铺了层铁丝网。逐元素拆分没有这个病：元素的边界正是内容自身的边界，不存在跨格内容。
+// 教训是：形状错了一眼可见，内容斜切几乎看不见，所以该把裁剪的精度用在轮廓上，
+// 而不是去细分内容。
 
 // gioPt / gioAffine 是中立投影数学（project3d.go）到 gio 类型的适配 —— 边界只在这里。
 func gioPt(p pt) f32.Point { return f32.Pt(p.X, p.Y) }
@@ -55,20 +59,59 @@ func gioAffine(a affine2D) f32.Affine2D {
 //
 // 内容并不总能填满裁剪四边形（实测覆盖 80%~99%），所以可见轮廓其实是两者的交集。
 // 那仍是个凸四边形、看着就是张卡，不值得为此放大内容去硬填满 —— 见文件头「已知边界」。
+//
+// 本函数现在只服务于直接调 EndLayer(3D) 的路径（场景底背景等单元素层）；
+// 带子元素的投影层走 paintProjectedLayer 的逐元素回放（见文件头）。
 func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 	if t.opacity <= 0 || t.w <= 0 || t.h <= 0 {
 		return
 	}
-	// 角点相对投影原点的偏移。无相机时原点即元素中心，偏移就是 ±w/2、±h/2；
-	// 有相机时原点是场景中心，元素按自身位置投影，因此同场景元素灭点一致。
-	ox, oy := t.origin()
-	x0, y0 := t.cx-t.w/2, t.cy-t.h/2
-	x1, y1 := x0+t.w, y0+t.h
-	d0 := project3D(t, x0-ox, y0-oy) // 左上
-	d1 := project3D(t, x1-ox, y0-oy) // 右上
-	d2 := project3D(t, x0-ox, y1-oy) // 左下
-	d3 := project3D(t, x1-ox, y1-oy) // 右下
+	// 单元素层：元素矩形即层矩形，退化为整层单仿射。
+	r := Rect{X: t.cx - t.w/2, Y: t.cy - t.h/2, W: t.w, H: t.h}
+	p.replayProjected(projLayerRec{t: t, elements: []projElement{{call: call, r: r}}})
+}
 
+// ---- 逐元素投影（paintProjectedLayer 的录制与回放）----
+//
+// 一个投影层不再录成一个宏、回放时套整层单仿射，而是拆成「层自身 + 每个直接子元素」
+// 各自成宏，回放时每个元素贴自己四角投影的前三角（elementContentAffine）。
+// 仿射的第四角误差随元素尺寸增长，拆到元素粒度后，层里 150×20 的一行文字斜切从
+// 「整层尺寸决定的几十 px」降到亚像素级；只剩元素自身那么大的一整块图（铺满层的大图）
+// 仍有可见斜切 —— 那正是 PlaneImage 的场景。
+
+func (p *gioPainter) BeginProjected(t layerTransform) {
+	p.projs = append(p.projs, projLayerRec{t: t})
+}
+
+func (p *gioPainter) BeginProjectedElement(r Rect) {
+	p.projEl = append(p.projEl, projElementRec{r: r, macro: op.Record(p.ops)})
+}
+
+func (p *gioPainter) EndProjectedElement() {
+	n := len(p.projEl) - 1
+	e := p.projEl[n]
+	p.projEl = p.projEl[:n]
+	call := e.macro.Stop()
+	top := &p.projs[len(p.projs)-1]
+	top.elements = append(top.elements, projElement{call: call, r: e.r})
+}
+
+func (p *gioPainter) EndProjected() {
+	n := len(p.projs) - 1
+	rec := p.projs[n]
+	p.projs = p.projs[:n]
+	p.replayProjected(rec)
+}
+
+// replayProjected 回放一个投影层：整层裁到真实投影四边形（形状精确），
+// 每个元素用自己的三角仿射重放（斜切误差 = 元素尺寸级）。
+func (p *gioPainter) replayProjected(rec projLayerRec) {
+	t := rec.t
+	if t.opacity <= 0 || len(rec.elements) == 0 {
+		return
+	}
+	// 整层裁剪：四角真实投影出的四边形 —— 透视收缩（远端更窄）由它带来。
+	d0, d1, d2, d3 := projCorners(t)
 	var quad clip.Path
 	quad.Begin(p.ops)
 	quad.MoveTo(gioPt(d0))
@@ -78,15 +121,20 @@ func (p *gioPainter) drawProjected(call op.CallOp, t layerTransform) {
 	quad.Close()
 	cl := clip.Outline{Path: quad.End()}.Op().Push(p.ops)
 
-	tr := op.Affine(gioAffine(contentAffine(t))).Push(p.ops)
 	var os gpaint.OpacityStack
 	if t.opacity < 1 {
 		os = gpaint.PushOpacity(p.ops, t.opacity)
 	}
-	call.Add(p.ops)
+	for _, e := range rec.elements {
+		if e.r.W <= 0 || e.r.H <= 0 {
+			continue // 零尺寸元素：其仿射退化为恒等，内容也必然为空
+		}
+		tr := op.Affine(gioAffine(elementContentAffine(t, e.r))).Push(p.ops)
+		e.call.Add(p.ops)
+		tr.Pop()
+	}
 	if t.opacity < 1 {
 		os.Pop()
 	}
-	tr.Pop()
 	cl.Pop()
 }

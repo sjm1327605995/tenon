@@ -851,10 +851,54 @@ func paintLayer(p painter, rn *renderNode, cam *camera3D) {
 	t := layerOf(rn, cam) // 先取，下面会临时改 rn.opacity
 	o := rn.opacity
 	rn.opacity = 1 // 组透明度在合成时统一施加，内部按不透明绘制
-	p.BeginLayer()
-	paintNode(p, rn, nil) // 子树在本图层内扁平化
+	if t.is3D() {
+		paintProjectedLayer(p, rn, t)
+	} else {
+		p.BeginLayer()
+		paintNode(p, rn, nil) // 子树在本图层内扁平化
+		p.EndLayer(t)
+	}
 	rn.opacity = o
-	p.EndLayer(t)
+}
+
+// paintProjectedLayer 把投影层按「元素」拆开录制回放：层自身 + 每个直接子元素各录一个宏，
+// 回放时各用自己的三角仿射（elementContentAffine），斜切误差从整层尺寸降到元素尺寸。
+// 裁剪仍用整层投影四边形、溢出行为与整层单仿射一致；命中端 hitNodeIn 的逐元素逆仿射
+// 与这里共用同一份数学，画哪点哪。
+func paintProjectedLayer(p painter, rn *renderNode, t layerTransform) {
+	b := rn.bounds
+	p.BeginProjected(t)
+
+	// 元素 0：层自身 visuals（阴影/背景/边框/文字/图片/图标）。
+	p.BeginProjectedElement(b)
+	paintSelf(p, rn)
+	p.EndProjectedElement()
+
+	// 每个直接子元素各成宏；层裁剪跨子元素联合生效（录进各元素的宏里，
+	// 与整层单仿射时录在同一个宏中同理 —— 裁剪矩形随所属元素的仿射变形）。
+	for _, c := range paintOrder(rn) {
+		p.BeginProjectedElement(c.bounds)
+		if rn.clip {
+			p.PushClip(b, rn.radius)
+			paintIn(p, c, nil)
+			p.PopClip()
+		} else {
+			paintIn(p, c, nil)
+		}
+		p.EndProjectedElement()
+	}
+
+	// 末元素：滚动条与焦点环（画在子元素之上，与 paintNode 的顺序一致）。
+	p.BeginProjectedElement(b)
+	if rn.scroll && rn.contentH > b.H {
+		drawScrollbar(p, rn)
+	}
+	if rn.focusable && isFocused(rn) {
+		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
+	}
+	p.EndProjectedElement()
+
+	p.EndProjected()
 }
 
 func paintNode(p painter, rn *renderNode, cam *camera3D) {
@@ -1238,6 +1282,8 @@ func hitNode(rn *renderNode, px, py float32) *renderNode { return hitNodeIn(rn, 
 //
 //   - 场景根：子元素各自透过相机独立投影、不跟随场景自身的变换（对应 paintScene），
 //     所以子节点拿到的是原始屏幕点 + 相机，而不是场景反变换后的点。
+//   - 投影层（3D 变换或相机子元素，对应 paintProjectedLayer）：逐元素投影 —— 每个直接
+//     子元素用它自己的三角仿射逆，与绘制端共用 elementContentAffine，画哪点哪。
 //   - 其他节点：子树随本节点一起被变换、在层内是扁平的（对应 paintLayer 传 nil），
 //     所以子节点拿反变换后的点、且不再带相机。
 func hitNodeIn(rn *renderNode, px, py float32, cam *camera3D) *renderNode {
@@ -1246,11 +1292,36 @@ func hitNodeIn(rn *renderNode, px, py float32, cam *camera3D) *renderNode {
 	if rn.clip && !inside {
 		return nil // 裁剪容器：框外的后代不可见，也就不可命中（scroll 容器同样置了 clip）
 	}
-	cx, cy, childCam := lx, ly, (*camera3D)(nil)
 	if rn.scene3D {
-		cx, cy, childCam = px, py, cameraOf(rn)
+		cx, cy, childCam := px, py, cameraOf(rn)
+		return rn.hitChildren(cx, cy, childCam, inside)
 	}
-	// 逆着绘制顺序找：上层优先。与 paint 共用 paintOrder，顺序不可能分岔。
+	if t := layerOf(rn, cam); (rn.hasTransform() || cam != nil) && t.is3D() {
+		// 层自身 visuals 的命中用 invTransform（元素 0 的仿射即层的 contentAffine，
+		// 与 elementContentAffine(t, rn.bounds) 一致）；子元素逐个用自己的逆仿射。
+		t := t
+		order := paintOrder(rn)
+		for i := len(order) - 1; i >= 0; i-- {
+			c := order[i]
+			q := elementContentAffine(t, c.bounds).invert().transform(pt{px, py})
+			if rn.clip && !rn.bounds.contains(q.X, q.Y) {
+				continue // 被层裁剪挡住的元素不可命中
+			}
+			if h := hitNodeIn(c, q.X, q.Y, nil); h != nil {
+				return h
+			}
+		}
+		if inside {
+			return rn
+		}
+		return nil
+	}
+	return rn.hitChildren(lx, ly, nil, inside)
+}
+
+// hitChildren 逆绘制顺序命中子节点（上层优先），未命中且自身 inside 时返回自己。
+// 与 paint 共用 paintOrder，顺序不可能分岔。
+func (rn *renderNode) hitChildren(cx, cy float32, childCam *camera3D, inside bool) *renderNode {
 	order := paintOrder(rn)
 	for i := len(order) - 1; i >= 0; i-- {
 		if h := hitNodeIn(order[i], cx, cy, childCam); h != nil {

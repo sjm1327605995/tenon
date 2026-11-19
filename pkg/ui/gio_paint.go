@@ -51,8 +51,28 @@ func (p *gioPainter) buildPath(gp *gioPath, ox, oy float32) clip.PathSpec {
 type gioPainter struct {
 	ops    *op.Ops
 	w, h   int
-	clips  []func()     // PushClip/PopClip 的出栈回调（LIFO）
-	layers []op.MacroOp // BeginLayer/EndLayer 的宏栈
+	clips  []func()         // PushClip/PopClip 的出栈回调（LIFO）
+	layers []op.MacroOp     // BeginLayer/EndLayer 的宏栈
+	projs  []projLayerRec   // BeginProjected/EndProjected 的投影层栈
+	projEl []projElementRec // BeginProjectedElement/EndProjectedElement 的元素录制栈
+}
+
+// projLayerRec 是一个投影层的录制结果：层变换 + 逐元素宏。
+type projLayerRec struct {
+	t        layerTransform
+	elements []projElement
+}
+
+// projElement 是投影层里的一个元素：其内容录制成的宏 + 元素矩形（决定它自己的仿射）。
+type projElement struct {
+	call op.CallOp
+	r    Rect
+}
+
+// projElementRec 是录制中的元素（宏尚未 Stop）。
+type projElementRec struct {
+	r     Rect
+	macro op.MacroOp
 }
 
 func newGioPainter(ops *op.Ops, w, h int) *gioPainter { return &gioPainter{ops: ops, w: w, h: h} }

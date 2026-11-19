@@ -107,6 +107,19 @@ func contentAffine(t layerTransform) affine2D {
 	return projAffine(x0, y0, x0+t.w, y0+t.h, d0, d1, d2)
 }
 
+// elementContentAffine 是逐元素投影里某个元素实际被施加的仿射：把元素矩形贴到它
+// 自己四角投影的前三角。projAffine 与 contentAffine 同源（contentAffine 即
+// r=层自身时的特例）；绘制端（replayProjected）与命中端（hitNodeIn）共用本函数，
+// 逐元素也不会画点分岔。
+func elementContentAffine(t layerTransform, r Rect) affine2D {
+	et := t
+	et.cx = r.X + r.W/2
+	et.cy = r.Y + r.H/2
+	et.w, et.h = r.W, r.H
+	d0, d1, d2, _ := projCorners(et)
+	return projAffine(r.X, r.Y, r.X+r.W, r.Y+r.H, d0, d1, d2)
+}
+
 // projErr 量化内容的斜切程度：仿射把第四角映到哪、与真透视差多少。轮廓由裁剪保证，
 // 所以这不是形状误差，只是元素内部图案的偏差。元素越大、倾角越陡越大。仅用于测试与诊断。
 func projErr(t layerTransform) float32 {

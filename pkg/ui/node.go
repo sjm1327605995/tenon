@@ -33,7 +33,7 @@ type Node struct {
 	// text
 	text      string
 	textStyle StyleProps
-	runs      []textRun // 富文本：多段混排样式（RichText）
+	runs      []textRun     // 富文本：多段混排样式（RichText）
 	binds     []textBinding // Signal 内容绑定（Bind），变化直写 renderNode
 
 	// icon（SVG 图标）/ vector（原始像素坐标路径）

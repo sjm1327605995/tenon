@@ -111,7 +111,7 @@ func TestUseStoreUnsubscribesOnUnmount(t *testing.T) {
 // ---------- Signal ----------
 
 var (
-	testSig       = NewSignal(0)
+	testSig        = NewSignal(0)
 	sigBindRenders int
 )
 
