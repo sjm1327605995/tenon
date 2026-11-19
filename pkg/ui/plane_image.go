@@ -62,20 +62,22 @@ func maxf(a, b float32) float32 {
 }
 
 // warpPlane 把 src 按 t 的精确投影预变形，返回一张覆盖投影四边形包围盒的 RGBA。
-//
-// 走逆映射（对每个目标像素反解出源像素）而不是正映射：正映射会在放大处留下未写到的
-// 空洞，逆映射天然每个目标像素都有值。
+// 与 warpQuad 同一实现 —— unitToQuad 的逆映射直接给出单位坐标，源图铺满单位正方形。
 func warpPlane(src image.Image, t layerTransform, box Rect) *image.RGBA {
+	d0, d1, d2, d3 := projCorners(t)
+	return warpQuad(src, d0, d1, d2, d3, box)
+}
+
+// warpLoop 是逆映射变形的公共像素循环：对 box 内每个目标像素，inv 反解出源图单位
+// 坐标；落在消失线上或单位正方形之外的像素留透明（包围盒四角不会糊上边缘色）。
+func warpLoop(src image.Image, inv homography, box Rect) *image.RGBA {
 	w, h := int(box.W), int(box.H)
 	if w <= 0 || h <= 0 {
 		return nil
 	}
 	out := image.NewRGBA(image.Rect(0, 0, w, h))
-	inv := planeHomography(t).invert()
 
 	sb := src.Bounds()
-	// 元素矩形 -> 源图像素的换算：地板铺满整个元素
-	ex0, ey0 := t.cx-t.w/2, t.cy-t.h/2
 	sw, sh := float32(sb.Dx()), float32(sb.Dy())
 
 	// 转成 RGBA 直接索引，避免逐像素走 At() 的接口开销与颜色模型转换
@@ -94,13 +96,11 @@ func warpPlane(src image.Image, t layerTransform, box Rect) *image.RGBA {
 			if !ok {
 				continue // 落在消失线上：该像素不属于这个平面
 			}
-			// 元素坐标 -> 源图像素
-			u := (p.X - ex0) / t.w * sw
-			v := (p.Y - ey0) / t.h * sh
-			if u < 0 || v < 0 || u >= sw || v >= sh {
-				continue // 投影四边形之外：留透明，这样包围盒的四角不会糊上边缘色
+			su, sv := p.X*sw, p.Y*sh
+			if su < 0 || sv < 0 || su >= sw || sv >= sh {
+				continue // 四边形之外：留透明
 			}
-			si := rgba.PixOffset(sb.Min.X+int(u), sb.Min.Y+int(v))
+			si := rgba.PixOffset(sb.Min.X+int(su), sb.Min.Y+int(sv))
 			di := out.PixOffset(x, y)
 			copy(out.Pix[di:di+4], rgba.Pix[si:si+4])
 		}
@@ -140,4 +140,63 @@ func paintPlaneImage(p painter, rn *renderNode, cam *camera3D) bool {
 	}
 	p.DrawImage(bmp, box, rn.opacity)
 	return true
+}
+
+// ---- 任意四边形的精确单应贴图（投影层内普通图片用）----
+//
+// 逐元素投影把斜切压到元素尺寸级（见 gio_3d.go），但「元素自身就是一整块图」时误差
+// 仍随图的大小增长 —— 倾斜卡片上铺满的照片是最显眼的例子。这样的元素走这里：按四角
+// 真实投影预变形后正着贴，与 PlaneImage 同一份数学（unitToQuad），只是四边形直接
+// 来自 projCorners，不必凑一个 layerTransform。
+
+// quadCache 缓存「源图 + 目标四边形」的预变形结果。动画期间四边形每帧都变、每帧
+// 都会新增条目，所以设上限：满了整体清空（动画是突发性的，清空后热点条目会迅速重建）。
+var quadCache = map[string]planeCacheEntry{}
+
+const quadCacheLimit = 64
+
+func quadCacheKey(key string, d0, d1, d2, d3 pt) string {
+	return fmt.Sprintf("%s|%.2f,%.2f|%.2f,%.2f|%.2f,%.2f|%.2f,%.2f",
+		key, d0.X, d0.Y, d1.X, d1.Y, d2.X, d2.Y, d3.X, d3.Y)
+}
+
+// quadBBox 返回四边形的屏幕包围盒（向外取整到整像素）。
+func quadBBox(d0, d1, d2, d3 pt) Rect {
+	minX := minf(minf(d0.X, d1.X), minf(d2.X, d3.X))
+	maxX := maxf(maxf(d0.X, d1.X), maxf(d2.X, d3.X))
+	minY := minf(minf(d0.Y, d1.Y), minf(d2.Y, d3.Y))
+	maxY := maxf(maxf(d0.Y, d1.Y), maxf(d2.Y, d3.Y))
+	x0 := float32(math.Floor(float64(minX)))
+	y0 := float32(math.Floor(float64(minY)))
+	x1 := float32(math.Ceil(float64(maxX)))
+	y1 := float32(math.Ceil(float64(maxY)))
+	return Rect{x0, y0, x1 - x0, y1 - y0}
+}
+
+// warpQuad 把 src（铺满单位正方形）按逆映射映到四边形，返回覆盖包围盒的 RGBA。
+// 与 warpPlane 同一套 warpLoop，单应由四角直接构造。
+func warpQuad(src image.Image, d0, d1, d2, d3 pt, box Rect) *image.RGBA {
+	return warpLoop(src, unitToQuad(d0, d1, d3, d2).invert(), box)
+}
+
+// quadBitmap 取（或建）「源图 -> 四边形」的预变形结果；命中缓存时零成本。
+func quadBitmap(key string, src image.Image, d0, d1, d2, d3 pt) (bitmap, Rect, bool) {
+	box := quadBBox(d0, d1, d2, d3)
+	if box.W <= 0 || box.H <= 0 {
+		return nil, Rect{}, false
+	}
+	ck := quadCacheKey(key, d0, d1, d2, d3)
+	if e, ok := quadCache[ck]; ok {
+		return e.bmp, e.origin, true
+	}
+	img := warpQuad(src, d0, d1, d2, d3, box)
+	if img == nil {
+		return nil, Rect{}, false
+	}
+	if len(quadCache) >= quadCacheLimit {
+		quadCache = map[string]planeCacheEntry{} // 见 quadCache 注释：动画突发清空
+	}
+	bmp := backendNewBitmap(img)
+	quadCache[ck] = planeCacheEntry{bmp: bmp, origin: box}
+	return bmp, box, true
 }

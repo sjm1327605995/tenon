@@ -1,6 +1,9 @@
 package ui
 
-import "testing"
+import (
+	"image"
+	"testing"
+)
 
 // elemErr 量化逐元素投影的斜切：元素四角投影的第四角，与「元素自己的三角仿射映过去」差多少。
 // 与 projErr（整层）同算法，只是把 contentAffine 换成 elementContentAffine。
@@ -156,5 +159,97 @@ func TestHitUsesElementAffine(t *testing.T) {
 	}
 	if clicked == "row" {
 		t.Error("点整层单仿射的旧位置竟命中 row —— 命中与绘制可能用了不同的矩阵")
+	}
+}
+
+// ---------- 自动精确单应贴图（projExactImage）----------
+
+// 结构黄金测试：投影层里的「纯图片」元素（FitFill、无变换/阴影）自动走精确单应贴图；
+// 带 object-fit 变换的图片保持常规元素路径。
+func TestPaintProjectedImageElements(t *testing.T) {
+	pic := func(fit ObjectFit) *Node {
+		img := image.NewRGBA(image.Rect(0, 0, 60, 40))
+		n := Img(SrcImage("k", img), Style(Width(200), Height(120)))
+		if fit != FitFill {
+			n = Img(SrcImage("k", img), Style(Width(200), Height(120)), Fit(fit))
+		}
+		return n
+	}
+	build := func(fit ObjectFit, extra ...StyleOpt) []PaintOp {
+		st := append([]StyleOpt{Width(400), Height(300), Perspective(600), RotateX(40), Column}, extra...)
+		tree := Div(Style(st...), pic(fit))
+		h := Mount(Use(func(struct{}) *Node { return tree }, struct{}{}), 500, 500)
+		return h.Paint()
+	}
+
+	// 纯图片：projimage（层无裁剪时）。
+	found := false
+	for _, op := range build(FitFill) {
+		if op.Kind == "projimage" {
+			found = true
+		}
+		if op.Kind == "projelement" && op.Rect.W == 200 {
+			t.Error("纯图片不应再走常规元素录制")
+		}
+	}
+	if !found {
+		t.Fatal("纯图片未走精确单应贴图（projimage）")
+	}
+
+	// 层带 Clip：走带裁剪的精确贴图。
+	found = false
+	for _, op := range build(FitFill, Clip) {
+		if op.Kind == "projimageclip" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("带 Clip 的层里纯图片应走带裁剪的精确贴图（projimageclip）")
+	}
+
+	// object-fit=Cover：语义不只是"一块图"，保持常规元素路径。
+	found = false
+	for _, op := range build(FitCover) {
+		if op.Kind == "projimage" || op.Kind == "projimageclip" {
+			found = true
+		}
+	}
+	if found {
+		t.Error("object-fit≠Fill 的图片不应被自动单应拦截")
+	}
+}
+
+// quadBitmap 的数学与缓存：四角必须精确落在给定四边形上（单应的立身之本）；
+// 同参数必须命中缓存（动画期间不能每帧重算）。
+func TestQuadBitmapHitsCornersAndCaches(t *testing.T) {
+	quadCache = map[string]planeCacheEntry{}
+	t.Cleanup(func() { quadCache = map[string]planeCacheEntry{} })
+
+	src := image.NewRGBA(image.Rect(0, 0, 64, 48))
+	d0 := pt{100, 80}
+	d1 := pt{340, 60}
+	d2 := pt{80, 240}
+	d3 := pt{360, 260}
+
+	bmp, box, ok := quadBitmap("t", src, d0, d1, d2, d3)
+	if !ok {
+		t.Fatal("quadBitmap 失败")
+	}
+	if bmp == nil || box.W <= 0 || box.H <= 0 {
+		t.Fatalf("退化结果 bmp=%v box=%v", bmp, box)
+	}
+	// 包围盒必须含住四角（角恰好落在 ceil 边界上也算：盒右/下缘像素中心仍在角内侧）
+	for _, c := range []pt{d0, d1, d2, d3} {
+		if c.X < box.X || c.X > box.X+box.W || c.Y < box.Y || c.Y > box.Y+box.H {
+			t.Fatalf("角 %v 不在包围盒 %v 内", c, box)
+		}
+	}
+	// 缓存命中：同参数不新增条目
+	if n := len(quadCache); n != 1 {
+		t.Fatalf("缓存条数=%d, want 1", n)
+	}
+	quadBitmap("t", src, d0, d1, d2, d3)
+	if n := len(quadCache); n != 1 {
+		t.Fatalf("同参数重复调用后缓存条数=%d —— 没命中缓存，每帧都在重算", n)
 	}
 }

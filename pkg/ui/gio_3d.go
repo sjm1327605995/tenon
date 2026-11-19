@@ -22,8 +22,12 @@ import (
 //
 // 内容按「元素」拆分（paintProjectedLayer）：一个投影层 = 层自身 + 每个直接子元素
 // 各录一个宏，回放时各用自己的三角仿射。仿射第四角的误差随元素尺寸增长，拆到元素
-// 粒度后，层里一行 150×20 的文字斜切只有亚像素级；仍带可见斜切的只剩「元素自身
-// 就是一大块图」的情形（铺满层的大图）—— 那正是 PlaneImage 用精确单应解决的场景。
+// 粒度后，层里一行 150×20 的文字斜切只有亚像素级。
+//
+// 「元素自身就是一整块图」的纯图片（铺满层的大图、倾斜的照片）是剩余误差的集中地，
+// 由 projExactImage 自动识别、走精确单应贴图（ProjectedImage，与 PlaneImage 同一份
+// unitToQuad 数学）—— 无需调用方换用特殊组件。仍带可见斜切的只剩拒绝自动拦截的
+// 情形：object-fit≠Fill、带阴影/变换的复合元素。
 //
 // Ebiten 那套「离屏纹理 + 带 UV 的贴图网格」在 gio 上行不通：公开 API 既不提供渲染到
 // 纹理，也没有逐顶点贴图；而 op.Affine 是仿射，表达不了透视。
@@ -96,6 +100,16 @@ func (p *gioPainter) EndProjectedElement() {
 	top.elements = append(top.elements, projElement{call: call, r: e.r})
 }
 
+func (p *gioPainter) ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32) {
+	top := &p.projs[len(p.projs)-1]
+	e := projElement{img: img, quad: quad, key: cacheKey, opacity: opacity, clipR: clipR}
+	if clip != nil {
+		c := *clip
+		e.clip = &c
+	}
+	top.elements = append(top.elements, e)
+}
+
 func (p *gioPainter) EndProjected() {
 	n := len(p.projs) - 1
 	rec := p.projs[n]
@@ -126,6 +140,28 @@ func (p *gioPainter) replayProjected(rec projLayerRec) {
 		os = gpaint.PushOpacity(p.ops, t.opacity)
 	}
 	for _, e := range rec.elements {
+		// 精确单应贴图元素：整块图预变形到四角的真实投影，绕开仿射斜切。
+		if e.img != nil {
+			gi, ok := e.img.(*gioImage)
+			if !ok {
+				continue
+			}
+			bmp, box, ok := quadBitmap(e.key, gi.src, e.quad[0], e.quad[1], e.quad[2], e.quad[3])
+			if !ok {
+				continue
+			}
+			if e.clip != nil {
+				// 层裁剪：圆角矩形路径在元素仿射下构造（变形方式与常规元素路径一致）。
+				tr := op.Affine(gioAffine(elementContentAffine(t, e.r))).Push(p.ops)
+				st := p.rrectOp(e.clip.X, e.clip.Y, e.clip.W, e.clip.H, e.clipR).Push(p.ops)
+				p.DrawImage(bmp, box, e.opacity)
+				st.Pop()
+				tr.Pop()
+			} else {
+				p.DrawImage(bmp, box, e.opacity)
+			}
+			continue
+		}
 		if e.r.W <= 0 || e.r.H <= 0 {
 			continue // 零尺寸元素：其仿射退化为恒等，内容也必然为空
 		}

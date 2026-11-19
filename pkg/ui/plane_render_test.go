@@ -12,8 +12,14 @@ import (
 
 // 地板贴图必须朝灭点收敛：远端窄、近端宽。
 //
-// 这是 PlaneImage 存在的全部理由。普通 Img 走仿射，把地板画成平行四边形 —— 对边等长、
-// 不收敛，于是卡牌（各自精确投影）和格子对不上。判据就取「顶部一行的宽度 vs 底部一行」。
+// 两条路径都要收敛、且测得一致：
+//   - PlaneImage：显式声明的地板，按场景层单应预变形（paintScene 背景层，无子元素机制）。
+//   - 普通 Img：投影层里的纯图片元素自动走精确单应贴图（projExactImage），
+//     与 PlaneImage 同一份 unitToQuad 数学、四角同取 projCorners。
+//
+// 历史上普通 Img 走仿射、画成不收敛的平行四边形，本测试曾用它作反例来证明 PlaneImage
+// 的价值；逐元素投影 + 自动单应贴图之后，仿射地板这条路已被移除 —— 前提更新为
+// 「两者都必须收敛」。
 func TestPlaneImageConvergesToVanishingPoint(t *testing.T) {
 	const W, H = 640, 480
 	win, err := headless.NewWindow(W, H)
@@ -77,8 +83,8 @@ func TestPlaneImageConvergesToVanishingPoint(t *testing.T) {
 		plane   bool
 		wantCvg bool
 	}{
-		{"普通 Img（仿射）", false, false},
-		{"PlaneImage（单应）", true, true},
+		{"普通 Img（自动单应）", false, true},
+		{"PlaneImage（显式单应）", true, true},
 	} {
 		img := render(tc.plane)
 		top, bot := span(img)

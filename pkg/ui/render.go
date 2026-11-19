@@ -870,13 +870,36 @@ func paintProjectedLayer(p painter, rn *renderNode, t layerTransform) {
 	p.BeginProjected(t)
 
 	// 元素 0：层自身 visuals（阴影/背景/边框/文字/图片/图标）。
-	p.BeginProjectedElement(b)
-	paintSelf(p, rn)
-	p.EndProjectedElement()
+	// 层自身就是一整块纯图片时同样走精确单应贴图（投影层本身即图片的常见形态：
+	// Scene3D 里的 Img 子元素、倾斜的照片卡）。
+	if projExactImage(rn) {
+		d0, d1, d2, d3 := projCorners(t)
+		p.ProjectedImage(rn.img, [4]pt{d0, d1, d2, d3}, 1, rn.imgSrc, nil, 0)
+	} else {
+		p.BeginProjectedElement(b)
+		paintSelf(p, rn)
+		p.EndProjectedElement()
+	}
 
 	// 每个直接子元素各成宏；层裁剪跨子元素联合生效（录进各元素的宏里，
 	// 与整层单仿射时录在同一个宏中同理 —— 裁剪矩形随所属元素的仿射变形）。
+	// 「元素自身就是一整块图」的纯图片走精确单应贴图（projExactImage），
+	// 仿射斜切对整块图最显眼，按四角真实投影预变形后正着贴。
+	var layerClip *Rect
+	if rn.clip {
+		c := Rect{X: b.X, Y: b.Y, W: b.W, H: b.H}
+		layerClip = &c
+	}
 	for _, c := range paintOrder(rn) {
+		if projExactImage(c) {
+			et := t
+			et.cx = c.bounds.X + c.bounds.W/2
+			et.cy = c.bounds.Y + c.bounds.H/2
+			et.w, et.h = c.bounds.W, c.bounds.H
+			d0, d1, d2, d3 := projCorners(et)
+			p.ProjectedImage(c.img, [4]pt{d0, d1, d2, d3}, c.opacity, c.imgSrc, layerClip, rn.radius)
+			continue
+		}
 		p.BeginProjectedElement(c.bounds)
 		if rn.clip {
 			p.PushClip(b, rn.radius)
@@ -899,6 +922,14 @@ func paintProjectedLayer(p painter, rn *renderNode, t layerTransform) {
 	p.EndProjectedElement()
 
 	p.EndProjected()
+}
+
+// projExactImage 判断元素能否走「精确单应贴图」：元素自身就是一整块图时仿射斜切
+// 最显眼（误差随图尺寸增长），值得按四角真实投影预变形。要求是纯图片 —— 无变换/
+// 阴影/适配变形，否则视觉语义不只"一块图"（或还有阴影要画），交回常规元素路径。
+func projExactImage(c *renderNode) bool {
+	return c.kind == rnImage && c.img != nil && c.objectFit == FitFill &&
+		!c.needsLayer() && !c.hasShadow
 }
 
 func paintNode(p painter, rn *renderNode, cam *camera3D) {

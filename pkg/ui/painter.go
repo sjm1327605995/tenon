@@ -24,6 +24,11 @@ type painter interface {
 	BeginProjected(t layerTransform)
 	BeginProjectedElement(r Rect)
 	EndProjectedElement()
+	// ProjectedImage 在投影层里登记一个「精确单应贴图」元素：整块图按 quad（元素四角的
+	// 真实投影，顺序 左上/右上/左下/右下）预变形后正着贴，绕开仿射斜切 —— 用于「元素
+	// 自身就是一整块图」的情形。clip 非 nil 时按层裁剪矩形+圆角裁剪（裁剪路径随元素
+	// 仿射变形，与常规元素路径一致）。cacheKey 标识图像内容。
+	ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32)
 	EndProjected()
 }
 
@@ -120,6 +125,14 @@ func (p *recordPainter) BeginProjectedElement(r Rect) {
 }
 func (p *recordPainter) EndProjectedElement() {
 	p.ops = append(p.ops, PaintOp{Kind: "unprojelement"})
+}
+func (p *recordPainter) ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32) {
+	r := quadBBox(quad[0], quad[1], quad[2], quad[3])
+	kind := "projimage"
+	if clip != nil {
+		kind = "projimageclip"
+	}
+	p.ops = append(p.ops, PaintOp{Kind: kind, Rect: r, Radius: clipR, Opacity: opacity})
 }
 func (p *recordPainter) EndProjected() {
 	p.ops = append(p.ops, PaintOp{Kind: "unprojlayer"})

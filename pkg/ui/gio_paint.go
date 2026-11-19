@@ -63,10 +63,18 @@ type projLayerRec struct {
 	elements []projElement
 }
 
-// projElement 是投影层里的一个元素：其内容录制成的宏 + 元素矩形（决定它自己的仿射）。
+// projElement 是投影层里的一个元素：其内容录制成的宏 + 元素矩形（决定它自己的仿射）；
+// 或一个「精确单应贴图」元素（img 非 nil，call 无效 —— 整块图预变形后正着贴）。
 type projElement struct {
 	call op.CallOp
 	r    Rect
+
+	img     bitmap
+	quad    [4]pt
+	key     string
+	opacity float32
+	clip    *Rect // 层裁剪矩形（nil=不裁）；裁剪路径随元素仿射变形
+	clipR   float32
 }
 
 // projElementRec 是录制中的元素（宏尚未 Stop）。
