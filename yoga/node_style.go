@@ -101,16 +101,36 @@ func (n *Node) StyleSetOverflow(overflow Overflow) {
 
 // StyleSetDisplay
 func (n *Node) StyleSetDisplay(display Display) {
-	if n.getStyle().display() != display {
-		n.getStyle().setDisplay(display)
-		n.markDirtyAndPropagate()
+	previous := n.getStyle().display()
+	if previous == display {
+		return
 	}
+	if n.owner_ != nil {
+		if previous != DisplayContents && display == DisplayContents {
+			n.owner_.contentsChildrenCount_++
+		} else if previous == DisplayContents && display != DisplayContents {
+			n.owner_.contentsChildrenCount_--
+		}
+	}
+	n.getStyle().setDisplay(display)
+	n.markDirtyAndPropagate()
 }
 
 // StyleGetDisplay
 func (n *Node) StyleGetDisplay() Display {
 	return n.getStyle().display()
 }
+
+// StyleSetBoxSizing controls whether dimensions include padding and border.
+func (n *Node) StyleSetBoxSizing(boxSizing BoxSizing) {
+	if n.getStyle().boxSizing() != boxSizing {
+		n.getStyle().setBoxSizing(boxSizing)
+		n.markDirtyAndPropagate()
+	}
+}
+
+// StyleGetBoxSizing returns the dimension sizing model.
+func (n *Node) StyleGetBoxSizing() BoxSizing { return n.getStyle().boxSizing() }
 
 // StyleSetFlex
 func (n *Node) StyleSetFlex(flex float32) {
@@ -293,6 +313,15 @@ func (n *Node) StyleSetPositionPercent(edge Edge, position float32) {
 	}
 }
 
+// StyleSetPositionAuto resets an inset to auto.
+func (n *Node) StyleSetPositionAuto(edge Edge) {
+	value := CompactValueOfAuto()
+	if !n.getStyle().position(edge).Equal(value) {
+		n.getStyle().setPosition(edge, value)
+		n.markDirtyAndPropagate()
+	}
+}
+
 // StyleGetPosition
 func (n *Node) StyleGetPosition(edge Edge) Value {
 	position := n.getStyle().position(edge).Value()
@@ -386,6 +415,15 @@ func (n *Node) StyleGetBorder(edge Edge) float32 {
 // StyleSetGap
 func (n *Node) StyleSetGap(gutter Gutter, gapLength float32) {
 	value := CompactValueOfPoint(gapLength)
+	if !n.getStyle().gap_[gutter].Equal(value) {
+		n.getStyle().gap_[gutter] = value
+		n.markDirtyAndPropagate()
+	}
+}
+
+// StyleSetGapPercent sets a gap as a percentage of the corresponding container axis.
+func (n *Node) StyleSetGapPercent(gutter Gutter, gapLength float32) {
+	value := CompactValuePercent(gapLength)
 	if !n.getStyle().gap_[gutter].Equal(value) {
 		n.getStyle().gap_[gutter] = value
 		n.markDirtyAndPropagate()
@@ -496,6 +534,9 @@ func (n *Node) StyleGetMaxHeight() Value {
 // StyleSetAspectRatio
 func (n *Node) StyleSetAspectRatio(aspectRatio float32) {
 	value := NewFloatOptional(aspectRatio)
+	if aspectRatio == 0 || IsInf(aspectRatio, 0) {
+		value = undefinedFloatOptional
+	}
 	if !n.getStyle().aspectRatio().equal(value) {
 		n.getStyle().aspectRatio_ = value
 		n.markDirtyAndPropagate()

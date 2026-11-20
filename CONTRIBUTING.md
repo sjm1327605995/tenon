@@ -21,12 +21,26 @@ If you find a bug or have a feature request, please submit an issue on GitHub. B
 5. **Update** documentation if your changes affect the API
 6. **Submit** a Pull Request with a clear description
 
-## 🛠️ Development Setup
+## Development Setup
 
 ### Prerequisites
 
-- Go 1.21 or later
+- Go 1.24 or later
 - Git
+- A desktop session for running windowed examples
+
+On Ubuntu, install Gio's native build dependencies before building or testing:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y \
+  pkg-config libwayland-dev libx11-dev libx11-xcb-dev \
+  libxkbcommon-dev libxkbcommon-x11-dev \
+  libgles2-mesa-dev libegl1-mesa-dev libffi-dev \
+  libxcursor-dev libxfixes-dev libvulkan-dev
+```
+
+This matches the dependency list in [CI](.github/workflows/ci.yml). The Linux test wrappers additionally require `xvfb`.
 
 ### Local Development
 
@@ -42,7 +56,7 @@ go mod download
 go test ./...
 
 # Run the demo
-go run cmd/demo/main.go
+go run ./example/accordion
 ```
 
 ## 📋 Code Style
@@ -52,7 +66,7 @@ go run cmd/demo/main.go
 - Keep functions focused and reasonably sized
 - Prefer explicit error handling over panics in library code
 
-## 🧪 Testing
+## Testing
 
 - Add tests for new features and bug fixes
 - Ensure all tests pass before submitting PRs
@@ -60,12 +74,22 @@ go run cmd/demo/main.go
 
 ```bash
 # Run all tests
+go build ./...
+go vet ./...
 go test ./...
+
+# Check interaction bounds (no window required)
+go run _debug_snapshot/test_v3.go
+
+# Detect data races (requires cgo and a C compiler)
+go test -race ./...
 
 # Run specific package tests with verbose output
 go test ./pkg/ui/ -v
 go test ./yoga/ -v
 ```
+
+`make lint` runs `go vet ./...`. On Linux without a display, install `xvfb` and run `./scripts/test.sh ./...`; `make test` uses the environment-detecting wrapper and preserves test failures in its exit status. On Windows, the Go commands above can be run directly in PowerShell.
 
 ## 🏗️ Project Structure
 
@@ -73,9 +97,10 @@ When adding new features, please respect the existing architecture (see [ARCHITE
 
 - `pkg/ui/` — Framework core: elements, hooks, reconciler, layout, rendering, input
 - `pkg/shadcn/` — shadcn/ui-style component library built on `pkg/ui`
-- `pkg/font/` — Font management
+- `pkg/decl/`, `pkg/value/`, `pkg/router/` — declarations, data binding, and navigation
+- `pkg/hotreload/` — Yaegi-based live preview
 - `yoga/` — Yoga layout engine (Go port, minimize changes)
-- `example/` — Runnable example programs (`hooks-*`, `shadcn-*`)
+- `example/` — Runnable examples: `accordion`, `card3d`, `component`, `router`, `simple`, `struct`
 
 ## 📝 Documentation
 
@@ -85,16 +110,17 @@ When adding new features, please respect the existing architecture (see [ARCHITE
 
 ## 🎯 Component Development Guide
 
-Components are **plain functions** of props returning a `*ui.Node` — there is no base type to
-embed and no `Draw` method to implement. The engine (`pkg/ui`) owns rendering; a component only
-describes what it wants.
+Components describe a UI tree; the engine (`pkg/ui`) owns layout and rendering. For application
+components with persistent fields and lifecycle context, embed `ui.Component` and implement
+`Render() ui.NodeSource`; see the [quick start](README.md#quick-start) and
+[component example](example/component). Use `value.Bind[T]` for data that controls text and inputs.
 
-A public constructor wraps the function with `ui.Use`, which gives it a fiber identity so hooks
-have somewhere to live:
+Function components remain useful for reusable widgets. A public constructor wraps a function
+with `ui.Use`, which gives it a fiber identity so hooks have somewhere to live:
 
 ```go
-// SwitchProps 是组件的输入。用 props 结构体而不是链式方法：字段可选、可比较，
-// 引擎据此做浅比较来跳过没必要的重渲染。
+// SwitchProps 集中描述组件配置，字段可选；引擎据此比较输入并决定是否重渲染。
+// 返回的 *ui.Node 可继续链式设置通用布局、样式和事件；复杂配置仍保留在 props 中。
 type SwitchProps struct {
     Checked  bool
     Disabled bool
@@ -138,6 +164,7 @@ reconcile → layout → hit-test → event path, so assert what a user would ob
 
 ```go
 h := ui.Mount(Switch(SwitchProps{Checked: false, OnChange: set}), 200, 100)
+defer h.Close()
 h.ClickAt(16, 9)
 // 断言 OnChange 真的被调用了，而不是断言构造函数返回了非 nil
 ```

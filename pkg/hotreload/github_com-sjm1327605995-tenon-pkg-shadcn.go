@@ -108,6 +108,8 @@ func init() {
 		"TableHead":         reflect.ValueOf(shadcn.TableHead),
 		"TableRow":          reflect.ValueOf(shadcn.TableRow),
 		"Tabs":              reflect.ValueOf(shadcn.Tabs),
+		"TextButton":        reflect.ValueOf(shadcn.TextButton),
+		"TextField":         reflect.ValueOf(shadcn.TextField),
 		"TextMuted":         reflect.ValueOf(shadcn.TextMuted),
 		"Textarea":          reflect.ValueOf(shadcn.Textarea),
 		"Toast":             reflect.ValueOf(shadcn.Toast),

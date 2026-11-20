@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"image"
 	"reflect"
+	"sync"
+
+	values "github.com/sjm1327605995/tenon/pkg/value"
 )
 
 type nodeType int
@@ -45,11 +48,12 @@ type Node struct {
 	iconH      float32
 
 	// component
-	fnPtr      uintptr
-	props      any
-	render     func(any) *Node
-	propsEqual func(a, b any) bool
-	memo       bool
+	fnPtr        uintptr
+	props        any
+	render       func(any) *Node
+	propsEqual   func(a, b any) bool
+	memo         bool
+	instanceType reflect.Type
 
 	// provider
 	ctxID    int
@@ -60,13 +64,18 @@ type Node struct {
 	trap      bool // TrapFocus()：作为 Portal 属性时标记该浮层为焦点陷阱（模态）
 }
 
+// Build returns this node unchanged, allowing existing nodes to be mixed into
+// declaration trees that accept interface{ Build() *Node }. A nil node stays nil.
+func (n *Node) Build() *Node { return n }
+
 // hostProps 是把某个 host 元素的所有属性归拢后的结果。
 type hostProps struct {
-	style   StyleProps
-	onClick func()
-	class   string
-	id      string
-	key     string
+	style    StyleProps
+	onClick  func()
+	class    string
+	id       string
+	key      string
+	disabled bool
 
 	// input
 	value         string
@@ -94,12 +103,23 @@ type hostProps struct {
 	objectFit ObjectFit
 }
 
-func buildHostProps(n *Node) hostProps {
-	hp := hostProps{style: newStyleProps()}
+var hostPropsPool = sync.Pool{New: func() any { return new(hostProps) }}
+
+func buildHostProps(n *Node) *hostProps {
+	hp := hostPropsPool.Get().(*hostProps)
+	hp.style = newStyleProps()
+	if n.typ == typeText || n.typ == typeIcon {
+		hp.style = n.textStyle
+	}
 	for _, ap := range n.attrList {
-		ap(&hp)
+		ap(hp)
 	}
 	return hp
+}
+
+func releaseHostProps(hp *hostProps) {
+	*hp = hostProps{}
+	hostPropsPool.Put(hp)
 }
 
 // el 构造 host 元素：属性 Node 进 attrList，其余进 kids。
@@ -131,6 +151,13 @@ func Button(args ...*Node) *Node { return el("button", args) }
 func Input(args ...*Node) *Node  { return el("input", args) }
 func Img(args ...*Node) *Node    { return el("img", args) }
 
+// Disabled 禁用元素及其渲染子树：不接收焦点、编辑、点击或拖拽。
+// 元素仍参与布局和命中，点击不会穿透或冒泡到外层控件；外层仍可显示悬停提示。
+// 外观由调用方的 Style 决定。
+func Disabled(disabled bool) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.disabled = disabled }}
+}
+
 // ScrollView 是可垂直滚动的容器（内容超出时裁剪 + 滚轮滚动 + 滚动条）。
 func ScrollView(args ...*Node) *Node { return el("scroll", args) }
 
@@ -161,11 +188,21 @@ func grouped(t nodeType, args []*Node) *Node {
 	return n
 }
 
-// Text 是文本节点，可选自带样式（颜色/字号）。args 里可混入 *Binding[T]（ui.Bind 产生）：
-// 信号变化时直写文本、组件不重渲染；此时 s 只是占位，挂载即被 format(sig.Get()) 覆盖。
-func Text(s string, args ...any) *Node {
+// Text accepts a string or value.Value[string]. Live values update text directly
+// without rerendering the component. args accepts styles and legacy ui.Bind
+// formatter bindings, so existing Text(string, ...options) calls remain valid.
+func Text(content any, args ...any) *Node {
 	st := newStyleProps()
 	var binds []textBinding
+	var s string
+	switch v := content.(type) {
+	case string:
+		s = v
+	case values.Value[string]:
+		binds = append(binds, Bind(v, func(text string) string { return text }))
+	default:
+		panic(fmt.Sprintf("ui.Text: expected string or value.Value[string], got %T", content))
+	}
 	for _, a := range args {
 		switch v := a.(type) {
 		case StyleOpt:
@@ -192,7 +229,7 @@ func Text(s string, args ...any) *Node {
 //	    ui.Text(" 你好", ui.FontSize(20)),
 //	)
 func RichText(spans ...*Node) *Node {
-	rt := &Node{typ: typeText}
+	rt := &Node{typ: typeText, textStyle: newStyleProps()}
 	for _, s := range spans {
 		if s == nil || s.typ != typeText {
 			continue
@@ -358,18 +395,23 @@ func Use[P any](fn func(P) *Node, props P) *Node {
 	return component(fn, props, false)
 }
 
-// Memo 与 Use 相同，但当 props 深度相等时跳过重渲染（React.memo 语义）。
+// Memo 与 Use 相同，但当 props 相等时跳过重渲染。
+// 非 nil 函数 prop 保守地视为已变化，避免复用捕获旧状态的闭包。
 func Memo[P any](fn func(P) *Node, props P) *Node {
 	return component(fn, props, true)
 }
 
 func component[P any](fn func(P) *Node, props P, memo bool) *Node {
+	return componentSource(fn, props, memo)
+}
+
+func componentSource[P any, V NodeSource](fn func(P) V, props P, memo bool) *Node {
 	return &Node{
 		typ:        typeComponent,
 		fnPtr:      reflect.ValueOf(fn).Pointer(),
 		props:      props,
 		memo:       memo,
-		render:     func(p any) *Node { return fn(p.(P)) },
+		render:     func(p any) *Node { return nodeFromSource(fn(p.(P))) },
 		propsEqual: shallowEqual,
 	}
 }
@@ -384,8 +426,5 @@ func If(cond bool, n *Node) *Node {
 
 // Keyed 给任意节点（含组件）打上 key，用于列表稳定身份。
 func Keyed(k string, n *Node) *Node {
-	if n != nil {
-		n.key = k
-	}
-	return n
+	return n.Key(k)
 }

@@ -2,24 +2,22 @@ package yoga
 
 func calculateBaseline(node *Node) float32 {
 	if node.HasBaselineFunc() {
-		//Event.Publish(Event.NodeBaselineStart, node)
-
+		publishEvent(Event{Type: EventNodeBaselineStart, Node: node, Config: node.GetConfig()})
 		baseline := node.baseline(
 			node.getLayout().measuredDimension(DimensionWidth),
 			node.getLayout().measuredDimension(DimensionHeight),
 		)
 
-		//Event.Publish(Event.NodeBaselineEnd, node)
 		if IsNaN(baseline) {
 			panic("Expect custom baseline function to not return NaN")
 		}
+		publishEvent(Event{Type: EventNodeBaselineEnd, Node: node, Config: node.GetConfig(), Baseline: baseline})
 		return baseline
 	}
 
 	var baselineChild *Node
-	childCount := node.GetChildCount()
-	for i := uint32(0); i < childCount; i++ {
-		child := node.GetChild(i)
+	children := node.getLayoutChildren()
+	for _, child := range children {
 		if child.getLineIndex() > 0 {
 			break
 		}
@@ -52,9 +50,7 @@ func isBaselineLayout(node *Node) bool {
 	if node.getStyle().alignItems() == AlignBaseline {
 		return true
 	}
-	childCount := node.GetChildCount()
-	for i := uint32(0); i < childCount; i++ {
-		child := node.GetChild(i)
+	for _, child := range node.getLayoutChildren() {
 		if child.getStyle().positionType() != PositionTypeAbsolute &&
 			child.getStyle().alignSelf() == AlignBaseline {
 			return true

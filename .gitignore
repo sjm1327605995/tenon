@@ -35,5 +35,6 @@ log.txt
 
 .claude
 # Debug snapshots
-_debug_snapshot/
+_debug_snapshot/*
+!_debug_snapshot/test_v3.go
 declarative-demo

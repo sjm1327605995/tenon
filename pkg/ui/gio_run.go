@@ -22,7 +22,9 @@ import (
 // gio 是唯一渲染后端：包加载即登记构造钩子、输入源与运行循环。
 func init() {
 	backendNewFont = gioNewFont
-	backendNewBitmap = func(img image.Image) bitmap { return &gioImage{src: img} }
+	backendNewBitmap = func(img image.Image) bitmap {
+		return &gioImage{src: img, op: gpaint.NewImageOp(img)}
+	}
 	backendNewVecPath = func(d string, scale float32) vecPath {
 		if d == "" {
 			return nil
@@ -51,13 +53,17 @@ func gioWindowOptions(cfg windowConfig) []app.Option {
 }
 
 func gioRun(root *Node, cfg windowConfig) {
+	enableYogaLayoutDebug()
 	g := &game{root: root, w: cfg.w, h: cfg.h}
 	activeGame = g
 
 	win := new(app.Window)
 	win.Option(gioWindowOptions(cfg)...)
-	backendWake = win.Invalidate // 后台任务（Post）用它唤醒睡着的循环；可跨 goroutine 调用
-	defer func() { backendWake = nil }()
+	setBackendWake(win.Invalidate) // 后台任务（Post）用它唤醒睡着的循环；可跨 goroutine 调用
+	defer func() {
+		g.dispose()
+		setBackendWake(nil)
+	}()
 
 	var ops op.Ops
 	last := time.Time{}
@@ -78,7 +84,9 @@ func gioRun(root *Node, cfg windowConfig) {
 
 			// 排空本帧输入事件到 gioIn，再驱动一帧（handleInput 读取 gioIn）。
 			gioIn.resetFrame()
-			gioIn.process(e.Source)
+			if gioIn.process(e.Source) {
+				g.visualVersion++
+			}
 			// 输入法的编辑按 Range 替换，先落到聚焦输入框上，再让引擎跑这一帧。
 			gioIME.applyEdits(g, gioIn)
 			// 剪贴板同样先落地再跑帧：粘贴的文本本帧就能画出来，不用等下一帧。
@@ -96,17 +104,7 @@ func gioRun(root *Node, cfg windowConfig) {
 			layoutMoving := gioFrame(g, dt)
 
 			ops.Reset()
-			gpaint.ColorOp{Color: nrgba(Color{247, 248, 250, 255})}.Add(&ops)
-			gpaint.PaintOp{}.Add(&ops)
-			p := newGioPainter(&ops, g.w, g.h)
-			if g.rootRN != nil {
-				paint(p, g.rootRN)
-			}
-			for _, pf := range g.portals {
-				if pf.overlayRoot != nil {
-					paint(p, pf.overlayRoot)
-				}
-			}
+			g.frameCache.Add(g, &ops, g.framePaintVersion(e.Now))
 			// 声明整窗为输入命中区（引擎自管内部焦点，这里整窗恒接收）。
 			area := clip.Rect{Max: e.Size}.Push(&ops)
 			event.Op(&ops, gioTag)
@@ -165,17 +163,17 @@ func scheduleNextFrame(e app.FrameEvent, g *game, layoutMoving bool) {
 // gioFrame 驱动一帧的 reconcile + 布局（对应 game.Update 中与输入无关的部分）。
 // 返回布局动画（FLIP）是否仍在移动，供 scheduleNextFrame 判断要不要继续出帧。
 func gioFrame(g *game, dt float32) (layoutMoving bool) {
+	drainPosts()
 	if g.rootFiber == nil {
 		g.rootFiber = reconcile(nil, nil, g.root)
 		g.needsLayout = true
 	} else {
-		drainPosts()
 		g.handleInput() // 读取 gioIn（指针/键盘/滚轮/编辑），分发命中/焦点/拖拽/文本编辑
 		g.tickAnims(dt)
 		g.tickLoops(dt)
-		for guard := 0; len(g.dirty) > 0 && guard < 100; guard++ {
-			g.flushDirty()
-		}
+	}
+	for guard := 0; len(g.dirty) > 0 && guard < 100; guard++ {
+		g.flushDirty()
 	}
 	if g.needsLayout {
 		g.rootRN = rootRenderNode(g.rootFiber)

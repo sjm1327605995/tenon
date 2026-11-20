@@ -734,7 +734,7 @@ func TestMemoBailout(t *testing.T) {
 	}
 }
 
-// ---- Memo + 稳定回调 props：带 func 的 props 仍能短路 ----
+// ---- Memo + 函数 props：无法可靠比较闭包时保守重渲染 ----
 
 type cbProps struct {
 	V int
@@ -755,17 +755,43 @@ func cbParent(_ struct{}) *Node {
 	return Div(Memo(cbChild, cbProps{V: 1, F: dispatch}))
 }
 
-func TestMemoStableCallback(t *testing.T) {
+func TestMemoFunctionPropsDoNotBailOut(t *testing.T) {
 	g := newGame()
 	cbChildRenders = 0
 	g.mountRoot(Use(cbParent, struct{}{}))
 	if cbChildRenders != 1 {
 		t.Fatalf("initial cbChildRenders=%d", cbChildRenders)
 	}
-	cbTickSet(1) // parent re-renders; child props: V unchanged, F is stable dispatch
+	cbTickSet(1)
 	g.drain()
-	if cbChildRenders != 1 {
-		t.Fatalf("memo child re-rendered (=%d); stable callback prop should still bail", cbChildRenders)
+	if cbChildRenders != 2 {
+		t.Fatalf("memo child renders=%d, want 2 for non-nil function props", cbChildRenders)
+	}
+}
+
+func TestMemoRefreshesClosureProps(t *testing.T) {
+	type props struct{ Value func() int }
+	renders, clicked := 0, -1
+	child := func(p props) *Node {
+		renders++
+		return Button(Text("memo"), OnClick(func() { clicked = p.Value() }))
+	}
+	var setValue func(int)
+	h := MountDefault(View(func() *Node {
+		value, set := UseState(0)
+		setValue = set
+		return Memo(child, props{Value: func() int { return value }})
+	}))
+	defer h.Close()
+
+	setValue(1)
+	h.Step(0)
+	h.Root().ByText("memo").Click()
+	if clicked != 1 {
+		t.Fatalf("memo callback captured %d, want latest value 1", clicked)
+	}
+	if renders != 2 {
+		t.Fatalf("memo child renders=%d, want 2 after closure changed", renders)
 	}
 }
 

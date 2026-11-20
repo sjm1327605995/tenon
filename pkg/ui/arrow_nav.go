@@ -33,6 +33,9 @@ func (g *game) moveFocusInGroup(forward bool, want NavOrient) bool {
 		return false
 	}
 	cur := g.focusedFiber.rnode
+	if cur.isDisabled() {
+		return false
+	}
 	if cur.kind == rnInput {
 		// 左右永远归光标；上下只有多行输入才归光标（单行输入上下可离框导航，如搜索框→结果）
 		if want == NavHorizontal || (want == NavVertical && cur.multiline) {
@@ -55,9 +58,6 @@ func (g *game) moveFocusInGroup(forward bool, want NavOrient) bool {
 	if n == nil || n == cur {
 		return false
 	}
-	g.focusedFiber = n.owner
-	if n.kind == rnInput {
-		n.caretPos, n.selAnchor = len(n.value), len(n.value)
-	}
+	g.focusNode(n)
 	return true
 }

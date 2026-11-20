@@ -28,7 +28,10 @@ func absf(v float32) float32 {
 }
 
 // gioImage / gioPath 是 gio 版位图与矢量句柄。
-type gioImage struct{ src image.Image }
+type gioImage struct {
+	src image.Image
+	op  gpaint.ImageOp
+}
 
 func (i *gioImage) Size() (int, int) { b := i.src.Bounds(); return b.Dx(), b.Dy() }
 
@@ -36,16 +39,24 @@ func (i *gioImage) Size() (int, int) { b := i.src.Bounds(); return b.Dx(), b.Dy(
 type gioPath struct {
 	d     string
 	scale float32
+	spec  clip.PathSpec
+	valid bool
 }
 
 func (*gioPath) isVecPath() {}
 
-// buildOutline 把 SVG 路径解析进 clip.Path（整体平移 ox,oy），返回其 PathSpec。
-func (p *gioPainter) buildPath(gp *gioPath, ox, oy float32) clip.PathSpec {
+// buildPath 把 SVG 路径按本地坐标解析一次；绘制时通过仿射平移到目标位置。
+func (p *gioPainter) buildPath(gp *gioPath) clip.PathSpec {
+	if gp.valid {
+		return gp.spec
+	}
+	pathOps := new(op.Ops)
 	var pth clip.Path
-	pth.Begin(p.ops)
-	parseSVGInto(gp.d, gp.scale, &gioPathSink{p: &pth, ox: ox, oy: oy})
-	return pth.End()
+	pth.Begin(pathOps)
+	parseSVGInto(gp.d, gp.scale, &gioPathSink{p: &pth})
+	gp.spec = pth.End()
+	gp.valid = true
+	return gp.spec
 }
 
 type gioPainter struct {
@@ -202,6 +213,12 @@ func (p *gioPainter) Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c C
 		p.FillRect(bx, by, bw, bh, br, c)
 		return
 	}
+	if img, dst, ok := cachedShadow(w, h, r, blur, spread, c); ok {
+		dst.X += x + offX
+		dst.Y += y + offY
+		p.DrawImage(img, dst, 1)
+		return
+	}
 	const layers = 5
 	la := c.Alpha(1.0 / float32(layers)) // 各层等 alpha，向中心累积、向外柔和衰减
 	for i := layers; i >= 1; i-- {
@@ -241,7 +258,7 @@ func (p *gioPainter) DrawImage(img bitmap, d Rect, opacity float32) {
 	if opacity < 1 {
 		os = gpaint.PushOpacity(p.ops, opacity)
 	}
-	gpaint.NewImageOp(gi.src).Add(p.ops)
+	gi.op.Add(p.ops)
 	gpaint.PaintOp{}.Add(p.ops)
 	if opacity < 1 {
 		os.Pop()
@@ -253,20 +270,24 @@ func (p *gioPainter) FillPath(path vecPath, x, y float32, c Color) {
 	if c.A == 0 {
 		return
 	}
-	st := clip.Outline{Path: p.buildPath(path.(*gioPath), x, y)}.Op().Push(p.ops)
+	tr := op.Affine(gioOffset(x, y)).Push(p.ops)
+	st := clip.Outline{Path: p.buildPath(path.(*gioPath))}.Op().Push(p.ops)
 	gpaint.ColorOp{Color: nrgba(c)}.Add(p.ops)
 	gpaint.PaintOp{}.Add(p.ops)
 	st.Pop()
+	tr.Pop()
 }
 
 func (p *gioPainter) StrokePath(path vecPath, x, y, width float32, c Color) {
 	if c.A == 0 || width <= 0 {
 		return
 	}
-	st := clip.Stroke{Path: p.buildPath(path.(*gioPath), x, y), Width: width}.Op().Push(p.ops)
+	tr := op.Affine(gioOffset(x, y)).Push(p.ops)
+	st := clip.Stroke{Path: p.buildPath(path.(*gioPath)), Width: width}.Op().Push(p.ops)
 	gpaint.ColorOp{Color: nrgba(c)}.Add(p.ops)
 	gpaint.PaintOp{}.Add(p.ops)
 	st.Pop()
+	tr.Pop()
 }
 
 func (p *gioPainter) PushClip(r Rect, radius float32) {

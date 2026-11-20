@@ -5,8 +5,7 @@ import "time"
 // ---- 后端中立的输入抽象 ----
 //
 // 引擎的输入分发（handleInput 及其子过程）只经 input 读取指针/键盘状态，不直接依赖
-// ebiten / gio。每个后端提供一个 inputSource 实现：ebiten 为轮询式（inpututil 差分），
-// gio 由事件循环把每帧事件累积成同样可轮询的状态。
+// gio。每个后端提供一个 inputSource 实现；gio 由事件循环把每帧事件累积成可轮询的状态。
 
 type mouseBtn int
 

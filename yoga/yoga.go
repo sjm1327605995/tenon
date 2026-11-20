@@ -15,7 +15,7 @@ func DefaultLogger(config *Config,
 	node *Node,
 	level LogLevel,
 	format string,
-	args ...interface{}) int {
+	args ...any) int {
 	switch level {
 	case LogLevelError, LogLevelFatal:
 		n, _ := fmt.Fprintf(os.Stderr, format, args...)

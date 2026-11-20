@@ -7,9 +7,16 @@ type measureHook struct {
 }
 
 // Viewport 返回当前视口的逻辑尺寸（用于浮层贴边翻转等）。
+// 在组件渲染中读取时，该组件会在窗口尺寸变化后自动重渲染。
 func Viewport() Rect {
 	if activeGame == nil {
 		return Rect{}
+	}
+	if currentFiber != nil {
+		if activeGame.viewportReaders == nil {
+			activeGame.viewportReaders = make(map[*Fiber]struct{})
+		}
+		activeGame.viewportReaders[currentFiber] = struct{}{}
 	}
 	return Rect{W: float32(activeGame.w) / uiScale, H: float32(activeGame.h) / uiScale}
 }

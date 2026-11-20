@@ -15,6 +15,7 @@ type LayoutResults struct {
 	computedFlexBasisGeneration uint32
 	computedFlexBasis           FloatOptional
 	generationCount             uint32
+	configVersion               uint32
 	lastOwnerDirection          Direction
 	nextCachedMeasurementsIndex uint32
 	cachedMeasurements          [MaxCachedMeasurements]CachedMeasurement
@@ -118,6 +119,7 @@ func (l *LayoutResults) isEqual(layout *LayoutResults) bool {
 		inexactEquals(l.padding_[:], layout.padding_[:]) &&
 		l.direction() == layout.direction() &&
 		l.hadOverflow() == layout.hadOverflow() &&
+		l.configVersion == layout.configVersion &&
 		l.lastOwnerDirection == layout.lastOwnerDirection &&
 		l.nextCachedMeasurementsIndex == layout.nextCachedMeasurementsIndex &&
 		l.cachedLayout == layout.cachedLayout &&

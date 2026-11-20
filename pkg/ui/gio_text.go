@@ -137,7 +137,7 @@ func drawGioText(ops *op.Ops, f *gioFont, s string, c Color, x, y float32, fauxB
 	}
 	sh := gioShaper()
 	sh.LayoutString(f.params(), s)
-	var glyphs []text.Glyph
+	glyphs := make([]text.Glyph, 0, len(s))
 	for {
 		g, ok := sh.NextGlyph()
 		if !ok {

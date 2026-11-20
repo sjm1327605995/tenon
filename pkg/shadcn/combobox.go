@@ -110,7 +110,7 @@ func combobox(p ComboboxProps) *ui.Node {
 	return ui.Fragment(
 		trigger,
 		ui.If(open, floatPanel(th, rect, func() { setOpen(false) },
-			[]ui.StyleOpt{ui.Column, ui.Padding(4), ui.Gap(4), ui.MinWidth(max(rect.W, minW))}, content...)),
+			max(rect.W, minW), []ui.StyleOpt{ui.Column, ui.Padding(4), ui.Gap(4)}, content...)),
 	)
 }
 

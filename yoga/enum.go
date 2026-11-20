@@ -4,7 +4,8 @@ const (
 	AlignCount               = 9
 	DimensionCount           = 2
 	DirectionCount           = 3
-	DisplayCount             = 2
+	DisplayCount             = 3
+	BoxSizingCount           = 2
 	EdgeCount                = 9
 	ExperimentalFeatureCount = 3
 	FlexDirectionCount       = 4
@@ -100,6 +101,7 @@ type Display uint8
 const (
 	DisplayFlex Display = iota
 	DisplayNone
+	DisplayContents
 )
 
 func (d Display) String() string {
@@ -108,8 +110,28 @@ func (d Display) String() string {
 		return "flex"
 	case DisplayNone:
 		return "none"
+	case DisplayContents:
+		return "contents"
 	}
 	return "unknown"
+}
+
+type BoxSizing uint8
+
+const (
+	BoxSizingBorderBox BoxSizing = iota
+	BoxSizingContentBox
+)
+
+func (b BoxSizing) String() string {
+	switch b {
+	case BoxSizingBorderBox:
+		return "border-box"
+	case BoxSizingContentBox:
+		return "content-box"
+	default:
+		return "unknown"
+	}
 }
 
 type Edge uint8
@@ -153,12 +175,15 @@ func (e Edge) String() string {
 type Errata uint32
 
 const (
-	ErrataNone                                Errata = iota
-	ErrataStretchFlexBasis                           = 1
-	ErrataStartingEndingEdgeFromFlexDirection        = 2
-	ErrataPositionStaticBehavesLikeRelative          = 4
-	ErrataAll                                        = 2147483647
-	ErrataClassic                                    = 2147483646
+	ErrataNone                                         Errata = 0
+	ErrataStretchFlexBasis                                    = 1
+	ErrataAbsolutePositionWithoutInsetsExcludesPadding        = 2
+	ErrataAbsolutePercentAgainstInnerSize                     = 4
+	// Legacy compatibility switches retained for existing Go users.
+	ErrataStartingEndingEdgeFromFlexDirection = 8
+	ErrataPositionStaticBehavesLikeRelative   = 16
+	ErrataAll                                 = 2147483647
+	ErrataClassic                             = 2147483646
 )
 
 func (e Errata) String() string {
@@ -167,6 +192,10 @@ func (e Errata) String() string {
 		return "none"
 	case ErrataStretchFlexBasis:
 		return "stretch-flex-basis"
+	case ErrataAbsolutePositionWithoutInsetsExcludesPadding:
+		return "absolute-position-without-insets-excludes-padding"
+	case ErrataAbsolutePercentAgainstInnerSize:
+		return "absolute-percent-against-inner-size"
 	case ErrataStartingEndingEdgeFromFlexDirection:
 		return "starting-ending-edge-from-flex-direction"
 	case ErrataPositionStaticBehavesLikeRelative:

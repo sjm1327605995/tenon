@@ -2,14 +2,15 @@
 // plain Go, interpreted with yaegi. Edit a component source file and the running
 // window updates immediately — no rebuild, no restart.
 //
-// The previewed file must declare `func View() *ui.Node` (any package name):
+// The previewed file declares `func View() *ui.Node` or `func View() decl.View`
+// (any package name). Declaration results are converted by the preview runtime:
 //
 //	package view
 //	import ui "github.com/sjm1327605995/tenon/pkg/ui"
 //	func View() *ui.Node { return ui.Text("hello") }
 //
 // Constraints (yaegi): the interpreted code may call any NON-generic API in
-// pkg/ui and pkg/shadcn (Div/Text/Button/Style/… and every shadcn component,
+// pkg/ui, pkg/shadcn, and pkg/decl (Div/Text/Button/Style/… and declarations,
 // whose generic internals stay compiled), but must NOT use generics itself —
 // so no ui.UseState/ui.Use in the previewed file (it renders a stateless view).
 package hotreload
@@ -32,7 +33,7 @@ import (
 var Symbols = interp.Exports{}
 
 // Interpret reads file, interprets it, and returns the node produced by its
-// View() function. Any interpret error or panic (e.g. use of generics) is
+// View() function. NodeSource results are converted automatically. Any interpret error or panic (e.g. use of generics) is
 // returned as an error rather than crashing the host.
 func Interpret(file string) (node *ui.Node, err error) {
 	defer func() {
@@ -60,12 +61,19 @@ func Interpret(file string) (node *ui.Node, err error) {
 	}
 	fn, err := i.Eval(pf.Name.Name + ".View")
 	if err != nil {
-		return nil, fmt.Errorf("no `func View() *ui.Node`: %w", err)
+		return nil, fmt.Errorf("no View function returning a UI node or declaration: %w", err)
 	}
 	out := fn.Call(nil)
-	n, ok := out[0].Interface().(*ui.Node)
-	if !ok || n == nil {
-		return nil, fmt.Errorf("View() must return a non-nil *ui.Node")
+	source, ok := out[0].Interface().(ui.NodeSource)
+	if !ok || source == nil {
+		return nil, fmt.Errorf("View() must return a non-nil UI node or declaration")
+	}
+	if component, ok := source.(ui.IComponent); ok {
+		return ui.Render(component), nil
+	}
+	n := source.Build()
+	if n == nil {
+		return nil, fmt.Errorf("View() must return a non-nil UI node or declaration")
 	}
 	return n, nil
 }

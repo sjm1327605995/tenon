@@ -1,12 +1,16 @@
 package shadcn
 
-import ui "github.com/sjm1327605995/tenon/pkg/ui"
+import (
+	ui "github.com/sjm1327605995/tenon/pkg/ui"
+	values "github.com/sjm1327605995/tenon/pkg/value"
+)
 
 type InputProps struct {
 	Value       string
 	OnChange    func(string)
 	Placeholder string
 	Disabled    bool
+	Bind        values.Bind[string]
 }
 
 // Input 是主题化的单行输入框。
@@ -23,11 +27,23 @@ func input(p InputProps) *ui.Node {
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
 	}
-	attrs := []*ui.Node{ui.Style(st...), ui.Value(p.Value), ui.Placeholder(p.Placeholder)}
-	if !p.Disabled {
-		attrs = append(attrs, ui.OnChange(p.OnChange))
-	}
+	attrs := []*ui.Node{ui.Style(st...), ui.Placeholder(p.Placeholder), ui.Disabled(p.Disabled)}
+	attrs = append(attrs, inputValue(p.Value, p.Bind, p.OnChange)...)
 	return ui.Input(attrs...)
+}
+
+func inputValue(snapshot string, source values.Bind[string], onChange func(string)) []*ui.Node {
+	if source == nil {
+		return []*ui.Node{ui.Value(snapshot), ui.OnChange(onChange)}
+	}
+	attrs := []*ui.Node{ui.BindInput(source)}
+	if onChange != nil {
+		attrs = append(attrs, ui.OnChange(func(next string) {
+			source.Set(next)
+			onChange(source.Get())
+		}))
+	}
+	return attrs
 }
 
 // ---- Textarea ----
@@ -37,6 +53,8 @@ type TextareaProps struct {
 	OnChange    func(string)
 	Placeholder string
 	Rows        int
+	Disabled    bool
+	Bind        values.Bind[string]
 }
 
 // Textarea 是多行文本域：自动折行、Enter 换行、高度随内容增长。
@@ -58,14 +76,17 @@ func textarea(p TextareaProps) *ui.Node {
 		ui.Radius(radiusMd(th)), ui.Bg(th.Background), ui.Border(1, th.Input),
 		ui.TextColor(th.Foreground), ui.FontSize(14), shadowXs(),
 	}
-	return ui.Input(ui.Style(st...), ui.Multiline(),
-		ui.Value(p.Value), ui.Placeholder(p.Placeholder), ui.OnChange(p.OnChange))
+	if p.Disabled {
+		st = append(st, ui.Opacity(0.5))
+	}
+	attrs := []*ui.Node{ui.Style(st...), ui.Multiline(), ui.Disabled(p.Disabled), ui.Placeholder(p.Placeholder)}
+	return ui.Input(append(attrs, inputValue(p.Value, p.Bind, p.OnChange)...)...)
 }
 
 // Label 是表单标签。
-func Label(text string) *ui.Node { return ui.Use(labelC, text) }
+func Label(text any) *ui.Node { return ui.Use(labelC, text) }
 
-func labelC(text string) *ui.Node {
+func labelC(text any) *ui.Node {
 	th := ui.UseTheme()
 	return ui.Text(text, ui.FontSize(14), ui.Medium, ui.TextColor(th.Foreground))
 }

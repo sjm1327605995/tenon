@@ -42,6 +42,9 @@ type renderNode struct {
 	owner    *Fiber
 	parent   *renderNode
 	children []*renderNode
+	level    uint32
+	index    uint32
+	hover    hoverState
 
 	// box / input
 	bg          Color
@@ -108,6 +111,7 @@ type renderNode struct {
 	measure       *measureHook
 	scrollRef     *scrollHook // UseScroll：写回滚动状态
 	focusable     bool
+	disabled      bool
 	navGroup      bool // ArrowNav：本节点是方向键导航组
 	navOrient     NavOrient
 
@@ -159,9 +163,10 @@ type renderNode struct {
 	offX, offY         float32
 
 	// 数据绑定（Signal 直写）：按信号身份去重的活跃订阅。
-	// effect 闭包随每次 attach 刷新（见 sigSub），故 map 只负责去重不负责比较闭包。
-	sigSubs   map[uintptr]*sigSub // 文本内容绑定（Bind）
-	inputSubs map[uintptr]*sigSub // 输入框值绑定（BindInput）
+	// effect 闭包随每次 attach 刷新（见 sigSub），更新时同时退订已移除的源。
+	sigSubs                           map[any]*sigSub // 文本内容绑定（Bind）
+	inputSubs                         map[any]*sigSub // 输入框值绑定（BindInput）
+	textBindCleanup, inputBindCleanup bool
 }
 
 func (rn *renderNode) effTransX() float32 { return rn.transX + rn.offX }
@@ -177,7 +182,8 @@ func (rn *renderNode) hasTransform() bool {
 }
 
 func (rn *renderNode) needsLayer() bool {
-	return rn.hasTransform() || (rn.opacity < 1 && len(rn.children) > 0)
+	// Input 的背景、选区、正文与光标是一个视觉组，即使没有子节点也要统一合成透明度。
+	return rn.hasTransform() || (rn.opacity < 1 && (len(rn.children) > 0 || rn.kind == rnInput))
 }
 
 func (rn *renderNode) container() bool { return rn.kind == rnBox || rn.kind == rnScroll }
@@ -517,8 +523,14 @@ func decodeImageSource(src string) (image.Image, error) {
 }
 
 // applyHostProps 把某个 host 元素的属性写入其 renderNode。f 用于登记绑定清理（BindInput）。
-func applyHostProps(f *Fiber, rn *renderNode, hp hostProps) {
+func applyHostProps(f *Fiber, rn *renderNode, hp *hostProps) {
 	syncYoga(rn, hp.style)
+	wasDisabled := rn.disabled
+	rn.disabled = hp.disabled
+	if rn.disabled && !wasDisabled && activeGame != nil {
+		// 用旧回调结束按压/悬停，再安装本轮属性，避免重新启用后残留交互态。
+		activeGame.clearDisabledInteractions()
+	}
 	rn.onClick = hp.onClick
 	rn.onHover = hp.onHover
 	rn.onPress = hp.onPress
@@ -528,19 +540,31 @@ func applyHostProps(f *Fiber, rn *renderNode, hp hostProps) {
 	rn.scrollRef = hp.scrollRef
 	rn.navGroup = hp.navGroup
 	rn.navOrient = hp.navOrient
-	rn.focusable = rn.kind == rnInput || hp.onClick != nil
+	rn.focusable = !rn.disabled && (rn.kind == rnInput || hp.onClick != nil)
 	switch rn.kind {
 	case rnInput:
 		rn.applyTextStyle(hp.style)
+		attachInputBind(f, hp.bindValue, rn)
 		if hp.bindValue != nil {
 			// 双向绑定：值由信号接管（含打字回写），订阅幂等（按信号身份去重）。
-			hp.bindValue.attach(f, rn)
+			rn.applyBoundInput(hp.bindValue.current())
 		} else {
 			rn.value = hp.value
 		}
 		rn.placeholder = hp.placeholder
 		rn.multiline = hp.multiline
 		rn.onChange = hp.onChange
+		if hp.bindValue != nil {
+			bindValue, onChange := hp.bindValue, hp.onChange
+			rn.onChange = func(value string) {
+				if onChange != nil {
+					onChange(value)
+				}
+				// Set may normalize or reject the edit. Always display the
+				// source's canonical value, including when no event was emitted.
+				rn.applyBoundInput(bindValue.current())
+			}
+		}
 		rn.onSubmit = hp.onSubmit
 		if rn.caretPos > len(rn.value) {
 			rn.caretPos = len(rn.value)
@@ -1224,7 +1248,7 @@ func (rn *renderNode) caretAt(px, py float32) int {
 }
 
 func isFocused(rn *renderNode) bool {
-	return activeGame != nil && activeGame.focusedFiber != nil && activeGame.focusedFiber.rnode == rn
+	return activeGame != nil && activeGame.focusedFiber != nil && activeGame.focusedFiber.rnode == rn && !rn.isDisabled()
 }
 
 // hitTest 返回命中点最深、且带 onClick 的处理器（兼容旧调用）。
@@ -1266,6 +1290,9 @@ func (rn *renderNode) invTransform(px, py float32, cam *camera3D) (float32, floa
 
 // collectFocusables 按树序收集可聚焦节点（输入框与可点击元素）。
 func collectFocusables(rn *renderNode, out *[]*renderNode) {
+	if rn == nil || rn.disabled {
+		return
+	}
 	if rn.focusable {
 		*out = append(*out, rn)
 	}

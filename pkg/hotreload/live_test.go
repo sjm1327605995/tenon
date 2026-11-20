@@ -34,3 +34,52 @@ func TestInterpretErrorRecovered(t *testing.T) {
 		t.Fatal("expected error (generics), got nil — panic not recovered?")
 	}
 }
+
+func TestInterpretedDisabledInputCannotBeEdited(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "disabled.go")
+	src := `package view
+import ui "github.com/sjm1327605995/tenon/pkg/ui"
+func View() *ui.Node {
+	return ui.Input(ui.Disabled(true), ui.Value("locked"))
+}
+`
+	if err := os.WriteFile(f, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	node, err := Interpret(f)
+	if err != nil {
+		t.Fatalf("interpret Disabled attribute: %v", err)
+	}
+	h := ui.MountDefault(node)
+	q := h.Root().ByKind("input")
+	if !q.Exists() || q.Focusable() || q.Type("x") || q.Value() != "locked" {
+		t.Fatal("interpreted Disabled input remained editable")
+	}
+}
+
+func TestInterpretedCompactSyntaxRenders(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "compact.go")
+	src := `package view
+import (
+	ui "github.com/sjm1327605995/tenon/pkg/ui"
+	"github.com/sjm1327605995/tenon/pkg/shadcn"
+)
+func View() *ui.Node {
+	return ui.VStack(12,
+		shadcn.TextField("Alice", nil).Placeholder("Name"),
+		shadcn.TextButton("Save", nil),
+	).Width(320).Padding(16)
+}
+`
+	if err := os.WriteFile(f, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	node, err := Interpret(f)
+	if err != nil {
+		t.Fatalf("interpret compact syntax: %v", err)
+	}
+	h := ui.MountDefault(node)
+	if h.Root().Bounds().W != 320 || h.Root().ByPlaceholder("Name").Value() != "Alice" || !h.Root().ByText("Save").Exists() {
+		t.Fatal("interpreted compact form did not render correctly")
+	}
+}

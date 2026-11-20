@@ -9,13 +9,13 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 - Hooks: `UseState`, `UseReducer`, `UseEffect`, `UseMemo`, `UseCallback`, `UseRef`, `UseContext`; `Memo` (shallow-prop bailout); stable setters.
 - `ErrorBoundary` — catches panics thrown during a subtree's render and shows a fallback (with retry) instead of crashing the app; propagates normally when no boundary is present.
 - Local re-render (only the setState'd component); incremental layout (paint-only changes don't recompute; resize recomputes only size-dependent subtrees; idle frames do no layout).
-- On-demand repaint: frames repaint only on real visual change (re-render / animation / FLIP / selection / IME / focus / caret blink); otherwise a cached frame is blitted. Idle drops to **0 repaints & 0 layouts/s** (verified) while the loop still runs at refresh rate. Perf HUD via `ui.ShowStats` / F12 (repaint & layout per-second, frame paint cost).
+- On-demand repaint: frames repaint only on real visual change (re-render / animation / FLIP / selection / IME / focus / caret blink); static frames replay a cached Gio macro, and hit-testing is cached by cursor position and layout version. Idle drops to **0 repaints & 0 layouts/s** (verified) while the loop still runs at refresh rate. Perf HUD via `ui.ShowStats` / F12 (repaint & layout per-second, frame paint cost).
 - Text-shaping cache: per-node memoization of `wrapForWidth` / `layoutRuns` (keyed by text/font/width), so repaints and re-layouts of unchanged text skip re-shaping — cache hit `~2ns`, `0 allocs` vs `~7.6µs`, `22 allocs` uncached (benchmarked).
-- Refresh-rate adaptive: animation is wall-clock `dt`-based (speed constant across 60/120/144Hz); `ui.FrameSync` (default on) ties logic TPS to the display refresh via `SyncWithFPS` so high-refresh screens get more animation steps; long-press key-repeat is time-based (TPS-independent).
+- Refresh-rate adaptive: animation is wall-clock `dt`-based (speed constant across 60/120/144Hz), and long-press key-repeat is time-based. Gio schedules frames on demand rather than running a fixed-TPS loop.
 - `ui.Post` for thread-safe updates from background goroutines.
 
 **Layout**
-- Yoga flexbox, absolute positioning, `WidthPct`/`HeightPct`/`Fill` (window-adaptive), scroll (`ScrollView`), overflow clip.
+- Yoga 3.2.1 feature baseline: flexbox, `display: contents`, border/content box sizing, absolute positioning, config-aware layout caches, `WidthPct`/`HeightPct`/`Fill` (window-adaptive), scroll (`ScrollView`), overflow clip.
 - `VirtualList` for large lists — `UseScroll` feeds scroll offset/viewport back to the component so only the visible window (+overscan) renders; 100k rows stay smooth.
 
 **Rendering**
@@ -37,7 +37,7 @@ Status of Tenon as a GUI toolkit — what's implemented and what's next. Honest,
 
 **Tooling**
 - Live preview / hot reload (`pkg/hotreload`): edit a plain-Go `View() *ui.Node` file and the running window updates in-process — no rebuild, no restart (yaegi-interpreted; interpreted code uses non-generic `pkg/ui` + all `pkg/shadcn`, host owns state).
-- Debug frame capture: `ui.Capture(path, afterFrames, exit)` or env `TENON_CAPTURE=out.png` saves the engine's own rendered frame to PNG (only the app's pixels — safe), for visually verifying rendering headlessly.
+- Debug frame capture: `ui.Capture(path, afterFrames, exit)` or env `TENON_CAPTURE=out.png` saves the engine's own rendered frame to PNG (only the app's pixels — safe), for visually verifying rendering headlessly. `TENON_DEBUG_LAYOUT=1` enables Yoga layout/caching/measurement summaries through the event API.
 - 40+ engine tests incl. headless **golden paint tests** (`Harness.Paint()` → `[]PaintOp` via the recording backend) + wrap/measure benchmarks; per-package READMEs + godoc; runnable examples.
 - `ui.Mount` headless test harness (mount + drive click/hover/press/drag/type, query the render tree) — `pkg/shadcn` uses it for real behavior tests.
 

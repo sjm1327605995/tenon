@@ -1,7 +1,7 @@
 #!/bin/bash
 # 无头测试脚本 — 用 Xvfb 提供虚拟显示器
 # 用法: ./scripts/test.sh [go test 参数]
-# 示例: ./scripts/test.sh ./pkg/v2/ui/ -v -run TestBuilder
+# 示例: ./scripts/test.sh ./pkg/ui/ -v -run TestBuilder
 #        ./scripts/test.sh ./... -count=1
 
 set -euo pipefail

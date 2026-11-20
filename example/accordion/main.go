@@ -301,16 +301,22 @@ func pvButton(_ struct{}) *ui.Node {
 
 func pvInput(_ struct{}) *ui.Node {
 	v, set := ui.UseState("")
-	return ui.VStack(8, ui.Style(ui.Width(300)),
+	disabled, setDisabled := ui.UseState(false)
+	return ui.VStack(8,
 		shadcn.Label("邮箱"),
-		shadcn.Input(shadcn.InputProps{Value: v, OnChange: set, Placeholder: "you@example.com"}))
+		shadcn.Input(shadcn.InputProps{Value: v, OnChange: set, Placeholder: "you@example.com", Disabled: disabled}),
+		ui.HStack(8, shadcn.Switch(shadcn.SwitchProps{Checked: disabled, OnChange: setDisabled}),
+			shadcn.Label("禁用输入"))).Width(300)
 }
 
 func pvTextarea(_ struct{}) *ui.Node {
 	v, set := ui.UseState("")
+	disabled, setDisabled := ui.UseState(false)
 	return ui.VStack(8,
 		shadcn.Label("留言"),
-		shadcn.Textarea(shadcn.TextareaProps{Value: v, OnChange: set, Placeholder: "输入你的留言…", Rows: 4}))
+		shadcn.Textarea(shadcn.TextareaProps{Value: v, OnChange: set, Placeholder: "输入你的留言…", Rows: 4, Disabled: disabled}),
+		ui.HStack(8, shadcn.Switch(shadcn.SwitchProps{Checked: disabled, OnChange: setDisabled}),
+			shadcn.Label("禁用输入")))
 }
 
 func pvCheckbox(_ struct{}) *ui.Node {
@@ -437,9 +443,9 @@ func pvTooltip(_ struct{}) *ui.Node {
 // ---------- Store & Signal 数据绑定 ----------
 
 var (
-	pvCount = ui.NewStore(0)    // 树外共享状态：两个互不嵌套的组件读写同一份
-	pvFeed  = ui.NewSignal(0.0) // 高频值：signal 直写文本节点，不走组件重渲染
-	pvName  = ui.NewSignal("")  // 输入框双向绑定
+	pvCount  = ui.NewStore(0)    // 树外共享状态：两个互不嵌套的组件读写同一份
+	pvFeed   = ui.NewSignal(0.0) // 高频值：signal 直写文本节点，不走组件重渲染
+	pvName   = ui.NewSignal("")  // 输入框双向绑定
 	feedOnce sync.Once
 )
 

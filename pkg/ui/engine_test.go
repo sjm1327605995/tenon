@@ -39,7 +39,7 @@ func layoutAll(g *game) {
 		g.rootRN.yn.CalculateLayout(float32(g.w), float32(g.h), yoga.DirectionLTR)
 		computeBounds(g.rootRN, 0, 0)
 	}
-	g.layoutPortals(true)
+	g.layoutPortals(true, true)
 	if g.rootRN != nil {
 		syncMeasures(g.rootRN)
 	}

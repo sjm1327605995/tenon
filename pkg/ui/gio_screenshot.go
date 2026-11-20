@@ -18,7 +18,10 @@ func Screenshot(root *Node, w, h int) (*image.RGBA, error) {
 	}
 	defer win.Release()
 
+	previousGame, previousScale := activeGame, uiScale
+	defer func() { activeGame, uiScale = previousGame, previousScale }()
 	hn := Mount(root, w, h)
+	defer hn.Close()
 	g := hn.g
 
 	var ops op.Ops

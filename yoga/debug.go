@@ -8,18 +8,16 @@ import (
 const (
 	gPrintChanges = false
 	gPrintSkips   = false
-	gDebuging     = false
+	gDebugging    = false
 )
 
-var (
-	gCurrentDebugCount uint32 = 0
-)
+var gCurrentDebugCount uint32
 
 func vlog(config *Config,
 	node *Node,
 	level LogLevel,
 	format string,
-	args ...interface{}) {
+	args ...any) {
 	if config != nil {
 		config.log(node, level, format, args...)
 	} else {
@@ -101,7 +99,7 @@ func nodeToString(str *strings.Builder, node *Node, options PrintOptions, level 
 	if options&PrintOptionsStyle == PrintOptionsStyle {
 		str.WriteString("style=\"")
 		style := node.getStyle()
-		oriStyle := NewNode().getStyle()
+		oriStyle := &defaultStyle
 		if style.flexDirection() != oriStyle.flexDirection() {
 			str.WriteString(fmt.Sprintf("flex-direction: %s; ", style.flexDirection().String()))
 		}
@@ -180,7 +178,6 @@ func nodeToString(str *strings.Builder, node *Node, options PrintOptions, level 
 
 func vprint(node *Node, printOptions PrintOptions) {
 	var str strings.Builder
-	str.Reset()
 	nodeToString(&str, node, printOptions, 0)
 	vlog(node.GetConfig(), node, LogLevelDebug, "%s", str.String())
 }

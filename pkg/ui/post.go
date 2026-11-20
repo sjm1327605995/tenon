@@ -12,6 +12,12 @@ var (
 // 否则要等到下一次用户输入才会生效。
 var backendWake func()
 
+func setBackendWake(wake func()) {
+	postMu.Lock()
+	backendWake = wake
+	postMu.Unlock()
+}
+
 // Post 从任意 goroutine 安全地把一个函数排队到 UI（渲染）线程，在下一帧开始时执行。
 // 渲染是单线程的，setState 只能在渲染线程调用；后台任务（网络请求、定时器等）完成后
 // 要更新界面时，用 Post 包裹状态更新即可：
@@ -26,9 +32,10 @@ func Post(fn func()) {
 	}
 	postMu.Lock()
 	postFns = append(postFns, fn)
+	wake := backendWake
 	postMu.Unlock()
-	if backendWake != nil {
-		backendWake() // 界面静止时循环是睡着的，必须叫醒它来执行本次排队
+	if wake != nil {
+		wake() // 界面静止时循环是睡着的，必须叫醒它来执行本次排队
 	}
 }
 

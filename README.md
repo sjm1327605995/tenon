@@ -1,94 +1,158 @@
 # Tenon
 
-> A declarative, **React-style** GUI toolkit for Go — function components and hooks, on [Yoga](https://www.yogalayout.dev/) flexbox layout and [Gio](https://gioui.org) rendering.
+A declarative GUI toolkit for Go, with composable components, reactive data binding, Yoga flexbox layout, and Gio rendering. Build desktop interfaces in ordinary Go using functions for the UI tree and fluent methods for styles and events.
 
-[![Go](https://img.shields.io/badge/go-%3E%3D1.24-blue)](https://golang.org)
+[![Go](https://img.shields.io/badge/go-%3E%3D1.24-blue)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 **English** | [简体中文](README.zh-CN.md)
 
----
+[Quick start](#quick-start) · [API guide](#api-guide) · [Examples](#examples) · [Documentation](#documentation) · [Contributing](CONTRIBUTING.md)
 
-![Tenon accordion docs demo](docs/screenshots/accordion.png)
+## Features
 
-<p align="center"><em>The shadcn/ui Accordion docs page, re-created entirely with Tenon + its shadcn-style component library — run it with <code>go run ./example/accordion</code>.</em></p>
+- **Composable UI** — organize layouts with `VStack` / `HStack`, then chain styles and events. Embed `ui.Component` for components with fields and lifecycle context.
+- **Reactive values** — connect `Value[T]` and `Bind[T]` directly to text and inputs. Call `Set` to synchronize consumers; extend the interfaces for custom data sources.
+- **Function components and hooks** — use `View`, `Use`, `Memo`, and state/effect/context hooks when a function is a better fit.
+- **Themed components** — forms, dialogs, menus, tables, and other shadcn/ui-style widgets, with light/dark theme tokens and keyboard interactions.
+- **Layout and rendering** — a pure-Go Yoga engine tracking version 3.2.1, Gio rendering, incremental layout, animation, virtual lists, and projected 3D scenes.
 
----
+## Project status
 
-## ⚠️ Status
-
-Young but coherent. The core (`pkg/ui`) is stable in shape and covered by tests; APIs may still change before a 1.0. Good for tools, dashboards, in-app/game UIs and prototypes. See [ROADMAP.md](ROADMAP.md) for what's done and what's next. Highlights: rich text (synthesized weights/italic, IME, UAX#14 wrapping), on-demand repaint + list virtualization, accessibility (focus trap, arrow-key nav), SVG icons / gradients / rounded clipping, and a ~60-component shadcn library. Not covered: OS-native integration (multi-window, native menus) — not implemented yet; Gio itself supports multiple windows.
-
-## What is Tenon?
-
-Tenon brings the React mental model to native Go GUIs:
-
-- **Function components + hooks** — `UseState`, `UseEffect`, `UseReducer`, `UseMemo`, `UseCallback`, `UseRef`, `UseContext`. No classes, no manual invalidation.
-- **Automatic, local re-render** — a state setter re-renders only its own component (fiber).
-- **HTML-like elements** — `Div`, `Span`, `Button`, `Input`, `Img`, `Text`, `ScrollView`, `Portal`, `Fragment`.
-- **Yoga flexbox** for layout, **Gio** for rendering (GPU-accelerated vector paths and text; antialiased, HiDPI-aware).
-- **Batteries included** — animation (tween/transition/FLIP), transforms, drag/hover/keyboard, a base component kit, and a **shadcn/ui-style** library (~41 components).
-
-Internally it's a three-tree design like React: immutable `Node` description → persistent `Fiber` (identity + hooks) → `renderNode` (yoga node + paint). Layout is incremental — paint-only updates don't recompute layout. See [ARCHITECTURE.md](ARCHITECTURE.md).
+Tenon is under active development. APIs may change before 1.0. Screen-reader accessibility, bidirectional text, native menus, and multiple windows remain planned work; see the [roadmap](ROADMAP.md) for current capabilities and limitations.
 
 ## Quick start
 
-```bash
+### Requirements
+
+- Go **1.24 or later**.
+- Git to clone the examples.
+- A desktop session to open a window. Linux also needs the native build dependencies listed in the [development setup](CONTRIBUTING.md#development-setup).
+
+### Run an example
+
+```sh
+git clone https://github.com/sjm1327605995/tenon.git
+cd tenon
+go run ./example/component
+```
+
+This example demonstrates an embedded component, its context, and reactive inputs. For the component showcase, run `go run ./example/accordion`.
+
+### Create an application
+
+In a separate directory, initialize a Go module and add Tenon:
+
+```sh
+mkdir profile-app
+cd profile-app
+go mod init example.com/profile-app
 go get github.com/sjm1327605995/tenon
 ```
+
+Save the following as `main.go`:
 
 ```go
 package main
 
 import (
-	"fmt"
+	"github.com/sjm1327605995/tenon/pkg/shadcn"
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
+	"github.com/sjm1327605995/tenon/pkg/value"
 )
 
-func Counter(_ struct{}) *ui.Node {
-	count, setCount := ui.UseState(0)
-	return ui.Div(
-		ui.Style(ui.Row, ui.Gap(16), ui.Padding(24), ui.ItemsCenter),
-		ui.Button(ui.OnClick(func() { setCount(count - 1) }), ui.Text("-")),
-		ui.Text(fmt.Sprintf("%d", count), ui.FontSize(32)),
-		ui.Button(ui.OnClick(func() { setCount(count + 1) }), ui.Text("+")),
-	)
+type Profile struct {
+	ui.Component
+	Name value.Bind[string]
 }
 
-func main() { ui.Run(ui.Use(Counter, struct{}{})) }
+func (p *Profile) Render() ui.NodeSource {
+	theme := p.Context().Theme()
+	return ui.VStack(12,
+		ui.Text("Profile").FontSize(22),
+		shadcn.TextField(p.Name).Placeholder("Name"),
+		ui.Text(p.Name),
+		shadcn.TextButton("Clear", func() { p.Name.Set("") }),
+	).Width(360).Padding(24).Bg(theme.Card).TextColor(theme.CardForeground)
+}
+
+func main() {
+	ui.WindowTitle("Tenon — Profile")
+	ui.WindowSize(480, 320)
+	ui.Run(ui.Render(&Profile{Name: value.New("Tenon")}))
+}
 ```
 
-## Packages
+Start the app:
 
-| Package | What |
-|---|---|
-| [`pkg/ui`](pkg/ui) | The engine + elements, hooks, styling, animation, input. Start here — see its [README](pkg/ui/README.md). |
-| [`pkg/shadcn`](pkg/shadcn) | shadcn/ui-style component library (Button, Card, Dialog, Select, Table, Toast, …) on top of `pkg/ui`. [README](pkg/shadcn/README.md). |
-| [`pkg/router`](pkg/router) | Stack-based navigation (named routes + params, `Push`/`Pop`/`Replace`, back) — React Navigation-style, built on the hooks. |
-| [`yoga`](yoga) | Pure-Go port of the Yoga flexbox engine. |
-| [`pkg/font`](pkg/font) | Font loading/measurement (embeds a CJK-capable face). |
+```sh
+go run .
+```
+
+Editing the input updates `Name` and the text below it. The button changes the same value through `Set`; the framework manages subscriptions and cleanup.
+
+## API guide
+
+| Need | Start with |
+| --- | --- |
+| A component with fields and lifecycle context | Embed `ui.Component`, implement `Render() ui.NodeSource`, and mount with `ui.Render(instance)`. Read theme, viewport, effects, and scheduling through `Context()`. |
+| Text and input binding | Create persistent data with `value.New(initial)`. Use `ui.Text(source)` and `shadcn.TextField(binding)`; see the [Value / Bind guide](pkg/value/README.md). |
+| Function components and local state | Use `ui.View(fn)` or `ui.Use(fn, props)` with hooks; see the [UI API](pkg/ui/README.md). |
+| Named fields for layout declarations | Use the optional [struct declaration API](pkg/decl/README.md). It shares the same runtime and can mix with ordinary UI nodes. |
+
+Keep bindings on the component or in another persistent owner rather than creating them on each render. Use `ui.UseValue(source)` when a value controls branches or layout; `Get()` alone reads a snapshot.
+
+UI state runs on the UI thread. From background goroutines, schedule changes with `ui.Post(func() { ... })` or the component context's `Post` method. A component's context is bound when it mounts and canceled when it unmounts.
 
 ## Examples
 
-- **`go run ./example/accordion`** — a small **docs site** in the shadcn/ui style. A grouped sidebar lists 17 components (click to switch); the right pane shows that component's docs page (breadcrumb, title bar, framework tabs, a live interactive preview, install section) inside a `ScrollView` whose sections fade in on scroll; a footer switch toggles light/dark.
-- **`go run ./example/router`** — **stack navigation** with [`pkg/router`](pkg/router): an inbox where tapping a message pushes a detail screen; the detail screen pops back and uses `Replace` to swap in the next message without growing the stack.
+Run these commands from the repository root:
 
+| Example | Command | Demonstrates |
+| --- | --- | --- |
+| [Component](example/component) | `go run ./example/component` | Embedded component, context, and Value / Bind |
+| [Simple](example/simple) | `go run ./example/simple` | Function components, fluent styles, input submission, and lists |
+| [Component showcase](example/accordion) | `go run ./example/accordion` | Interactive shadcn-style documentation pages and light/dark themes |
+| [Router](example/router) | `go run ./example/router` | Stack navigation with push, pop, and replace |
+| [3D cards](example/card3d) | `go run ./example/card3d` | Perspective, a shared camera, and projected images |
+| [Struct declarations](example/struct) | `go run ./example/struct` | Optional layouts expressed as Go structs |
 
-## Background updates
+![Tenon component showcase](docs/screenshots/accordion.png)
 
-Rendering is single-threaded. From a background goroutine, wrap UI updates in `ui.Post`:
+## Packages
 
-```go
-go func() {
-	data := fetch()
-	ui.Post(func() { setData(data) }) // runs on the render goroutine, safe
-}()
+| Package | Responsibility |
+| --- | --- |
+| [`pkg/ui`](pkg/ui/README.md) | Components, hooks, elements, styles, layout, input, rendering, and the headless test harness |
+| [`pkg/value`](pkg/value/README.md) | Extensible `Value[T]` / `Bind[T]`, static and derived values, and change/validation hooks |
+| [`pkg/shadcn`](pkg/shadcn/README.md) | Themed component library built on `pkg/ui` |
+| [`pkg/decl`](pkg/decl/README.md) | Optional struct declarations and automatic conversion at component boundaries |
+| [`pkg/router`](pkg/router) | Stack navigation, named routes, and route parameters |
+| [`pkg/hotreload`](pkg/hotreload) | Yaegi-based live preview and generated interpreter exports |
+| [`yoga`](yoga) | Pure-Go flexbox layout engine |
+
+## Documentation
+
+- [Documentation index](docs/README.md) — reading paths, package guides, and historical design material.
+- [Architecture](ARCHITECTURE.md) — the Node → Fiber → renderNode model and backend boundaries.
+- [Roadmap](ROADMAP.md) — implemented features, limitations, and planned work.
+- [API design notes](docs/API_ERGONOMICS.md) — the rationale behind component and binding syntax.
+- [Contributing](CONTRIBUTING.md) — environment setup, tests, and contribution guidelines.
+
+## Development
+
+From the repository root:
+
+```sh
+go mod download
+go build ./...
+go vet ./...
+go test ./...
+go run _debug_snapshot/test_v3.go
 ```
 
-## Contributing
-
-Issues and PRs welcome. Please `gofmt`, keep `go test ./...` green, and match the surrounding style. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The last command checks component bounds before and after interactions. Format Go changes with `gofmt`; see [Contributing](CONTRIBUTING.md#testing) for the race detector and Linux display setup.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE).

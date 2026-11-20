@@ -11,6 +11,7 @@ type Style struct {
 	flexWrap_       Wrap
 	overflow_       Overflow
 	display_        Display
+	boxSizing_      BoxSizing
 
 	flex_          FloatOptional
 	flexGrow_      FloatOptional
@@ -51,6 +52,7 @@ var (
 		flexWrap_:       WrapNoWrap,
 		overflow_:       OverflowVisible,
 		display_:        DisplayFlex,
+		boxSizing_:      BoxSizingBorderBox,
 		flex_:           undefinedFloatOptional,
 		flexGrow_:       undefinedFloatOptional,
 		flexShrink_:     undefinedFloatOptional,
@@ -163,6 +165,10 @@ func (s *Style) display() Display {
 func (s *Style) setDisplay(display Display) {
 	s.display_ = display
 }
+
+func (s *Style) boxSizing() BoxSizing { return s.boxSizing_ }
+
+func (s *Style) setBoxSizing(boxSizing BoxSizing) { s.boxSizing_ = boxSizing }
 
 func (s *Style) flex() FloatOptional {
 	return s.flex_
@@ -329,6 +335,7 @@ func (s *Style) equal(other *Style) bool {
 		s.alignItems_ == other.alignItems_ && s.alignSelf_ == other.alignSelf_ &&
 		s.positionType_ == other.positionType_ && s.flexWrap_ == other.flexWrap_ &&
 		s.overflow_ == other.overflow_ && s.display_ == other.display_ &&
+		s.boxSizing_ == other.boxSizing_ &&
 		inexactEqual(s.flex_.unwrap(), other.flex_.unwrap()) &&
 		inexactEquals(s.flexGrow_, other.flexGrow_) &&
 		inexactEquals(s.flexShrink_, other.flexShrink_) &&

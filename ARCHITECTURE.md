@@ -24,7 +24,7 @@ Each `Update`:
 1. drain `ui.Post` queue (cross-goroutine updates) → input → tick animations.
 2. drain the dirty-fiber queue: re-run each dirty component, reconcile its subtree.
 3. `layout()` — **incremental**: `relink` only rebuilds a host's yoga children when they actually changed (so paint-only changes keep yoga's cache valid); `CalculateLayout` runs only when yoga is dirty or the window resized; `computeBounds`/`syncMeasures` run only when bounds actually changed (or on scroll).
-4. `Draw` paints the renderNode tree, then portal overlays; the scene is rendered at `DeviceScaleFactor × SuperSample` and downscaled for antialiased, HiDPI-crisp edges.
+4. `Draw` paints the renderNode tree, then portal overlays. Static frames replay a cached Gio macro; hit-testing is cached by cursor position and layout version. Gio rasterizes antialiased vector paths and text at the display's device scale for HiDPI-crisp edges.
 
 ## Layers on top
 

@@ -28,22 +28,34 @@ type game struct {
 	anims          []*tweenHook
 	loops          []*loopHook
 	lastFrame      time.Time
-	hovered        map[*renderNode]bool
+	hoverReady     bool
+	hoverCount     int
+	maxLevel       uint32
 
 	dragging             *renderNode
 	dragLastX, dragLastY float32
 	pressedNode          *renderNode
 	inputSelecting       bool
 
-	hoverX, hoverY float32 // 上次计算悬停链时的光标位置（用于空闲时跳过重算）
+	hoverX, hoverY  float32 // 上次计算悬停链时的光标位置（用于空闲时跳过重算）
+	hitVersion      uint64
+	hoverHit        *renderNode
+	hoverHitX       float32
+	hoverHitY       float32
+	hoverHitVersion uint64
+	hoverHitValid   bool
+	hitTests        uint64
+	visualVersion   uint64
+	frameCache      gioFrameCache
 
 	// 多击检测（双击选词 / 三击选全部）
 	lastClickAt            time.Time
 	lastClickX, lastClickY float32
 	clickCount             int
 
-	portals  []*Fiber
-	escStack []*escEntry
+	portals         []*Fiber
+	escStack        []*escEntry
+	viewportReaders map[*Fiber]struct{} // 读取 Viewport 的组件只在窗口尺寸变化时重渲染
 
 	laidOutW, laidOutH int
 	boundsDirty        bool
@@ -53,7 +65,7 @@ type game struct {
 	imeComposing bool
 }
 
-// FrameSync 预留：控制是否跟随刷新率（gio 循环当前恒重绘，暂未使用）。
+// FrameSync 保留窗口同步配置；Gio 后端按需请求帧，该选项目前不改变帧调度。
 var FrameSync = true
 
 // windowConfig 是窗口的启动配置。后端中立：gio 侧（gioRun）把它映射成 app.Option。
@@ -96,6 +108,25 @@ func Run(root *Node) {
 	backendRun(root, cfg)
 }
 
+func (g *game) dispose() {
+	if g.rootFiber != nil {
+		unmount(g.rootFiber)
+	}
+	g.rootFiber, g.rootRN, g.root = nil, nil, nil
+	g.dirty, g.pendingEffects, g.portals, g.escStack = nil, nil, nil, nil
+	g.anims, g.loops = nil, nil
+	g.viewportReaders = nil
+	g.hoverReady = false
+	g.hoverHit, g.hoverHitValid = nil, false
+	g.hoverCount, g.maxLevel = 0, 0
+	g.focusedFiber, g.dragging, g.pressedNode = nil, nil, nil
+	g.hasLayoutAnim = false
+	g.frameCache = gioFrameCache{}
+	if activeGame == g {
+		activeGame = nil
+	}
+}
+
 // tickLayoutAnim 逐帧推进布局动画：检测位置变化注入残余偏移，并指数衰减到 0。
 // tickLayoutAnim 推进 FLIP 布局动画；返回是否仍有节点在移动（供按需重绘判断）。
 func (g *game) tickLayoutAnim(dt float32) bool {
@@ -111,6 +142,10 @@ func (g *game) tickLayoutAnim(dt float32) bool {
 		if pf.overlayRoot != nil {
 			active = walkLayoutAnim(pf.overlayRoot, decay) || active
 		}
+	}
+	if active {
+		g.hitVersion++
+		g.visualVersion++
 	}
 	return active
 }
@@ -156,7 +191,9 @@ func (g *game) flushDirty() {
 	q := g.dirty
 	g.dirty = nil
 	// 浅层优先：祖先先重渲染，其协调会顺带处理已脏的后代，避免重复渲染。
-	sort.SliceStable(q, func(i, j int) bool { return depth(q[i]) < depth(q[j]) })
+	if len(q) > 1 {
+		sort.SliceStable(q, func(i, j int) bool { return q[i].level < q[j].level })
+	}
 	for _, f := range q {
 		f.queued = false
 		if !f.dirty || f.unmounted {
@@ -218,7 +255,10 @@ func (g *game) layout() {
 	if g.rootRN == nil {
 		return
 	}
+	g.hitVersion++
+	g.visualVersion++
 	relink(g.rootFiber) // 增量：仅结构变化时改动 yoga 链接
+	g.clearDisabledInteractions()
 	resolveInherited(g.rootRN, inhText{})
 
 	windowChanged := g.w != g.laidOutW || g.h != g.laidOutH
@@ -227,36 +267,45 @@ func (g *game) layout() {
 		g.laidOutW, g.laidOutH = g.w, g.h
 		g.boundsDirty = true
 	}
+	if windowChanged {
+		for f := range g.viewportReaders {
+			g.markDirty(f)
+		}
+	}
+	boundsDirty := g.boundsDirty
 	if g.boundsDirty {
 		computeBounds(g.rootRN, 0, 0)
 		syncMeasures(g.rootRN)
 		g.boundsDirty = false
 	}
-	g.layoutPortals(windowChanged)
+	g.layoutPortals(windowChanged, boundsDirty)
 }
 
 // layoutPortals 为每个 Portal 建立全屏独立布局根并计算其 bounds（同样按需重算）。
-func (g *game) layoutPortals(windowChanged bool) {
+func (g *game) layoutPortals(windowChanged, boundsDirty bool) {
 	g.portals = g.portals[:0]
 	collectPortals(g.rootFiber, &g.portals)
 	for _, pf := range g.portals {
 		root := pf.overlayRoot
-		var kids []*renderNode
-		collectChildRenderNodes(pf, &kids)
-		if !renderNodesEqual(root.children, kids) {
+		if !renderChildrenEqual(pf, root.children) {
+			var kids []*renderNode
+			collectChildRenderNodes(pf, &kids)
 			root.yn.RemoveAllChildren()
 			root.children = kids
 			for i, k := range kids {
-				k.parent = root
-				root.yn.InsertChild(k.yn, uint32(i))
+				attachRenderChild(root, k, uint32(i))
 			}
 		}
 		root.yn.StyleSetWidth(float32(g.w))
 		root.yn.StyleSetHeight(float32(g.h))
 		root.yn.StyleSetFlexDirection(yoga.FlexDirectionColumn)
 		resolveInherited(root, inhText{})
-		if root.yn.IsDirty() || windowChanged {
+		layoutDirty := root.yn.IsDirty() || windowChanged
+		if layoutDirty {
 			root.yn.CalculateLayout(float32(g.w), float32(g.h), yoga.DirectionLTR)
+		}
+		// 滚动只脏化绝对 bounds，不脏化 Yoga；浮层也必须同步绘制和命中位置。
+		if layoutDirty || boundsDirty {
 			computeBounds(root, 0, 0)
 			syncMeasures(root)
 		}
@@ -271,6 +320,7 @@ func (g *game) layoutPortals(windowChanged bool) {
 // 浮层根吞掉命中 -> 触发器 unhover -> 浮层收起 -> 又命中到触发器 -> 再弹出，每帧一次，
 // 看起来就是 hover 框在闪。
 func (g *game) hitTop(x, y float32) *renderNode {
+	g.hitTests++
 	for i := len(g.portals) - 1; i >= 0; i-- {
 		if r := g.portals[i].overlayRoot; r != nil {
 			if h := hitNode(r, x, y); h != nil && h != r {
@@ -307,7 +357,7 @@ func (g *game) handleInput() {
 
 	if input.mouseJustPressed(btnLeft) {
 		x, y := input.cursor()
-		n := g.hitTop(x, y)
+		n := g.interactiveHit(x, y)
 		// 聚焦：命中 input 则聚焦；单击定位光标并开始拖选，双击选词，三击选全部
 		if n != nil && n.kind == rnInput {
 			g.focusedFiber = n.owner
@@ -334,7 +384,7 @@ func (g *game) handleInput() {
 				g.inputSelecting = true
 			}
 		} else {
-			g.focusedFiber = nil
+			g.focusClicked(n)
 			g.clickCount = 0
 		}
 		// 按压开始：向上找第一个 onPress
@@ -364,7 +414,7 @@ func (g *game) handleInput() {
 	// 右键：向上冒泡找第一个 onContextMenu，回调光标逻辑坐标
 	if input.mouseJustPressed(btnRight) {
 		x, y := input.cursor()
-		for c := g.hitTop(x, y); c != nil; c = c.parent {
+		for c := g.interactiveHit(x, y); c != nil; c = c.parent {
 			if c.onContextMenu != nil {
 				c.onContextMenu(float32(x)/uiScale, float32(y)/uiScale)
 				break
@@ -388,11 +438,15 @@ func (g *game) updateInputSelection() {
 		return
 	}
 	f := g.focusedFiber
-	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput {
+	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.isDisabled() {
 		return
 	}
 	x, y := input.cursor()
-	f.rnode.caretPos = f.rnode.caretAt(float32(x), float32(y)) // anchor 不动 -> 形成选区
+	caret := f.rnode.caretAt(float32(x), float32(y))
+	if f.rnode.caretPos != caret {
+		g.visualVersion++
+	}
+	f.rnode.caretPos = caret // anchor 不动 -> 形成选区
 }
 
 // updatePress 在左键松开时结束按压态并回调 onPress(false)。
@@ -453,12 +507,7 @@ func (g *game) focusNext(forward bool) *renderNode {
 		cur = g.focusedFiber.rnode
 	}
 	n := nextFocus(list, cur, forward)
-	if n != nil {
-		g.focusedFiber = n.owner
-		if n.kind == rnInput {
-			n.caretPos = len(n.value)
-		}
-	}
+	g.focusNode(n)
 	return n
 }
 
@@ -481,7 +530,7 @@ func (g *game) activateFocused() bool {
 	// 输入框在这里必须跳过：它的回车由 editFocusedInput 处理（单行提交、多行换行）。
 	// 同一帧里 handleKeyboardNav 与 editFocusedInput 都会跑，两边都提交就会触发两次
 	// —— 聊天消息发两遍，且这里拿到的 rn.value 还是本帧编辑前的旧值。
-	if rn != nil && rn.kind != rnInput && rn.onClick != nil {
+	if rn != nil && !rn.isDisabled() && rn.kind != rnInput && rn.onClick != nil {
 		rn.onClick()
 		return true
 	}
@@ -512,7 +561,7 @@ func (g *game) updateDrag() {
 // 注：CJK 输入法组字（IME 预编辑）尚未在 gio 后端接入，此处只做手动编辑。
 func (g *game) editFocusedInput() {
 	f := g.focusedFiber
-	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput {
+	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.isDisabled() {
 		g.imeComposing = false
 		return
 	}
@@ -657,6 +706,9 @@ func (g *game) editFocusedInput() {
 	// 提交排在 onChange 之后：受控组件靠 onChange 拿到新值，若先提交，
 	// OnSubmit 看到的会是上一帧的值（例如按下回车前刚输入的最后一个字符会丢）。
 	if submit {
+		if len(rn.inputSubs) > 0 {
+			val = rn.value
+		}
 		rn.onSubmit(val)
 	}
 }
@@ -664,33 +716,52 @@ func (g *game) editFocusedInput() {
 // updateHover 计算光标下的悬停链，触发 enter/leave 回调（回调内一般 setState 驱动重渲染）。
 func (g *game) updateHover() {
 	x, y := input.cursor()
-	// 空闲时（光标未移动、无待处理重渲染、无动画在跑）悬停链不会变，
-	// 跳过整树命中遍历与每帧 map 分配，避免静态界面空转。
-	animating := len(g.anims) > 0 || len(g.loops) > 0 || g.hasLayoutAnim
-	if !animating && g.hovered != nil && x == g.hoverX && y == g.hoverY &&
-		!g.needsLayout && len(g.dirty) == 0 {
+	// 坐标和树版本都不变时复用命中结果；活动帧使用父子索引位图，不再分配悬停 map。
+	cacheValid := g.hoverHitValid && g.hoverHitVersion == g.hitVersion &&
+		x == g.hoverHitX && y == g.hoverHitY
+	if g.hoverReady && cacheValid && !g.needsLayout && len(g.dirty) == 0 {
 		return
 	}
 	g.hoverX, g.hoverY = x, y
-	now := map[*renderNode]bool{}
-	for c := g.hitTop(x, y); c != nil; c = c.parent {
-		if c.onHover != nil {
-			now[c] = true
+	hit := g.hoverHit
+	if !cacheValid {
+		hit = g.hitTop(x, y)
+		g.hoverHit = hit
+		g.hoverHitX, g.hoverHitY = x, y
+		g.hoverHitVersion = g.hitVersion
+		g.hoverHitValid = true
+	}
+	if g.rootRN != nil {
+		g.rootRN.advanceHover()
+	}
+	for _, portal := range g.portals {
+		if portal.overlayRoot != nil {
+			portal.overlayRoot.advanceHover()
 		}
 	}
-	for rn := range now {
-		if !g.hovered[rn] {
-			debugHover("enter", rn, x, y)
-			rn.onHover(true)
+	g.hoverCount = 0
+	for c := hit; c != nil; c = c.parent {
+		if c.onHover != nil && !c.isDisabled() {
+			if !c.hover.self[1] {
+				debugHover("enter", c, x, y)
+				c.onHover(true)
+			}
+			c.hover.self[0] = true
+			g.hoverCount++
+		}
+		if c.parent != nil {
+			c.parent.hover.children[0].Set(c.index)
 		}
 	}
-	for rn := range g.hovered {
-		if !now[rn] {
-			debugHover("leave", rn, x, y)
-			rn.onHover(false)
+	if g.rootRN != nil {
+		g.rootRN.leavePreviousHover()
+	}
+	for _, portal := range g.portals {
+		if portal.overlayRoot != nil {
+			portal.overlayRoot.leavePreviousHover()
 		}
 	}
-	g.hovered = now
+	g.hoverReady = true
 }
 
 // 长按重复计时（repeatKey / keyNextRepeat / repeatDelay）已移至 input.go，与后端无关。

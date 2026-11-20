@@ -2,6 +2,20 @@ package ui
 
 import "testing"
 
+func TestGioFrameDrainsPostsOnInitialFrame(t *testing.T) {
+	drainPosts()
+	g := &game{root: Div(Text("initial")), w: 100, h: 100}
+	activeGame = g
+	t.Cleanup(g.dispose)
+	called := false
+	Post(func() { called = true })
+
+	gioFrame(g, 0)
+	if !called {
+		t.Fatal("post queued before the initial frame was not drained")
+	}
+}
+
 // hasLayoutAnim 只表示「树里存在 Animated 节点」，一旦置位就再也不复位，因此不能拿它
 // 当「是否还要出下一帧」的判据 —— 否则只要用过一次 Animated，界面就永远醒着重绘，
 // 按需重绘等于白做。要用 tickLayoutAnim 的返回值（是否真的还在移动）。

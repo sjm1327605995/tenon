@@ -2,44 +2,63 @@ package shadcn
 
 import ui "github.com/sjm1327605995/tenon/pkg/ui"
 
-// floatPanel 在锚点矩形附近渲染浮层（Portal）：默认在下方展开，空间不足时贴边翻转到上方。
+// floatPanel 在锚点附近渲染浮层：自动翻转、贴边，内容过长时可滚动。
 // 点击浮层外区域触发 onClose。
-func floatPanel(th ui.Theme, anchor ui.Rect, onClose func(), extra []ui.StyleOpt, content ...*ui.Node) *ui.Node {
-	return ui.Use(floatPanelC, floatProps{th: th, anchor: anchor, onClose: onClose, extra: extra, content: content})
+func floatPanel(th ui.Theme, anchor ui.Rect, onClose func(), minWidth float32, extra []ui.StyleOpt, content ...*ui.Node) *ui.Node {
+	return ui.Use(floatPanelC, floatProps{th: th, anchor: anchor, onClose: onClose, minWidth: minWidth, extra: extra, content: content})
 }
 
 type floatProps struct {
-	th      ui.Theme
-	anchor  ui.Rect
-	onClose func()
-	extra   []ui.StyleOpt
-	content []*ui.Node
+	th       ui.Theme
+	anchor   ui.Rect
+	onClose  func()
+	minWidth float32
+	extra    []ui.StyleOpt
+	content  []*ui.Node
+}
+
+// useFloatingPosition 用实测尺寸定位，首帧测量前隐藏，避免浮层闪到错误的位置。
+// 所有坐标均为逻辑像素；窄窗口内最小宽度也必须服从视口上限。
+func useFloatingPosition(anchor ui.Rect, gap float32, above bool, opacity float32) (*ui.Node, []ui.StyleOpt) {
+	ref, rect := ui.UseMeasure()
+	vp := ui.Viewport()
+	marginX, marginY := min(float32(8), vp.W/2), min(float32(8), vp.H/2)
+	left := clampf(anchor.X, marginX, max(marginX, vp.W-marginX-rect.W))
+	below, over := anchor.Y+anchor.H+gap, anchor.Y-rect.H-gap
+	top, alternate := below, over
+	if above {
+		top, alternate = over, below
+	}
+	fits := func(y float32) bool { return y >= marginY && y+rect.H <= vp.H-marginY }
+	if !fits(top) && fits(alternate) {
+		top = alternate
+	}
+	top = clampf(top, marginY, max(marginY, vp.H-marginY-rect.H))
+	if rect.W == 0 || rect.H == 0 {
+		opacity = 0
+	}
+	return ref, []ui.StyleOpt{
+		ui.Absolute, ui.Left(left), ui.Top(top), ui.Opacity(opacity),
+		ui.MaxWidth(max(float32(0), vp.W-2*marginX)),
+		ui.MaxHeight(max(float32(0), vp.H-2*marginY)),
+	}
 }
 
 func floatPanelC(p floatProps) *ui.Node {
-	pref, prect := ui.UseMeasure() // 测量浮层自身高度以决定翻转
+	pref, position := useFloatingPosition(p.anchor, 6, false, 1)
 	vp := ui.Viewport()
-
-	top := p.anchor.Y + p.anchor.H + 6
-	if prect.H > 0 && top+prect.H > vp.H && p.anchor.Y-prect.H-6 >= 0 {
-		top = p.anchor.Y - prect.H - 6 // 下方放不下 -> 翻到上方
-	}
-	op := float32(1)
-	if prect.H == 0 {
-		op = 0 // 首帧测量前隐藏，避免位置跳动
-	}
-
 	panel := append([]ui.StyleOpt{
-		ui.Absolute, ui.Left(p.anchor.X), ui.Top(top), ui.Opacity(op),
 		ui.Bg(p.th.Popover), ui.TextColor(p.th.PopoverForeground),
-		ui.Border(1, p.th.Border), ui.Radius(p.th.Radius),
+		ui.Border(1, p.th.Border), ui.Radius(p.th.Radius), shadowMd(),
 	}, p.extra...)
+	panel = append(panel, ui.MinWidth(min(p.minWidth, max(float32(0), vp.W-16))))
+	panel = append(panel, position...)
 
 	return ui.Portal(
 		ui.Div(
 			ui.Style(ui.Grow(1)),
 			ui.OnClick(p.onClose),
-			ui.Div(append([]*ui.Node{ui.Style(panel...), pref, ui.OnClick(func() {})}, p.content...)...),
+			ui.ScrollView(append([]*ui.Node{ui.Style(panel...), pref, ui.OnClick(func() {})}, p.content...)...),
 		),
 	)
 }
@@ -86,7 +105,7 @@ func popover(p popoverProps) *ui.Node {
 	return ui.Fragment(
 		ui.Div(ref, ui.OnClick(func() { setOpen(!open) }), p.trigger),
 		ui.If(open, floatPanel(th, rect, func() { setOpen(false) },
-			[]ui.StyleOpt{ui.Column, ui.Gap(8), ui.Padding(14), ui.MinWidth(rect.W)}, p.content...)),
+			rect.W, []ui.StyleOpt{ui.Column, ui.Gap(8), ui.Padding(14)}, p.content...)),
 	)
 }
 
@@ -108,14 +127,21 @@ func tooltip(p tooltipProps) *ui.Node {
 	ref, rect := ui.UseMeasure()
 	return ui.Fragment(
 		ui.Div(ref, ia, p.trigger),
-		ui.If(hovered, ui.Portal(
-			ui.Div(
-				ui.Style(ui.Absolute, ui.Left(rect.X), ui.Top(rect.Y-32),
-					ui.Bg(th.Foreground), ui.Radius(6), ui.PaddingXY(10, 5)),
-				ui.Text(p.text, ui.FontSize(12), ui.TextColor(th.Background)),
-			),
-		)),
+		ui.If(hovered, ui.Use(tooltipPanel, tooltipPanelProps{th: th, anchor: rect, text: p.text})),
 	)
+}
+
+type tooltipPanelProps struct {
+	th     ui.Theme
+	anchor ui.Rect
+	text   string
+}
+
+func tooltipPanel(p tooltipPanelProps) *ui.Node {
+	ref, position := useFloatingPosition(p.anchor, 6, true, 1)
+	style := append([]ui.StyleOpt{ui.Bg(p.th.Foreground), ui.Radius(6), ui.PaddingXY(10, 5), ui.Clip}, position...)
+	return ui.Portal(ui.Div(ref, ui.Style(style...),
+		ui.Text(p.text, ui.FontSize(12), ui.TextColor(p.th.Background))))
 }
 
 // ---- HoverCard ----
@@ -136,18 +162,33 @@ func hoverCard(p hoverCardProps) *ui.Node {
 	cHover, setCHover := ui.UseState(false)
 	ref, rect := ui.UseMeasure()
 	open := tHover || cHover
+	// 离开触发器后保留短暂退场，让指针有时间跨过触发器与卡片之间的空隙。
+	mounted, progress := ui.UseTransition(open, 120)
 	return ui.Fragment(
 		ui.Div(ref, ui.OnHover(setTHover), p.trigger),
-		ui.If(open, ui.Portal(
-			ui.Div(append([]*ui.Node{
-				ui.Style(ui.Absolute, ui.Left(rect.X), ui.Top(rect.Y+rect.H+2),
-					ui.Column, ui.Gap(6), ui.Padding(14), ui.MinWidth(240),
-					ui.Bg(th.Popover), ui.TextColor(th.PopoverForeground),
-					ui.Border(1, th.Border), ui.Radius(th.Radius)),
-				ui.OnHover(setCHover),
-			}, p.content...)...),
-		)),
+		ui.If(mounted, ui.Use(hoverCardPanel, hoverCardPanelProps{
+			th: th, anchor: rect, progress: progress, onHover: setCHover, content: p.content,
+		})),
 	)
+}
+
+type hoverCardPanelProps struct {
+	th       ui.Theme
+	anchor   ui.Rect
+	progress float32
+	onHover  func(bool)
+	content  []*ui.Node
+}
+
+func hoverCardPanel(p hoverCardPanelProps) *ui.Node {
+	ref, position := useFloatingPosition(p.anchor, 6, false, p.progress)
+	style := []ui.StyleOpt{
+		ui.Column, ui.Gap(6), ui.Padding(14), ui.MinWidth(min(float32(240), max(float32(0), ui.Viewport().W-16))),
+		ui.Bg(p.th.Popover), ui.TextColor(p.th.PopoverForeground),
+		ui.Border(1, p.th.Border), ui.Radius(p.th.Radius), shadowMd(),
+	}
+	style = append(style, position...)
+	return ui.Portal(ui.ScrollView(append([]*ui.Node{ref, ui.Style(style...), ui.OnHover(p.onHover)}, p.content...)...))
 }
 
 // ---- DropdownMenu ----
@@ -187,6 +228,6 @@ func dropdown(p dropdownProps) *ui.Node {
 	return ui.Fragment(
 		ui.Div(ref, ui.OnClick(func() { setOpen(!open) }), p.trigger),
 		ui.If(open, floatPanel(th, rect, func() { setOpen(false) },
-			[]ui.StyleOpt{ui.Column, ui.Padding(4), ui.MinWidth(max(rect.W, 160))}, content...)),
+			max(rect.W, 160), []ui.StyleOpt{ui.Column, ui.Padding(4)}, content...)),
 	)
 }

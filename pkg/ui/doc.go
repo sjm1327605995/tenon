@@ -1,5 +1,5 @@
 // Package ui is a declarative, React-style GUI toolkit built on the yoga
-// flexbox engine and the Ebiten renderer (vector + text/v2).
+// flexbox engine and the Gio renderer.
 //
 // The model has three layers: an immutable Node tree (the description you
 // return from components), a persistent Fiber tree (identity, hooks, and
@@ -7,19 +7,18 @@
 // setter re-renders only its owning component, giving automatic, local
 // updates without manual invalidation.
 //
-// Components are functions of a typed props struct, mounted with Use or Memo:
+// Components use View for no props, or Use/Memo for typed props:
 //
-//	func Counter(_ struct{}) *ui.Node {
+//	func Counter() *ui.Node {
 //		count, setCount := ui.UseState(0)
-//		return ui.Div(
-//			ui.Style(ui.Row, ui.Gap(16), ui.ItemsCenter),
-//			ui.Button(ui.OnClick(func() { setCount(count - 1) }), ui.Text("-")),
-//			ui.Text(fmt.Sprintf("%d", count), ui.FontSize(32)),
-//			ui.Button(ui.OnClick(func() { setCount(count + 1) }), ui.Text("+")),
+//		return ui.HStack(16,
+//			ui.Button(ui.Text("-")).OnClick(func() { setCount(count - 1) }),
+//			ui.Text(fmt.Sprintf("%d", count)).FontSize(32),
+//			ui.Button(ui.Text("+")).OnClick(func() { setCount(count + 1) }),
 //		)
 //	}
 //
-//	func main() { ui.Run(ui.Use(Counter, struct{}{})) }
+//	func main() { ui.Run(ui.View(Counter)) }
 //
 // Elements (Div, Span, Button, Input, Img, Text, ScrollView, Fragment,
 // Portal) take attributes and children in any order. Styling is expressed
@@ -30,6 +29,6 @@
 // See README.md in this directory for the full guide and the example/accordion
 // program for a runnable demo.
 //
-// Rendering is single-threaded (Ebiten's Update/Draw loop); trigger state
-// changes from callbacks and effects rather than other goroutines.
+// Rendering is single-threaded; trigger state changes from callbacks and
+// effects, or use Post from background goroutines.
 package ui

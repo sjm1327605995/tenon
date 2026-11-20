@@ -35,7 +35,7 @@ func selectC(p SelectProps) *ui.Node {
 	rows := make([]*ui.Node, 0, len(p.Options))
 	for _, opt := range p.Options {
 		o := opt
-		rows = append(rows, menuRow(o, func() {
+		rows = append(rows, comboRow(o, o == p.Value, func() {
 			if p.OnChange != nil {
 				p.OnChange(o)
 			}
@@ -46,6 +46,6 @@ func selectC(p SelectProps) *ui.Node {
 	return ui.Fragment(
 		trigger,
 		ui.If(open, floatPanel(th, rect, func() { setOpen(false) },
-			[]ui.StyleOpt{ui.Column, ui.Padding(4), ui.MinWidth(rect.W)}, rows...)),
+			rect.W, []ui.StyleOpt{ui.Column, ui.Padding(4)}, rows...)),
 	)
 }

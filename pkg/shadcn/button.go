@@ -112,7 +112,7 @@ func button(p ButtonProps) *ui.Node {
 		style = append(style, ui.Opacity(0.5))
 	}
 
-	attrs := []*ui.Node{ui.Style(style...)}
+	attrs := []*ui.Node{ui.Style(style...), ui.Disabled(p.Disabled)}
 	if !p.Disabled {
 		attrs = append(attrs, ui.OnClick(p.OnClick), ia)
 	}

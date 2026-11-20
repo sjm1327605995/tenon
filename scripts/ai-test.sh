@@ -1,9 +1,9 @@
 #!/bin/bash
-# AI 友好的测试脚本 — 自动检测环境，输出结构化结果
+# AI 友好的测试脚本 — 输出结构化结果，并始终保留 go test 的退出状态
 # 用法: ./scripts/ai-test.sh [包路径]
-# 示例: ./scripts/ai-test.sh                    # 测试所有包
-#        ./scripts/ai-test.sh ./pkg/v2/ui/      # 测试指定包
-#        ./scripts/ai-test.sh ./pkg/v2/widgets/ # 测试 widgets
+# 示例: ./scripts/ai-test.sh
+#       ./scripts/ai-test.sh ./pkg/ui/
+#       ./scripts/ai-test.sh ./pkg/shadcn/
 
 set -euo pipefail
 
@@ -15,13 +15,8 @@ PKG="${1:-./...}"
 PASS=0
 FAIL=0
 SKIP=0
-RESULTS=""
 
-# 尝试无头运行（Xvfb）
 run_with_xvfb() {
-    if ! command -v Xvfb &>/dev/null; then
-        return 1
-    fi
     DISPLAY_NUM=99
     for i in $(seq 99 199); do
         if ! ls /tmp/.X${i}-lock &>/dev/null 2>&1; then
@@ -32,46 +27,46 @@ run_with_xvfb() {
     export DISPLAY=":${DISPLAY_NUM}"
     Xvfb "$DISPLAY" -screen 0 1024x768x24 -ac +extension GLX +render -noreset &>/dev/null &
     XVFB_PID=$!
-    trap "kill $XVFB_PID 2>/dev/null; rm -f /tmp/.X${DISPLAY_NUM}-lock 2>/dev/null" EXIT
+    cleanup() {
+        kill "$XVFB_PID" 2>/dev/null || true
+        rm -f "/tmp/.X${DISPLAY_NUM}-lock" 2>/dev/null || true
+    }
+    trap cleanup EXIT
     sleep 0.3
-    return 0
 }
 
-# 检测是否需要 Xvfb
-if ! go test "$PKG" -count=1 -timeout 5s &>/dev/null 2>&1; then
-    echo "Need display, trying Xvfb..."
-    if run_with_xvfb; then
-        echo "Xvfb started on DISPLAY=$DISPLAY"
-    else
-        echo "SKIP: No display available and Xvfb not installed"
-        exit 0
-    fi
+# Linux 无显示环境且装有 Xvfb 时主动提供虚拟显示器；否则直接运行测试，
+# 让真实错误和退出码暴露出来，不把编译或断言失败误报为 SKIP。
+if [[ "$(uname -s)" == Linux* && -z "${DISPLAY:-}" ]] && command -v Xvfb &>/dev/null; then
+    run_with_xvfb
+    echo "Xvfb started on DISPLAY=$DISPLAY"
 fi
 
-# 运行测试并收集结果
 echo "=== Running tests: $PKG ==="
 echo ""
 
-TEST_OUTPUT=$(go test "$PKG" -count=1 -timeout 60s -v 2>&1) || true
+set +e
+TEST_OUTPUT=$(go test "$PKG" -count=1 -timeout 60s -v 2>&1)
+TEST_STATUS=$?
+set -e
 
-# 解析结果
 while IFS= read -r line; do
-    if [[ "$line" == "--- PASS:"* ]]; then
-        name=$(echo "$line" | sed 's/--- PASS: //' | sed 's/ (.*//')
+    if [[ "$line" =~ ^[[:space:]]*---[[:space:]]PASS: ]]; then
+        name="${line#*PASS: }"
+        name="${name%% (*}"
         PASS=$((PASS + 1))
         echo "  ✓ $name"
-    elif [[ "$line" == "--- FAIL:"* ]]; then
-        name=$(echo "$line" | sed 's/--- FAIL: //' | sed 's/ (.*//')
+    elif [[ "$line" =~ ^[[:space:]]*---[[:space:]]FAIL: ]]; then
+        name="${line#*FAIL: }"
+        name="${name%% (*}"
         FAIL=$((FAIL + 1))
         echo "  ✗ $name"
-    elif [[ "$line" == "--- SKIP:"* ]]; then
-        name=$(echo "$line" | sed 's/--- SKIP: //' | sed 's/ (.*//')
+    elif [[ "$line" =~ ^[[:space:]]*---[[:space:]]SKIP: ]]; then
+        name="${line#*SKIP: }"
+        name="${name%% (*}"
         SKIP=$((SKIP + 1))
         echo "  ○ $name"
-    elif [[ "$line" == "FAIL"* && "$line" == *"FAIL"* ]]; then
-        # Package-level FAIL line
-        :
-    elif [[ "$line" == "ok"* ]]; then
+    elif [[ "$line" == ok* ]]; then
         pkg=$(echo "$line" | awk '{print $2}')
         echo "  Package: $pkg — OK"
     fi
@@ -83,13 +78,12 @@ echo "  PASS: $PASS"
 echo "  FAIL: $FAIL"
 echo "  SKIP: $SKIP"
 
-if [ "$FAIL" -gt 0 ]; then
+if [ "$TEST_STATUS" -ne 0 ]; then
     echo ""
     echo "=== Failed test output ==="
-    echo "$TEST_OUTPUT" | grep -A 20 "FAIL"
-    exit 1
+    echo "$TEST_OUTPUT"
+    exit "$TEST_STATUS"
 fi
 
 echo ""
 echo "All tests passed."
-exit 0

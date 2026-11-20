@@ -39,7 +39,7 @@ func datePicker(p DatePickerProps) *ui.Node {
 	)
 
 	return ui.Fragment(trigger,
-		ui.If(open, floatPanel(th, rect, func() { setOpen(false) }, []ui.StyleOpt{ui.Padding(8)},
+		ui.If(open, floatPanel(th, rect, func() { setOpen(false) }, 0, []ui.StyleOpt{ui.Padding(8)},
 			Calendar(CalendarProps{Value: p.Value, OnChange: func(t time.Time) {
 				if p.OnChange != nil {
 					p.OnChange(t)

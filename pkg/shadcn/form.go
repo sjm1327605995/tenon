@@ -23,7 +23,7 @@ func checkbox(p CheckboxProps) *ui.Node {
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
 	}
-	kids := []*ui.Node{ui.Style(st...)}
+	kids := []*ui.Node{ui.Style(st...), ui.Disabled(p.Disabled)}
 	if !p.Disabled {
 		kids = append(kids, ui.OnClick(func() {
 			if p.OnChange != nil {
@@ -60,7 +60,7 @@ func switchC(p SwitchProps) *ui.Node {
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
 	}
-	attrs := []*ui.Node{ui.Style(st...)}
+	attrs := []*ui.Node{ui.Style(st...), ui.Disabled(p.Disabled)}
 	if !p.Disabled {
 		attrs = append(attrs, ui.OnClick(func() {
 			if p.OnChange != nil {

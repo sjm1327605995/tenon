@@ -37,16 +37,7 @@ func contextMenu(p contextMenuProps) *ui.Node {
 			setOpen(false)
 		}))
 	}
-	panel := append([]*ui.Node{
-		ui.Style(ui.Absolute, ui.Left(pos[0]), ui.Top(pos[1]), ui.Column, ui.Padding(4), ui.MinWidth(160),
-			ui.Bg(th.Popover), ui.TextColor(th.PopoverForeground), ui.Border(1, th.Border),
-			ui.Radius(th.Radius), shadowMd()),
-		ui.OnClick(func() {}), // 吞掉点击，避免冒泡到遮罩关闭
-	}, rows...)
-
-	menu := ui.Portal(
-		ui.Div(ui.Style(ui.Grow(1)), ui.OnClick(func() { setOpen(false) }), // 点空白关闭
-			ui.Div(panel...)),
-	)
+	menu := floatPanel(th, ui.Rect{X: pos[0], Y: pos[1]}, func() { setOpen(false) },
+		160, []ui.StyleOpt{ui.Column, ui.Padding(4)}, rows...)
 	return ui.Fragment(wrapped, menu)
 }

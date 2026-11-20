@@ -6,13 +6,13 @@ test-yoga:
 
 # 完整测试（需要 Xvfb 或真实显示器）
 test-ui:
-	./scripts/test.sh ./pkg/v2/ui/ -v -count=1
+	./scripts/test.sh ./pkg/ui/ -v -count=1
 
 test-widgets:
-	./scripts/test.sh ./pkg/v2/widgets/ -v -count=1
+	./scripts/test.sh ./pkg/shadcn/ -v -count=1
 
 test-render:
-	./scripts/test.sh ./pkg/v2/render/ -v -count=1
+	./scripts/test.sh ./pkg/ui/ -v -count=1 -run 'TestGio|Test.*Paint'
 
 # 全量测试
 test-all:

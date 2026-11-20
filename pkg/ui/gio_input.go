@@ -122,13 +122,15 @@ func gioInputFilters() []event.Filter {
 // gioProcessInput 排空本帧队列并更新 gioIn。返回是否收到过任何事件（用于判断是否需重绘）。
 func (g *gioInput) process(src interface {
 	Event(...event.Filter) (event.Event, bool)
-}) {
+}) bool {
+	changed := false
 	filters := gioInputFilters()
 	for {
 		ev, ok := src.Event(filters...)
 		if !ok {
 			break
 		}
+		changed = true
 		switch ev := ev.(type) {
 		case pointer.Event:
 			debugPointer(ev)
@@ -196,6 +198,7 @@ func (g *gioInput) process(src interface {
 			}
 		}
 	}
+	return changed
 }
 
 // gioCursor 按光标下的元素挑选系统指针形状：文本框用 I 型、可点击元素用手型。
@@ -205,7 +208,7 @@ func gioCursor(g *game) pointer.Cursor {
 		return pointer.CursorDefault
 	}
 	x, y := gioIn.cursor()
-	for c := g.hitTop(x, y); c != nil; c = c.parent {
+	for c := g.interactiveHit(x, y); c != nil; c = c.parent {
 		switch {
 		case c.kind == rnInput:
 			return pointer.CursorText

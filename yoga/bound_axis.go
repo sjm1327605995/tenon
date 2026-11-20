@@ -1,40 +1,42 @@
 package yoga
 
 func paddingAndBorderForAxis(node *Node, axis FlexDirection, widthSize float32) float32 {
-	// The total padding/border for a given axis does not depend on the direction
-	// so hardcoding LTR here to avoid piping direction to this function
+	// The total padding/border for an axis does not depend on direction.
 	return node.getInlineStartPaddingAndBorder(axis, DirectionLTR, widthSize) +
 		node.getInlineEndPaddingAndBorder(axis, DirectionLTR, widthSize)
 }
 
-func boundAxisWithinMinAndMax(node *Node, axis FlexDirection, value FloatOptional, axisSize float32) FloatOptional {
-	var min, max FloatOptional
-
-	if isColumn(axis) {
-		min = resolveValue(
-			node.getStyle().minDimension(DimensionHeight).Value(), axisSize)
-		max = resolveValue(
-			node.getStyle().maxDimension(DimensionHeight).Value(), axisSize)
-	} else if isRow(axis) {
-		min = resolveValue(
-			node.getStyle().minDimension(DimensionWidth).Value(), axisSize)
-		max = resolveValue(
-			node.getStyle().maxDimension(DimensionWidth).Value(), axisSize)
+func resolveSizeWithBoxSizing(node *Node, value Value, referenceLength, ownerWidth float32, dimension Dimension) FloatOptional {
+	resolved := resolveValue(value, referenceLength)
+	if node.getStyle().boxSizing() == BoxSizingBorderBox || resolved.isUndefined() {
+		return resolved
 	}
+	axis := FlexDirectionRow
+	if dimension == DimensionHeight {
+		axis = FlexDirectionColumn
+	}
+	return FloatOptional{resolved.unwrap() + paddingAndBorderForAxis(node, axis, ownerWidth)}
+}
+
+func resolveDimensionSize(node *Node, dimension Dimension, referenceLength, ownerWidth float32) FloatOptional {
+	return resolveSizeWithBoxSizing(node, node.getResolvedDimension(dimension), referenceLength, ownerWidth, dimension)
+}
+
+func boundAxisWithinMinAndMax(node *Node, axis FlexDirection, value FloatOptional, axisSize, widthSize float32) FloatOptional {
+	dimension := dimension(axis)
+	min := resolveSizeWithBoxSizing(node, node.getStyle().minDimension(dimension).Value(), axisSize, widthSize, dimension)
+	max := resolveSizeWithBoxSizing(node, node.getStyle().maxDimension(dimension).Value(), axisSize, widthSize, dimension)
 
 	if max.unwrap() >= 0 && value.unwrap() > max.unwrap() {
 		return max
 	}
-
 	if min.unwrap() >= 0 && value.unwrap() < min.unwrap() {
 		return min
 	}
-
 	return value
 }
 
-// Like boundAxisWithinMinAndMax but also ensures that the value doesn't
-// go below the padding and border amount.
+// boundAxis also ensures that the value doesn't go below padding and border.
 func boundAxis(
 	node *Node,
 	axis FlexDirection,
@@ -43,7 +45,7 @@ func boundAxis(
 	widthSize float32,
 ) float32 {
 	return maxOrDefined(
-		boundAxisWithinMinAndMax(node, axis, FloatOptional{value}, axisSize).unwrap(),
+		boundAxisWithinMinAndMax(node, axis, FloatOptional{value}, axisSize, widthSize).unwrap(),
 		paddingAndBorderForAxis(node, axis, widthSize),
 	)
 }

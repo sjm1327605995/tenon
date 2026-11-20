@@ -10,14 +10,17 @@ type Fiber struct {
 
 	parent   *Fiber
 	children []*Fiber
+	level    int
 
 	// component
-	fnPtr      uintptr
-	props      any
-	render     func(any) *Node
-	propsEqual func(a, b any) bool
-	memo       bool
-	hooks      []any
+	fnPtr         uintptr
+	props         any
+	render        func(any) *Node
+	propsEqual    func(a, b any) bool
+	memo          bool
+	hooks         []any
+	instanceType  reflect.Type
+	renderContext *RenderContext
 
 	// provider
 	ctxID        int
@@ -26,8 +29,9 @@ type Fiber struct {
 	providerSubs []*Fiber            // 本 fiber 订阅的 provider，卸载时据此退订
 
 	// host / text
-	tag   string
-	rnode *renderNode
+	tag       string
+	rnode     *renderNode
+	leafAttrs bool // Text/Icon 曾应用链式属性，移除修饰时也须清理旧属性
 
 	// portal（独立浮层布局根）
 	overlayRoot *renderNode
@@ -67,7 +71,7 @@ func sameType(f *Fiber, n *Node) bool {
 	}
 	switch n.typ {
 	case typeComponent:
-		return f.fnPtr == n.fnPtr && f.key == n.key
+		return f.fnPtr == n.fnPtr && f.instanceType == n.instanceType && f.key == n.key
 	case typeHost:
 		return f.tag == n.tag && f.key == n.key
 	case typeProvider:
@@ -98,9 +102,13 @@ func reconcile(parent, old *Fiber, n *Node) *Fiber {
 
 func mountFiber(parent *Fiber, n *Node) *Fiber {
 	f := &Fiber{typ: n.typ, key: n.key, parent: parent}
+	if parent != nil {
+		f.level = parent.level + 1
+	}
 	switch n.typ {
 	case typeComponent:
 		f.fnPtr, f.props, f.render, f.propsEqual, f.memo = n.fnPtr, n.props, n.render, n.propsEqual, n.memo
+		f.instanceType = n.instanceType
 		renderComponent(f)
 	case typeProvider:
 		f.ctxID, f.ctxValue = n.ctxID, n.ctxValue
@@ -115,17 +123,34 @@ func mountFiber(parent *Fiber, n *Node) *Fiber {
 		f.tag = n.tag
 		f.rnode = newHostRenderNode(n.tag)
 		f.rnode.owner = f
-		applyHostProps(f, f.rnode, buildHostProps(n))
+		hp := buildHostProps(n)
+		applyHostProps(f, f.rnode, hp)
+		releaseHostProps(hp)
 		f.children = mountList(f, n.kids)
 	case typeText:
-		f.rnode = newTextRenderNode(n.text, n.textStyle, cloneRuns(n.runs))
+		hp := buildHostProps(n)
+		f.rnode = newTextRenderNode(n.text, hp.style, cloneRuns(n.runs))
 		f.rnode.owner = f
+		applyLeafAttrs(f, n, hp)
 		attachTextBinds(f, n.binds, f.rnode)
+		releaseHostProps(hp)
 	case typeIcon:
-		f.rnode = newIconRenderNode(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
+		hp := buildHostProps(n)
+		f.rnode = newIconRenderNode(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, hp.style)
 		f.rnode.owner = f
+		applyLeafAttrs(f, n, hp)
+		releaseHostProps(hp)
 	}
 	return f
+}
+
+// 普通文字/图标沿用轻量路径，只有附加或移除链式属性时才同步完整的布局和事件属性。
+func applyLeafAttrs(f *Fiber, n *Node, hp *hostProps) {
+	hasAttrs := len(n.attrList) > 0
+	if hasAttrs || f.leafAttrs {
+		applyHostProps(f, f.rnode, hp)
+	}
+	f.leafAttrs = hasAttrs
 }
 
 func mountList(parent *Fiber, kids []*Node) []*Fiber {
@@ -166,18 +191,26 @@ func updateFiber(f *Fiber, n *Node) {
 		f.portalTrap = n.trap
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeHost:
-		applyHostProps(f, f.rnode, buildHostProps(n))
+		hp := buildHostProps(n)
+		applyHostProps(f, f.rnode, hp)
+		releaseHostProps(hp)
 		f.children = reconcileList(f, f.children, n.kids)
 	case typeText:
+		hp := buildHostProps(n)
+		attachTextBinds(f, n.binds, f.rnode)
 		if len(n.binds) > 0 {
 			// 绑定节点：文本由 Signal 直写，样式仍随 render 更新；占位 text 不覆盖活值。
-			f.rnode.applyTextStyle(n.textStyle)
-			attachTextBinds(f, n.binds, f.rnode)
+			f.rnode.applyTextStyle(hp.style)
 		} else {
-			f.rnode.setText(n.text, n.textStyle, cloneRuns(n.runs))
+			f.rnode.setText(n.text, hp.style, cloneRuns(n.runs))
 		}
+		applyLeafAttrs(f, n, hp)
+		releaseHostProps(hp)
 	case typeIcon:
-		f.rnode.setIcon(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, n.textStyle)
+		hp := buildHostProps(n)
+		f.rnode.setIcon(n.iconPath, n.iconSize, n.iconStroke, n.iconRaw, n.iconW, n.iconH, hp.style)
+		applyLeafAttrs(f, n, hp)
+		releaseHostProps(hp)
 	}
 }
 
@@ -213,6 +246,9 @@ func renderComponent(f *Fiber) {
 
 func unmount(f *Fiber) {
 	f.unmounted = true
+	if f.renderContext != nil {
+		f.renderContext.cancel()
+	}
 	if f.errBoundary {
 		boundaryCount--
 	}
@@ -222,6 +258,7 @@ func unmount(f *Fiber) {
 	}
 	f.providerSubs = nil
 	if g := activeGame; g != nil {
+		delete(g.viewportReaders, f)
 		if g.focusedFiber == f {
 			g.focusedFiber = nil
 		}
@@ -233,7 +270,11 @@ func unmount(f *Fiber) {
 			if g.dragging == rn {
 				g.dragging = nil
 			}
-			delete(g.hovered, rn)
+			if rn.parent != nil {
+				rn.parent.hover.children[0].Delete(rn.index)
+				rn.parent.hover.children[1].Delete(rn.index)
+			}
+			rn.hover.self = [2]bool{}
 		}
 	}
 	for _, h := range f.hooks {
@@ -251,14 +292,55 @@ func unmount(f *Fiber) {
 		unmount(c)
 	}
 	// 从 yoga 父节点摘除；不 Reset（节点即将被丢弃，Reset 对仍挂在父上的节点会 panic）。
-	if f.rnode != nil && f.rnode.parent != nil {
-		f.rnode.parent.yn.RemoveChild(f.rnode.yn)
-		f.rnode.parent = nil
+	if f.rnode != nil {
+		if f.rnode.parent != nil {
+			f.rnode.parent.yn.RemoveChild(f.rnode.yn)
+			f.rnode.parent = nil
+		}
+		f.rnode.yn.Finalize()
+	}
+	if f.overlayRoot != nil {
+		f.overlayRoot.yn.Finalize()
 	}
 }
 
 // reconcileList 协调子节点列表（带 Key 的简化 diff）。
 func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
+	unkeyedOnly := true
+	for _, child := range old {
+		if child.key != "" {
+			unkeyedOnly = false
+			break
+		}
+	}
+	if unkeyedOnly {
+		for _, node := range nodes {
+			if node != nil && node.key != "" {
+				unkeyedOnly = false
+				break
+			}
+		}
+	}
+	if unkeyedOnly {
+		out := old[:0]
+		for _, node := range nodes {
+			if node == nil {
+				continue
+			}
+			var previous *Fiber
+			if len(out) < len(old) {
+				previous = old[len(out)]
+			}
+			out = append(out, reconcile(parent, previous, node))
+		}
+		if len(out) < len(old) {
+			for _, child := range old[len(out):] {
+				unmount(child)
+			}
+		}
+		return out
+	}
+
 	keyed := make(map[string]*Fiber)
 	var unkeyed []*Fiber
 	for _, c := range old {
@@ -284,6 +366,10 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 		} else if uidx < len(unkeyed) {
 			if sameType(unkeyed[uidx], nd) {
 				match = unkeyed[uidx]
+			} else {
+				// 该位置已消费，但旧节点并未复用，必须立刻卸载。
+				// 否则会遗漏 effects、订阅与组件 Context 的生命周期清理。
+				unmount(unkeyed[uidx])
 			}
 			uidx++
 		}
@@ -309,6 +395,9 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 
 // rootRenderNode 从 Fiber 向下找到第一个 renderNode（跳过组件 Fiber）。
 func rootRenderNode(f *Fiber) *renderNode {
+	if f == nil {
+		return nil
+	}
 	if f.rnode != nil {
 		return f.rnode
 	}
@@ -343,19 +432,28 @@ func collectPortals(f *Fiber, out *[]*Fiber) {
 	}
 }
 
+func attachRenderChild(parent, child *renderNode, index uint32) {
+	child.parent = parent
+	child.index = index
+	child.level = parent.level + 1
+	if activeGame != nil && child.level > activeGame.maxLevel {
+		activeGame.maxLevel = child.level
+	}
+	parent.yn.InsertChild(child.yn, index)
+}
+
 // relink 依据 Fiber 树同步 yoga 父子关系。
 // 仅在子节点集合真正变化时重建 yoga 链接——否则跳过，保持 yoga 布局缓存有效，
 // 让纯绘制变更（颜色/hover 等）不触发整棵树重新计算。
 func relink(f *Fiber) {
 	if f.rnode != nil && f.rnode.container() {
-		var kids []*renderNode
-		collectChildRenderNodes(f, &kids)
-		if !renderNodesEqual(f.rnode.children, kids) {
+		if !renderChildrenEqual(f, f.rnode.children) {
+			var kids []*renderNode
+			collectChildRenderNodes(f, &kids)
 			f.rnode.yn.RemoveAllChildren()
 			f.rnode.children = kids
 			for i, k := range kids {
-				k.parent = f.rnode
-				f.rnode.yn.InsertChild(k.yn, uint32(i))
+				attachRenderChild(f.rnode, k, uint32(i))
 			}
 		}
 	}
@@ -364,22 +462,25 @@ func relink(f *Fiber) {
 	}
 }
 
-func renderNodesEqual(a, b []*renderNode) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
+func renderChildrenEqual(f *Fiber, existing []*renderNode) bool {
+	index := 0
+	equal := true
+	var visit func(*Fiber)
+	visit = func(parent *Fiber) {
+		for _, child := range parent.children {
+			if child.typ == typePortal {
+				continue
+			}
+			if child.rnode != nil {
+				if index >= len(existing) || existing[index] != child.rnode {
+					equal = false
+				}
+				index++
+			} else {
+				visit(child)
+			}
 		}
 	}
-	return true
-}
-
-func depth(f *Fiber) int {
-	d := 0
-	for p := f.parent; p != nil; p = p.parent {
-		d++
-	}
-	return d
+	visit(f)
+	return equal && index == len(existing)
 }

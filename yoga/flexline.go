@@ -1,5 +1,9 @@
 package yoga
 
+import "sync"
+
+var flexLineItemsPool = sync.Pool{New: func() any { return make([]*Node, 0) }}
+
 type FlexLineRunningLayout struct {
 	// Total flex grow factors of flex items which are to be laid in the current
 	// line. This is decremented as free space is distributed.
@@ -56,8 +60,14 @@ func calculateFlexLine(
 	availableInnerMainDim float32,
 	startOfLineIndex uint32,
 	lineCount uint32,
+	itemsInFlow []*Node,
 ) FlexLine {
-	itemsInFlow := make([]*Node, 0, len(node.GetChildren()))
+	children := node.getLayoutChildren()
+	if cap(itemsInFlow) < len(children) {
+		itemsInFlow = make([]*Node, 0, len(children))
+	} else {
+		itemsInFlow = itemsInFlow[:0]
+	}
 
 	sizeConsumed := float32(0)
 	totalFlexGrowFactors := float32(0)
@@ -68,10 +78,10 @@ func calculateFlexLine(
 	sizeConsumedIncludingMinConstraint := float32(0)
 	mainAxis := resolveDirection(node.getStyle().flexDirection(), node.resolveDirection(ownerDirection))
 	isNodeFlexWrap := node.getStyle().flexWrap() != WrapNoWrap
-	gap := node.getGapForAxis(mainAxis)
+	gap := node.getGapForAxis(mainAxis, mainAxisOwnerSize)
 
-	for ; endOfLineIndex < uint32(len(node.GetChildren())); endOfLineIndex++ {
-		child := node.GetChild(endOfLineIndex)
+	for ; endOfLineIndex < uint32(len(children)); endOfLineIndex++ {
+		child := children[endOfLineIndex]
 		if child.getStyle().display() == DisplayNone || child.getStyle().positionType() == PositionTypeAbsolute {
 			if firstElementInLineIndex == endOfLineIndex {
 				firstElementInLineIndex++
@@ -92,6 +102,7 @@ func calculateFlexLine(
 			mainAxis,
 			child.getLayout().computedFlexBasis,
 			mainAxisOwnerSize,
+			availableInnerWidth,
 		).unwrap()
 
 		if sizeConsumedIncludingMinConstraint+flexBasisWithMinAndMaxConstraints+childMarginMainAxis+childLeadingGapMainAxis > availableInnerMainDim &&

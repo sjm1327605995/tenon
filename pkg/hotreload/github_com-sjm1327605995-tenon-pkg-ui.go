@@ -17,6 +17,7 @@ func init() {
 		"ArrowNav":             reflect.ValueOf(ui.ArrowNav),
 		"Attrs":                reflect.ValueOf(ui.Attrs),
 		"Bg":                   reflect.ValueOf(ui.Bg),
+		"BindInput":            reflect.ValueOf(ui.BindInput),
 		"Black":                reflect.ValueOf(&ui.Black).Elem(),
 		"Blue":                 reflect.ValueOf(&ui.Blue).Elem(),
 		"Bold":                 reflect.ValueOf(ui.Bold),
@@ -29,8 +30,15 @@ func init() {
 		"Clip":                 reflect.ValueOf(ui.Clip),
 		"Clipboard":            reflect.ValueOf(ui.Clipboard),
 		"Column":               reflect.ValueOf(ui.Column),
+		"ContentAround":        reflect.ValueOf(ui.ContentAround),
+		"ContentBetween":       reflect.ValueOf(ui.ContentBetween),
+		"ContentCenter":        reflect.ValueOf(ui.ContentCenter),
+		"ContentEnd":           reflect.ValueOf(ui.ContentEnd),
+		"ContentStart":         reflect.ValueOf(ui.ContentStart),
+		"ContentStretch":       reflect.ValueOf(ui.ContentStretch),
 		"DarkGray":             reflect.ValueOf(&ui.DarkGray).Elem(),
 		"DarkTheme":            reflect.ValueOf(&ui.DarkTheme).Elem(),
+		"Disabled":             reflect.ValueOf(ui.Disabled),
 		"Div":                  reflect.ValueOf(ui.Div),
 		"EaseIn":               reflect.ValueOf(ui.EaseIn),
 		"EaseInOut":            reflect.ValueOf(ui.EaseInOut),
@@ -70,6 +78,8 @@ func init() {
 		"IconX":                reflect.ValueOf(constant.MakeFromLiteral("\"M18 6 6 18M6 6l12 12\"", token.STRING, 0)),
 		"Id":                   reflect.ValueOf(ui.Id),
 		"If":                   reflect.ValueOf(ui.If),
+		"ImageCacheBudget":     reflect.ValueOf(ui.ImageCacheBudget),
+		"ImageCacheStats":      reflect.ValueOf(ui.ImageCacheStats),
 		"Img":                  reflect.ValueOf(ui.Img),
 		"Input":                reflect.ValueOf(ui.Input),
 		"Italic":               reflect.ValueOf(ui.Italic),
@@ -101,26 +111,35 @@ func init() {
 		"NavBoth":              reflect.ValueOf(ui.NavBoth),
 		"NavHorizontal":        reflect.ValueOf(ui.NavHorizontal),
 		"NavVertical":          reflect.ValueOf(ui.NavVertical),
+		"NoWrap":               reflect.ValueOf(ui.NoWrap),
 		"OnChange":             reflect.ValueOf(ui.OnChange),
 		"OnClick":              reflect.ValueOf(ui.OnClick),
 		"OnContextMenu":        reflect.ValueOf(ui.OnContextMenu),
 		"OnDrag":               reflect.ValueOf(ui.OnDrag),
 		"OnHover":              reflect.ValueOf(ui.OnHover),
 		"OnPress":              reflect.ValueOf(ui.OnPress),
+		"OnSubmit":             reflect.ValueOf(ui.OnSubmit),
 		"Opacity":              reflect.ValueOf(ui.Opacity),
 		"Padding":              reflect.ValueOf(ui.Padding),
 		"PaddingXY":            reflect.ValueOf(ui.PaddingXY),
+		"Perspective":          reflect.ValueOf(ui.Perspective),
 		"Placeholder":          reflect.ValueOf(ui.Placeholder),
+		"PlaneImage":           reflect.ValueOf(ui.PlaneImage),
 		"Portal":               reflect.ValueOf(ui.Portal),
 		"Post":                 reflect.ValueOf(ui.Post),
 		"Radius":               reflect.ValueOf(ui.Radius),
 		"Red":                  reflect.ValueOf(&ui.Red).Elem(),
+		"Render":               reflect.ValueOf(ui.Render),
 		"RichText":             reflect.ValueOf(ui.RichText),
 		"Right":                reflect.ValueOf(ui.Right),
 		"Rotate":               reflect.ValueOf(ui.Rotate),
+		"RotateX":              reflect.ValueOf(ui.RotateX),
+		"RotateY":              reflect.ValueOf(ui.RotateY),
 		"Row":                  reflect.ValueOf(ui.Row),
 		"Run":                  reflect.ValueOf(ui.Run),
 		"Scale":                reflect.ValueOf(ui.Scale),
+		"Scene3D":              reflect.ValueOf(ui.Scene3D),
+		"Screenshot":           reflect.ValueOf(ui.Screenshot),
 		"ScrollView":           reflect.ValueOf(ui.ScrollView),
 		"Semibold":             reflect.ValueOf(ui.Semibold),
 		"SetClipboardProvider": reflect.ValueOf(ui.SetClipboardProvider),
@@ -130,6 +149,7 @@ func init() {
 		"Spacer":               reflect.ValueOf(ui.Spacer),
 		"Span":                 reflect.ValueOf(ui.Span),
 		"Src":                  reflect.ValueOf(ui.Src),
+		"SrcImage":             reflect.ValueOf(ui.SrcImage),
 		"Style":                reflect.ValueOf(ui.Style),
 		"StyleIf":              reflect.ValueOf(ui.StyleIf),
 		"Styles":               reflect.ValueOf(ui.Styles),
@@ -138,6 +158,7 @@ func init() {
 		"ThemeProvider":        reflect.ValueOf(ui.ThemeProvider),
 		"Top":                  reflect.ValueOf(ui.Top),
 		"TranslateXY":          reflect.ValueOf(ui.TranslateXY),
+		"TranslateZ":           reflect.ValueOf(ui.TranslateZ),
 		"Transparent":          reflect.ValueOf(&ui.Transparent).Elem(),
 		"TrapFocus":            reflect.ValueOf(ui.TrapFocus),
 		"UseEffect":            reflect.ValueOf(ui.UseEffect),
@@ -153,29 +174,77 @@ func init() {
 		"VStack":               reflect.ValueOf(ui.VStack),
 		"Value":                reflect.ValueOf(ui.Value),
 		"Vector":               reflect.ValueOf(ui.Vector),
+		"View":                 reflect.ValueOf(ui.View),
 		"Viewport":             reflect.ValueOf(ui.Viewport),
 		"VirtualList":          reflect.ValueOf(ui.VirtualList),
 		"White":                reflect.ValueOf(&ui.White).Elem(),
 		"Width":                reflect.ValueOf(ui.Width),
 		"WidthPct":             reflect.ValueOf(ui.WidthPct),
+		"WindowFullscreen":     reflect.ValueOf(ui.WindowFullscreen),
+		"WindowMaxSize":        reflect.ValueOf(ui.WindowMaxSize),
+		"WindowMinSize":        reflect.ValueOf(ui.WindowMinSize),
 		"WindowSize":           reflect.ValueOf(ui.WindowSize),
+		"WindowTitle":          reflect.ValueOf(ui.WindowTitle),
+		"Wrap":                 reflect.ValueOf(ui.Wrap),
+		"WrapReverse":          reflect.ValueOf(ui.WrapReverse),
+		"ZIndex":               reflect.ValueOf(ui.ZIndex),
 
 		// type definitions
 		"Cleanup":          reflect.ValueOf((*ui.Cleanup)(nil)),
 		"Color":            reflect.ValueOf((*ui.Color)(nil)),
+		"Component":        reflect.ValueOf((*ui.Component)(nil)),
 		"Easing":           reflect.ValueOf((*ui.Easing)(nil)),
 		"Fiber":            reflect.ValueOf((*ui.Fiber)(nil)),
 		"Harness":          reflect.ValueOf((*ui.Harness)(nil)),
+		"IComponent":       reflect.ValueOf((*ui.IComponent)(nil)),
 		"NavOrient":        reflect.ValueOf((*ui.NavOrient)(nil)),
 		"Node":             reflect.ValueOf((*ui.Node)(nil)),
+		"NodeSource":       reflect.ValueOf((*ui.NodeSource)(nil)),
 		"ObjectFit":        reflect.ValueOf((*ui.ObjectFit)(nil)),
 		"PaintOp":          reflect.ValueOf((*ui.PaintOp)(nil)),
 		"Query":            reflect.ValueOf((*ui.Query)(nil)),
 		"Rect":             reflect.ValueOf((*ui.Rect)(nil)),
+		"RenderContext":    reflect.ValueOf((*ui.RenderContext)(nil)),
 		"ScrollInfo":       reflect.ValueOf((*ui.ScrollInfo)(nil)),
 		"StyleOpt":         reflect.ValueOf((*ui.StyleOpt)(nil)),
 		"StyleProps":       reflect.ValueOf((*ui.StyleProps)(nil)),
 		"Theme":            reflect.ValueOf((*ui.Theme)(nil)),
 		"VirtualListProps": reflect.ValueOf((*ui.VirtualListProps)(nil)),
+
+		// interface wrapper definitions
+		"_IComponent": reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_IComponent)(nil)),
+		"_NodeSource": reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_NodeSource)(nil)),
 	}
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_IComponent is an interface wrapper for IComponent type
+type _github_com_sjm1327605995_tenon_pkg_ui_IComponent struct {
+	IValue         interface{}
+	WBuild         func() *ui.Node
+	WComponentBase func() *ui.Component
+	WContext       func() *ui.RenderContext
+	WRender        func() ui.NodeSource
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_IComponent) Build() *ui.Node {
+	return W.WBuild()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_IComponent) ComponentBase() *ui.Component {
+	return W.WComponentBase()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_IComponent) Context() *ui.RenderContext {
+	return W.WContext()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_IComponent) Render() ui.NodeSource {
+	return W.WRender()
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_NodeSource is an interface wrapper for NodeSource type
+type _github_com_sjm1327605995_tenon_pkg_ui_NodeSource struct {
+	IValue interface{}
+	WBuild func() *ui.Node
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_NodeSource) Build() *ui.Node {
+	return W.WBuild()
 }

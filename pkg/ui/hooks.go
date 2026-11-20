@@ -2,7 +2,7 @@ package ui
 
 import "reflect"
 
-// 渲染期调度器：渲染在 Ebiten 单协程内同步进行，包级指针即可，无需 GLS。
+// 渲染期调度器：渲染在 Gio 单协程内同步进行，包级指针即可，无需 GLS。
 var (
 	currentFiber *Fiber
 	hookIndex    int
@@ -32,9 +32,8 @@ type refHook struct {
 func renderWithHooks(f *Fiber) *Node {
 	prevF, prevI := currentFiber, hookIndex
 	currentFiber, hookIndex = f, 0
-	n := f.render(f.props)
-	currentFiber, hookIndex = prevF, prevI
-	return n
+	defer func() { currentFiber, hookIndex = prevF, prevI }()
+	return f.render(f.props)
 }
 
 func nextHook(f *Fiber, make func() any) (int, any) {

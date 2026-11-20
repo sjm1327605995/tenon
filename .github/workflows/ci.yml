@@ -53,7 +53,7 @@ jobs:
 
       - name: gofmt
         run: |
-          fmt=$(gofmt -l pkg example)
+          fmt=$(gofmt -l pkg example yoga)
           if [ -n "$fmt" ]; then echo "Not gofmt'd:"; echo "$fmt"; exit 1; fi
 
       - name: go vet
@@ -64,3 +64,6 @@ jobs:
 
       - name: go test
         run: go test ./...
+
+      - name: go test with race detector
+        run: go test -race ./...

@@ -1,5 +1,24 @@
 package ui
 
+// isDisabled 按渲染父链计算有效禁用态，使容器禁用也能约束其后代。
+func (rn *renderNode) isDisabled() bool {
+	for c := rn; c != nil; c = c.parent {
+		if c.disabled {
+			return true
+		}
+	}
+	return false
+}
+
+// interactiveHit 保留禁用节点的命中遮挡，但不把它作为可激活目标返回。
+func (g *game) interactiveHit(x, y float32) *renderNode {
+	n := g.hitTop(x, y)
+	if n != nil && n.isDisabled() {
+		return nil
+	}
+	return n
+}
+
 // UseInteraction 管理一个元素的悬停/按压态，返回状态和要挂到该元素上的属性。
 // 用法：
 //

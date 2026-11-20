@@ -20,29 +20,31 @@ type PrintFunc func(node *Node)
 type DirtiedFunc func(node *Node)
 
 type Node struct {
-	hasNewLayout_        bool
-	isReferenceBaseline_ bool
-	isDirty_             bool
-	nodeType_            NodeType
-	context_             interface{}
-	measureFunc_         MeasureFunc
-	baselineFunc_        BaselineFunc
-	printFunc_           PrintFunc
-	dirtiedFunc_         DirtiedFunc
-	style_               Style
-	layout_              LayoutResults
-	lineIndex_           uint32
-	owner_               *Node
-	children_            []*Node
-	config_              *Config
-	resolvedDimensions_  [2]Value
+	hasNewLayout_               bool
+	isReferenceBaseline_        bool
+	isDirty_                    bool
+	alwaysFormsContainingBlock_ bool
+	nodeType_                   NodeType
+	context_                    any
+	measureFunc_                MeasureFunc
+	baselineFunc_               BaselineFunc
+	printFunc_                  PrintFunc
+	dirtiedFunc_                DirtiedFunc
+	style_                      Style
+	layout_                     LayoutResults
+	lineIndex_                  uint32
+	owner_                      *Node
+	children_                   []*Node
+	contentsChildrenCount_      uint32
+	config_                     *Config
+	resolvedDimensions_         [2]Value
 }
 
 var (
 	nodeDefaults = Node{
 		hasNewLayout_:        true,
 		isReferenceBaseline_: false,
-		isDirty_:             false,
+		isDirty_:             true,
 		nodeType_:            NodeTypeDefault,
 		context_:             nil,
 		measureFunc_:         nil,
@@ -59,8 +61,10 @@ var (
 	}
 )
 
-// NewNodeWithConfig
-func NewNodeWithConfig(config *Config) *Node {
+func newNodeWithConfig(config *Config) *Node {
+	if config == nil {
+		panic("config cannot be nil")
+	}
 	node := nodeDefaults
 	node.config_ = config
 	if config.UseWebDefaults() {
@@ -69,6 +73,13 @@ func NewNodeWithConfig(config *Config) *Node {
 	node.StyleSetAlignContent(AlignFlexStart)
 	node.StyleSetAlignItems(AlignStretch)
 	return &node
+}
+
+// NewNodeWithConfig creates a node and publishes EventNodeAllocation.
+func NewNodeWithConfig(config *Config) *Node {
+	node := newNodeWithConfig(config)
+	publishEvent(Event{Type: EventNodeAllocation, Node: node, Config: config})
+	return node
 }
 
 func NewNode() *Node {
@@ -81,10 +92,11 @@ func (node *Node) CalculateLayout(ownerWidth, ownerHeight float32, ownerDirectio
 // CopyStyleFrom 从另一个节点复制样式属性（flex、margin、padding 等）。
 // 调用后本节点的 Yoga 样式将与源节点完全一致。
 func (node *Node) CopyStyleFrom(other *Node) {
-	if other == nil {
+	if other == nil || node.style_.equal(&other.style_) {
 		return
 	}
 	node.style_ = other.style_
+	node.markDirtyAndPropagate()
 }
 
 func (node *Node) useWebDefaults() {
@@ -92,7 +104,7 @@ func (node *Node) useWebDefaults() {
 	node.StyleSetAlignContent(AlignStretch)
 }
 
-func (node *Node) GetContext() interface{} {
+func (node *Node) GetContext() any {
 	return node.context_
 }
 
@@ -117,7 +129,14 @@ func (node *Node) measure(
 	height float32,
 	heightMode MeasureMode,
 ) Size {
-	return node.measureFunc_(node, width, widthMode, height, heightMode)
+	size := node.measureFunc_(node, width, widthMode, height, heightMode)
+	if IsUndefined(size.Width) || size.Width < 0 || IsUndefined(size.Height) || size.Height < 0 {
+		node.GetConfig().log(node, LogLevelWarn,
+			"Measure function returned an invalid dimension: [width=%f, height=%f]", size.Width, size.Height)
+		size.Width = maxOrDefined(0, size.Width)
+		size.Height = maxOrDefined(0, size.Height)
+	}
+	return size
 }
 
 // HasBaselineFunc
@@ -168,6 +187,30 @@ func (node *Node) GetOwner() *Node {
 // GetChildren
 func (node *Node) GetChildren() []*Node {
 	return node.children_
+}
+
+func (node *Node) getLayoutChildren() []*Node {
+	if node.contentsChildrenCount_ == 0 {
+		return node.children_
+	}
+
+	children := make([]*Node, 0, len(node.children_))
+	var appendLayoutChildren func(*Node)
+	appendLayoutChildren = func(parent *Node) {
+		for _, child := range parent.children_ {
+			if child.getStyle().display() == DisplayContents {
+				appendLayoutChildren(child)
+			} else {
+				children = append(children, child)
+			}
+		}
+	}
+	appendLayoutChildren(node)
+	return children
+}
+
+func (node *Node) getLayoutChildCount() uint32 {
+	return uint32(len(node.getLayoutChildren()))
 }
 
 // GetChild
@@ -256,6 +299,30 @@ func (node *Node) isInlineStartPositionDefined(axis FlexDirection, direction Dir
 	startEdge := node.getInlineStartEdgeUsingErrata(axis, direction)
 	leadingPosition := If(isRow(axis), node.computeEdgeValueForRow(node.getStyle().position_, EdgeStart, startEdge), node.computeEdgeValueForColumn(node.getStyle().position_, startEdge))
 	return leadingPosition.IsDefined()
+}
+
+func (node *Node) isFlexStartPositionAuto(axis FlexDirection) bool {
+	startEdge := flexStartEdge(axis)
+	position := If(isRow(axis), node.computeEdgeValueForRow(node.getStyle().position_, EdgeStart, startEdge), node.computeEdgeValueForColumn(node.getStyle().position_, startEdge))
+	return position.IsAuto()
+}
+
+func (node *Node) isInlineStartPositionAuto(axis FlexDirection, direction Direction) bool {
+	startEdge := node.getInlineStartEdgeUsingErrata(axis, direction)
+	position := If(isRow(axis), node.computeEdgeValueForRow(node.getStyle().position_, EdgeStart, startEdge), node.computeEdgeValueForColumn(node.getStyle().position_, startEdge))
+	return position.IsAuto()
+}
+
+func (node *Node) isFlexEndPositionAuto(axis FlexDirection) bool {
+	endEdge := flexEndEdge(axis)
+	position := If(isRow(axis), node.computeEdgeValueForRow(node.getStyle().position_, EdgeEnd, endEdge), node.computeEdgeValueForColumn(node.getStyle().position_, endEdge))
+	return position.IsAuto()
+}
+
+func (node *Node) isInlineEndPositionAuto(axis FlexDirection, direction Direction) bool {
+	endEdge := node.getInlineEndEdgeUsingErrata(axis, direction)
+	position := If(isRow(axis), node.computeEdgeValueForRow(node.getStyle().position_, EdgeEnd, endEdge), node.computeEdgeValueForColumn(node.getStyle().position_, endEdge))
+	return position.IsAuto()
 }
 
 // isFlexEndPositionDefined
@@ -411,14 +478,25 @@ func (node *Node) getMarginForAxis(axis FlexDirection, widthSize float32) float3
 }
 
 // getGapForAxis
-func (node *Node) getGapForAxis(axis FlexDirection) float32 {
+func (node *Node) getGapForAxis(axis FlexDirection, ownerSize float32) float32 {
 	gap := If(isRow(axis), node.getStyle().resolveColumnGap(), node.getStyle().resolveRowGap())
-	return maxOrDefined(resolveCompactValue(gap, 0).unwrap(), 0)
+	return maxOrDefined(resolveCompactValue(gap, ownerSize).unwrap(), 0)
 }
 
 // SetContext
-func (node *Node) SetContext(context interface{}) {
+func (node *Node) SetContext(context any) {
 	node.context_ = context
+}
+
+// SetAlwaysFormsContainingBlock makes a static node the containing block for
+// absolutely positioned descendants.
+func (node *Node) SetAlwaysFormsContainingBlock(always bool) {
+	node.alwaysFormsContainingBlock_ = always
+}
+
+// AlwaysFormsContainingBlock reports whether a static node forms its own containing block.
+func (node *Node) AlwaysFormsContainingBlock() bool {
+	return node.alwaysFormsContainingBlock_
 }
 
 // SetPrintFunc
@@ -476,7 +554,7 @@ func (node *Node) setLineIndex(lineIndex uint32) {
 
 // SetIsReferenceBaseline
 func (node *Node) SetIsReferenceBaseline(isReferenceBaseline bool) {
-	if node.IsReferenceBaseline() == isReferenceBaseline {
+	if node.IsReferenceBaseline() != isReferenceBaseline {
 		node.isReferenceBaseline_ = isReferenceBaseline
 		node.markDirtyAndPropagate()
 	}
@@ -502,6 +580,9 @@ func (node *Node) SetConfig(config *Config) {
 	}
 	if configUpdateInvalidatesLayout(node.config_, config) {
 		node.markDirtyAndPropagate()
+		node.layout_.configVersion = 0
+	} else {
+		node.layout_.configVersion = config.GetVersion()
 	}
 	node.config_ = config
 }
@@ -572,7 +653,7 @@ func (node *Node) setLayoutPadding(padding float32, edge Edge) {
 
 // setLayoutPosition
 func (node *Node) setLayoutPosition(position float32, edge Edge) {
-	if gDebuging {
+	if gDebugging {
 		atomic.AddUint32(&gCurrentDebugCount, 1)
 		fmt.Printf("setLayoutPosition: %d %s=%f\n", atomic.LoadUint32(&gCurrentDebugCount),
 			edge.String(), position)
@@ -582,7 +663,12 @@ func (node *Node) setLayoutPosition(position float32, edge Edge) {
 
 // relativePosition
 func (node *Node) relativePosition(axis FlexDirection, direction Direction, axisSize float32) float32 {
-	if node.isInlineStartPositionDefined(axis, direction) {
+	if node.getStyle().positionType() == PositionTypeStatic &&
+		!node.hasErrata(ErrataPositionStaticBehavesLikeRelative) {
+		return 0
+	}
+	if node.isInlineStartPositionDefined(axis, direction) &&
+		!node.isInlineStartPositionAuto(axis, direction) {
 		return node.getInlineStartPosition(axis, direction, axisSize)
 	}
 	return -1 * node.getInlineEndPosition(axis, direction, axisSize)
@@ -594,19 +680,16 @@ func (node *Node) setPosition(
 	mainSize float32,
 	crossSize float32,
 	ownerWidth float32) {
-	if gDebuging {
+	if gDebugging {
 		atomic.AddUint32(&gCurrentDebugCount, 1)
 		fmt.Printf("setPosition: %d (%s,%f,%f,%f)\n", atomic.LoadUint32(&gCurrentDebugCount),
 			direction.String(), mainSize, crossSize, ownerWidth)
 	}
-	/* Root nodes should be always layouted as LTR, so we don't return negative
-	 * values. */
+	// Root nodes always use LTR for relative offsets so positions don't become negative.
 	directionRespectingRoot := If(node.owner_ != nil, direction, DirectionLTR)
 	mainAxis := resolveDirection(node.getStyle().flexDirection(), directionRespectingRoot)
 	crossAxis := resolveCrossDirection(mainAxis, directionRespectingRoot)
-	// Here we should check for `PositionType::Static` and in this case zero inset
-	// properties (left, right, top, bottom, begin, end).
-	// https://www.w3.org/TR/css-position-3/#valdef-position-static
+	// Static nodes ignore insets in relativePosition.
 	relativePositionMain := node.relativePosition(mainAxis, directionRespectingRoot, mainSize)
 	relativePositionCross := node.relativePosition(crossAxis, directionRespectingRoot, crossSize)
 
@@ -673,23 +756,85 @@ func (node *Node) resolveDirection(ownerDirection Direction) Direction {
 	}
 }
 
+// Clone returns a detached copy of node. Its children remain shared until layout
+// clones them for the new tree.
+func (node *Node) Clone() *Node {
+	clone := *node
+	clone.owner_ = nil
+	clone.children_ = append([]*Node(nil), node.children_...)
+	result := &clone
+	publishEvent(Event{Type: EventNodeAllocation, Node: result, Config: result.GetConfig()})
+	return result
+}
+
+// Finalize publishes the deallocation event without changing tree links.
+// Go's garbage collector still owns memory reclamation.
+func (node *Node) Finalize() {
+	publishEvent(Event{Type: EventNodeDeallocation, Node: node, Config: node.GetConfig()})
+}
+
+// Free detaches the node from its owner and children, then publishes deallocation.
+func (node *Node) Free() {
+	if node.owner_ != nil {
+		node.owner_.RemoveChild(node)
+	}
+	for _, child := range node.children_ {
+		child.setOwner(nil)
+	}
+	node.clearChildren()
+	node.Finalize()
+}
+
+// FreeRecursive detaches and finalizes the owned subtree.
+func (node *Node) FreeRecursive() {
+	for len(node.children_) > 0 {
+		child := node.children_[0]
+		if child.GetOwner() != node {
+			node.RemoveChild(child)
+			continue
+		}
+		child.FreeRecursive()
+	}
+	node.Free()
+}
+
+// GetParent is an alias for GetOwner.
+func (node *Node) GetParent() *Node { return node.GetOwner() }
+
 // clearChildren
 func (node *Node) clearChildren() {
-	node.children_ = make([]*Node, 0)
+	node.children_ = nil
+	node.contentsChildrenCount_ = 0
 }
 
-// replaceChild
-func (node *Node) replaceChild(oldChild, newChild *Node) {
-	for i, child := range node.children_ {
-		if child == oldChild {
-			node.children_[i] = newChild
-			break
+// SetChildren replaces the child list and detaches children that are no longer used.
+func (node *Node) SetChildren(children []*Node) {
+	if len(children) == 0 {
+		node.RemoveAllChildren()
+		return
+	}
+	if node.HasMeasureFunc() {
+		panic("Cannot set children: Nodes with measure functions cannot have children.")
+	}
+
+	keep := make(map[*Node]struct{}, len(children))
+	for _, child := range children {
+		keep[child] = struct{}{}
+	}
+	for _, oldChild := range node.children_ {
+		if _, retained := keep[oldChild]; !retained && oldChild.GetOwner() == node {
+			node.resetDetachedChild(oldChild)
 		}
 	}
-}
-
-func (node *Node) replaceChildIdx(child *Node, index uint32) {
-	node.children_[index] = child
+	node.children_ = append([]*Node(nil), children...)
+	node.contentsChildrenCount_ = 0
+	for _, child := range children {
+		if child.getStyle().display() == DisplayContents {
+			node.contentsChildrenCount_++
+		}
+		child.setOwner(node)
+	}
+	node.markDirtyAndPropagate()
 }
 
 // insertChild
@@ -703,22 +848,56 @@ func (node *Node) InsertChild(child *Node, index uint32) {
 	node.children_ = append(node.children_, nil)
 	copy(node.children_[index+1:], node.children_[index:])
 	node.children_[index] = child
+	if child.getStyle().display() == DisplayContents {
+		node.contentsChildrenCount_++
+	}
 	child.setOwner(node)
 	node.markDirtyAndPropagate()
 }
 
 // SwapChild
 func (node *Node) SwapChild(child *Node, index uint32) {
-	node.replaceChildIdx(child, index)
+	oldChild := node.GetChild(index)
+	if oldChild == child {
+		return
+	}
+	if child.GetOwner() != nil {
+		panic("Child already has a owner, it must be removed first.")
+	}
+	if oldChild.getStyle().display() == DisplayContents && child.getStyle().display() != DisplayContents {
+		node.contentsChildrenCount_--
+	} else if oldChild.getStyle().display() != DisplayContents && child.getStyle().display() == DisplayContents {
+		node.contentsChildrenCount_++
+	}
+	node.children_[index] = child
 	child.setOwner(node)
+	if oldChild.GetOwner() == node {
+		node.resetDetachedChild(oldChild)
+	}
+	node.markDirtyAndPropagate()
+}
+
+func (node *Node) resetDetachedChild(child *Node) {
+	child.setLayout(LayoutResults{})
+	child.setOwner(nil)
+	dirtiedFunc := child.GetDirtiedFunc()
+	child.SetDirtiedFunc(nil)
+	child.setDirty(true)
+	child.SetDirtiedFunc(dirtiedFunc)
 }
 
 func (node *Node) RemoveChild(child *Node) {
-	for i, c := range node.children_ {
-		if c == child {
+	for i, current := range node.children_ {
+		if current == child {
 			node.removeChildIdx(uint32(i))
-			child.setOwner(nil)
-			break
+			if child.getStyle().display() == DisplayContents {
+				node.contentsChildrenCount_--
+			}
+			if child.GetOwner() == node {
+				node.resetDetachedChild(child)
+			}
+			node.markDirtyAndPropagate()
+			return
 		}
 	}
 }
@@ -734,11 +913,9 @@ func (node *Node) RemoveAllChildren() {
 	if node.GetChildCount() == 0 {
 		return
 	}
-	firstChild := node.GetChild(0)
-	if firstChild.GetOwner() == node {
+	if node.GetChild(0).GetOwner() == node {
 		for _, child := range node.children_ {
-			child.setLayout(LayoutResults{})
-			child.setOwner(nil)
+			node.resetDetachedChild(child)
 		}
 	}
 	node.clearChildren()
@@ -749,8 +926,13 @@ func (node *Node) RemoveAllChildren() {
 func (node *Node) cloneChildrenIfNeeded() {
 	for i, child := range node.children_ {
 		if child.GetOwner() != node {
-			child := node.config_.cloneNode(child, node, uint32(i))
-			child.setOwner(node)
+			clone := node.config_.cloneNode(child, node, uint32(i))
+			clone.setOwner(node)
+			node.children_[i] = clone
+			child = clone
+		}
+		if child.getStyle().display() == DisplayContents {
+			child.cloneChildrenIfNeeded()
 		}
 	}
 }
@@ -819,5 +1001,5 @@ func (node *Node) Reset() {
 	if node.GetOwner() != nil {
 		panic("Cannot reset a node still attached to a owner")
 	}
-	node = NewNodeWithConfig(node.GetConfig())
+	*node = *newNodeWithConfig(node.GetConfig())
 }

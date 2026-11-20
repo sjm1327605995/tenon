@@ -3,8 +3,8 @@ package ui
 import "unicode/utf8"
 
 // Headless test harness — mount a component tree and drive real interactions
-// (click / hover / press / drag / keyboard-style text input) without opening an
-// Ebiten window, then assert on the resulting render tree.
+// (click / hover / press / drag / keyboard-style text input) without opening a
+// Gio window, then assert on the resulting render tree.
 //
 // It exists so packages built on top of pkg/ui (e.g. pkg/shadcn) and application
 // code can test *behavior*, not just that a constructor returns a non-nil Node:
@@ -16,7 +16,7 @@ import "unicode/utf8"
 //	}
 //
 // The harness reuses the exact reconcile → layout → hit-test → event path the
-// real engine uses; the only thing it replaces is Ebiten's global input polling,
+// real engine uses; the only thing it replaces is Gio's global input polling,
 // which it drives directly against render nodes.
 //
 // Query handles are snapshots of the tree at the moment they were taken. Host
@@ -50,6 +50,10 @@ func Mount(root *Node, w, h int) *Harness {
 
 // MountDefault mounts root in a default 800×600 window.
 func MountDefault(root *Node) *Harness { return Mount(root, 800, 600) }
+
+// Close unmounts the tree and releases effects and value subscriptions. It is
+// safe to call repeatedly; the closed harness has no root or live overlays.
+func (h *Harness) Close() { h.g.dispose() }
 
 // Root returns a Query for the root render node.
 func (h *Harness) Root() *Query {
@@ -111,7 +115,7 @@ func (h *Harness) Step(dtMs float32) {
 // onClick up the chain, exactly like a real left-click. Returns whether a
 // handler fired.
 func (h *Harness) ClickAt(x, y float32) bool {
-	n := h.g.hitTop(x, y)
+	n := h.g.interactiveHit(x, y)
 	for c := n; c != nil; c = c.parent {
 		if c.onClick != nil {
 			c.onClick()
@@ -122,20 +126,30 @@ func (h *Harness) ClickAt(x, y float32) bool {
 	return false
 }
 
+// MoveTo moves the pointer to a screen point and updates the real hit-tested
+// hover chain, including enter/leave events across Portal boundaries.
+func (h *Harness) MoveTo(x, y float32) {
+	old := input
+	input = &harnessInput{x: x, y: y}
+	defer func() { input = old }()
+	h.g.updateHover()
+	h.settle()
+}
+
 // MouseDown replays a full left mousedown at a screen point (logical px): it
-// does focus management (focus the input under the point, else clear focus) AND
+// does focus management (focus the nearest input/clickable control, else clear focus) AND
 // fires the nearest onClick up the chain — the real engine does both in one
 // press, so tests that split them (ClickAt only clicks) can miss ordering bugs.
 // Returns a Query for the focused node afterward (empty if focus cleared).
 // Settles afterward.
 func (h *Harness) MouseDown(x, y float32) *Query {
-	n := h.g.hitTop(x, y)
+	n := h.g.interactiveHit(x, y)
 	if n != nil && n.kind == rnInput {
 		h.g.focusedFiber = n.owner
 		n.caretPos = n.caretAt(x, y)
 		n.selAnchor = n.caretPos
 	} else {
-		h.g.focusedFiber = nil
+		h.g.focusClicked(n)
 	}
 	for c := n; c != nil; c = c.parent {
 		if c.onClick != nil {
@@ -150,7 +164,7 @@ func (h *Harness) MouseDown(x, y float32) *Query {
 // RightClickAt hit-tests at a screen point and fires the nearest onContextMenu
 // up the chain (right-click), passing the point. Returns whether a handler fired.
 func (h *Harness) RightClickAt(x, y float32) bool {
-	for c := h.g.hitTop(x, y); c != nil; c = c.parent {
+	for c := h.g.interactiveHit(x, y); c != nil; c = c.parent {
 		if c.onContextMenu != nil {
 			c.onContextMenu(x, y)
 			h.settle()
@@ -163,10 +177,7 @@ func (h *Harness) RightClickAt(x, y float32) bool {
 // Focused returns a Query for the currently focused node, or an empty Query if
 // nothing is focused.
 func (h *Harness) Focused() *Query {
-	if h.g.focusedFiber == nil {
-		return &Query{h: h}
-	}
-	return &Query{rn: h.g.focusedFiber.rnode, h: h}
+	return &Query{rn: h.focusedRN(), h: h}
 }
 
 // Tab moves focus to the next focusable element (Tab key), wrapping around, and
@@ -219,7 +230,7 @@ func (h *Harness) Enter() bool {
 
 // focusedRN 返回当前聚焦节点的 renderNode（无焦点时为 nil）。
 func (h *Harness) focusedRN() *renderNode {
-	if h.g.focusedFiber == nil || h.g.focusedFiber.unmounted {
+	if h.g.focusedFiber == nil || h.g.focusedFiber.unmounted || h.g.focusedFiber.rnode == nil || h.g.focusedFiber.rnode.isDisabled() {
 		return nil
 	}
 	return h.g.focusedFiber.rnode
@@ -307,10 +318,10 @@ func (q *Query) Bounds() Rect {
 }
 
 // Focusable reports whether the node participates in Tab focus navigation.
-func (q *Query) Focusable() bool { return q.Exists() && q.rn.focusable }
+func (q *Query) Focusable() bool { return q.Exists() && q.rn.focusable && !q.rn.isDisabled() }
 
 // Clickable reports whether the node itself carries an onClick handler.
-func (q *Query) Clickable() bool { return q.Exists() && q.rn.onClick != nil }
+func (q *Query) Clickable() bool { return q.Exists() && q.rn.onClick != nil && !q.rn.isDisabled() }
 
 // Count returns the number of direct child render nodes.
 func (q *Query) Count() int {
@@ -444,12 +455,12 @@ func (q *Query) Placeholder() string {
 
 // IsFocused reports whether this node is the currently focused element.
 func (q *Query) IsFocused() bool {
-	return q.Exists() && q.h.g.focusedFiber != nil && q.h.g.focusedFiber.rnode == q.rn
+	return q.Exists() && q.h.focusedRN() == q.rn
 }
 
 // Clickables returns every node in this subtree that carries an onClick handler.
 func (q *Query) Clickables() []*Query {
-	return q.FindAll(func(n *Query) bool { return n.rn.onClick != nil })
+	return q.FindAll(func(n *Query) bool { return n.Clickable() })
 }
 
 // Click hit-tests at this node's center and fires the nearest onClick up the
@@ -470,7 +481,7 @@ func (q *Query) Hover(on bool) {
 		return
 	}
 	for c := q.rn; c != nil; c = c.parent {
-		if c.onHover != nil {
+		if c.onHover != nil && !c.isDisabled() {
 			c.onHover(on)
 		}
 	}
@@ -480,7 +491,7 @@ func (q *Query) Hover(on bool) {
 // Press fires the nearest onPress(down) up the chain (button press/release
 // visual state). Returns whether a handler fired. Settles afterward.
 func (q *Query) Press(down bool) bool {
-	if !q.Exists() {
+	if !q.Exists() || q.rn.isDisabled() {
 		return false
 	}
 	for c := q.rn; c != nil; c = c.parent {
@@ -496,7 +507,7 @@ func (q *Query) Press(down bool) bool {
 // Drag fires the nearest onDrag(dx, dy) up the chain with a logical-pixel delta
 // (sliders, reorderable lists…). Returns whether a handler fired. Settles.
 func (q *Query) Drag(dx, dy float32) bool {
-	if !q.Exists() {
+	if !q.Exists() || q.rn.isDisabled() {
 		return false
 	}
 	for c := q.rn; c != nil; c = c.parent {
@@ -512,12 +523,9 @@ func (q *Query) Drag(dx, dy float32) bool {
 // Focus makes this node the focused element (as a click on an input would).
 // Returns the same Query for chaining.
 func (q *Query) Focus() *Query {
-	if q.Exists() && q.rn.owner != nil {
-		q.h.g.focusedFiber = q.rn.owner
-		if q.rn.kind == rnInput {
-			q.rn.caretPos = len(q.rn.value)
-			q.rn.selAnchor = q.rn.caretPos
-		}
+	if q.Focusable() && q.rn.owner != nil {
+		q.h.g.focusNode(q.rn)
+		q.h.settle()
 	}
 	return q
 }
@@ -527,7 +535,7 @@ func (q *Query) Focus() *Query {
 // false if this is not an input node. Settles afterward; re-query for the
 // updated node when the input is controlled.
 func (q *Query) Type(text string) bool {
-	if !q.Exists() || q.rn.kind != rnInput {
+	if !q.Exists() || q.rn.kind != rnInput || q.rn.isDisabled() {
 		return false
 	}
 	rn := q.rn
@@ -547,7 +555,7 @@ func (q *Query) Type(text string) bool {
 // SetValue replaces an input's entire value and fires onChange. Returns false
 // if this is not an input node. Settles afterward.
 func (q *Query) SetValue(text string) bool {
-	if !q.Exists() || q.rn.kind != rnInput {
+	if !q.Exists() || q.rn.kind != rnInput || q.rn.isDisabled() {
 		return false
 	}
 	rn := q.rn
@@ -564,7 +572,7 @@ func (q *Query) SetValue(text string) bool {
 // the engine's Backspace handling. Returns false if this is not an input node.
 // Settles afterward; re-query for the updated node when the input is controlled.
 func (q *Query) Backspace(n int) bool {
-	if !q.Exists() || q.rn.kind != rnInput {
+	if !q.Exists() || q.rn.kind != rnInput || q.rn.isDisabled() {
 		return false
 	}
 	rn := q.rn

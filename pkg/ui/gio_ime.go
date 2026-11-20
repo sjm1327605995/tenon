@@ -37,7 +37,7 @@ var gioIME gioIMEState
 // focusedInput 返回当前聚焦的输入框渲染节点（没有则 nil）。
 func focusedInput(g *game) *renderNode {
 	f := g.focusedFiber
-	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput {
+	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.isDisabled() {
 		return nil
 	}
 	return f.rnode

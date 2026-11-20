@@ -23,6 +23,7 @@ type Config struct {
 	errata_               Errata
 	context_              any
 	pointScaleFactor_     float32
+	version_              uint32
 }
 
 func ConfigNew() *Config {
@@ -42,7 +43,10 @@ func NewConfig(logger Logger) *Config {
 }
 
 func (config *Config) SetUseWebDefaults(useWebDefaults bool) {
-	config.useWebDefaults_ = useWebDefaults
+	if config.useWebDefaults_ != useWebDefaults {
+		config.useWebDefaults_ = useWebDefaults
+		config.version_++
+	}
 }
 
 func (config *Config) UseWebDefaults() bool {
@@ -58,11 +62,15 @@ func (config *Config) ShouldPrintTree() bool {
 }
 
 func (config *Config) SetExperimentalFeatureEnabled(feature ExperimentalFeature, enabled bool) {
+	if config.IsExperimentalFeatureEnabled(feature) == enabled {
+		return
+	}
 	if enabled {
 		config.experimentalFeatures_.Set(uint(feature))
 	} else {
 		config.experimentalFeatures_.Reset(uint(feature))
 	}
+	config.version_++
 }
 
 func (config *Config) IsExperimentalFeatureEnabled(feature ExperimentalFeature) bool {
@@ -75,17 +83,26 @@ func (config *Config) GetEnabledExperiments() EnumBitset {
 
 // SetErrata
 func (config *Config) SetErrata(errata Errata) {
-	config.errata_ = errata
+	if config.errata_ != errata {
+		config.errata_ = errata
+		config.version_++
+	}
 }
 
 // AddErrata
 func (config *Config) AddErrata(errata Errata) {
-	config.errata_ |= errata
+	if config.errata_&errata != errata {
+		config.errata_ |= errata
+		config.version_++
+	}
 }
 
 // RemoveErrata
 func (config *Config) RemoveErrata(errata Errata) {
-	config.errata_ &= ^errata
+	if config.errata_&errata != 0 {
+		config.errata_ &= ^errata
+		config.version_++
+	}
 }
 
 // GetErrata
@@ -100,8 +117,14 @@ func (config *Config) HasErrata(errata Errata) bool {
 
 // SetPointScaleFactor
 func (config *Config) SetPointScaleFactor(pointScaleFactor float32) {
-	config.pointScaleFactor_ = pointScaleFactor
+	if config.pointScaleFactor_ != pointScaleFactor {
+		config.pointScaleFactor_ = pointScaleFactor
+		config.version_++
+	}
 }
+
+// GetVersion changes whenever a layout-affecting config value changes.
+func (config *Config) GetVersion() uint32 { return config.version_ }
 
 // GetPointScaleFactor
 func (config *Config) GetPointScaleFactor() float32 {
@@ -142,9 +165,7 @@ func (config *Config) cloneNode(oldNode *Node, owner *Node, childIndex uint32) *
 		clone = config.cloneNodeCallback_(oldNode, owner, childIndex)
 	}
 	if clone == nil {
-		clone = &Node{}
-		*clone = *oldNode
-		clone.setOwner(nil)
+		clone = oldNode.Clone()
 	}
 	return clone
 }
@@ -153,7 +174,8 @@ var defaultConfig Config
 
 func init() {
 	defaultConfig = Config{
-		logger_: DefaultLogger,
+		logger_:           DefaultLogger,
+		pointScaleFactor_: 1,
 	}
 }
 

@@ -23,6 +23,10 @@ ui.ThemeProvider(ui.LightTheme,
 
 ## Components
 
+For reactive data, pass a `value.Bind[string]` directly to `TextField(name)`; edits and external `name.Set(...)` calls synchronize automatically. `InputProps.Bind` and `TextareaProps.Bind` expose the same behavior. `Label` and `TextButton` accept strings or `value.Value[string]`. See [`pkg/value`](../value) for extensible sources and validation/change hooks.
+
+For common text-only controls, `TextField(value, onChange).Placeholder("Email")` and `TextButton("Continue", submit)` reduce props boilerplate. They return ordinary `*ui.Node` values and support fluent layout/style modifiers. Use the original props constructors for variants, icon content, sizes, or disabled appearance.
+
 | Component | Notes |
 |---|---|
 | `Button` | 6 variants (Default/Secondary/Destructive/Outline/Ghost/Link), 4 sizes; hover + press feedback |
@@ -46,7 +50,7 @@ ui.ThemeProvider(ui.LightTheme,
 | `Popover` | anchored floating panel, click-outside to close |
 | `Tooltip` | hover-anchored label above the trigger |
 | `DropdownMenu` | anchored menu (`[]MenuItem`) |
-| `Select` | anchored options dropdown (controlled value) |
+| `Select` | anchored options dropdown (controlled value), selected checkmark, scrollable long lists |
 | `Combobox` | searchable dropdown: type-to-filter options + check on selected (Select × Command) |
 | `Table` | `TableRow`/`TableHead`/`TableCell` (equal columns) |
 | `Accordion` | collapsible sections, single-open, height animation |
@@ -68,9 +72,11 @@ ui.ThemeProvider(ui.LightTheme,
 
 Controlled components take value in / `OnChange` out — hold the state with `ui.UseState`.
 
+`Button`, `Input`, `Textarea`, `Checkbox`, and `Switch` accept `Disabled: true`: they render at reduced opacity, skip keyboard focus, and block activation or editing, including IME and paste. Clicking a disabled control does not activate an enclosing clickable container. `TextareaProps.Disabled` follows the same behavior as `InputProps.Disabled`.
+
 See `example/accordion` for a full showcase — a shadcn/ui docs-page re-creation (with a light/dark toggle).
 
-Anchored overlays (`Popover`/`Tooltip`/`DropdownMenu`/`Select`) use `ui.UseMeasure()` to read the trigger's on-screen rect and position a `ui.Portal` panel at it; the panel measures itself and **flips above the trigger when it would overflow the bottom** (via `ui.Viewport()`). `Textarea` uses the base `ui.Multiline()` input. `Accordion` measures content height (`UseMeasure`) and animates it with `UseTween`.
+Anchored overlays (`Popover`/`DropdownMenu`/`Select`/`Combobox`/`DatePicker`) use `ui.UseMeasure()` to position a `ui.Portal` panel at the trigger. Panels flip above when needed, stay inside the viewport with an 8px inset, and scroll when their content is too tall. Position and size update when the window resizes; `ContextMenu` shares the same viewport constraints. `Tooltip` measures its text, wraps within the viewport, and flips below top-edge triggers. `HoverCard` uses the same placement and a 120ms exit transition so the pointer can cross the gap into the card. `Textarea` uses the base `ui.Multiline()` input. `Accordion` measures content height (`UseMeasure`) and animates it with `UseTween`.
 
 `Sheet` slides via `UseTransition` + `TranslateXY`; `Command` filters items by the search query; `Calendar` uses Go `time` for the month grid; `NavigationMenu` reuses `DropdownMenu` per item. All overlays (Dialog/Sheet/Command/Popover/Select/DropdownMenu) close on **Escape** (base `ui.UseEscape`, topmost-first).
 

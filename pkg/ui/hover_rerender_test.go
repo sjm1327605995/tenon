@@ -4,7 +4,7 @@ import "testing"
 
 // 组件持续重渲染（真实应用里常有动画在跑）时，在元素内部移动光标不应让 hover 抖动。
 //
-// g.hovered 用 *renderNode 指针做 key，一旦重渲染会重建 renderNode，指针就失效，
+// 悬停状态挂在 renderNode 及其父节点的子索引位图上，重渲染替换节点时必须同步清理，
 // 于是每次重算悬停链都变成「leave 旧节点 + enter 新节点」—— 表现为一动就闪。
 // 光标静止时因为 updateHover 会提前返回而看不出来，所以必须「持续重渲染 + 移动」一起测。
 func TestHoverStableWhileRerenderingAndMoving(t *testing.T) {
