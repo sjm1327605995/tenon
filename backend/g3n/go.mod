@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/g3n/engine v0.2.0
-	github.com/sjm1327605995/tenon v0.0.0-20261120070034-18a0044c63ab
+	github.com/sjm1327605995/tenon v0.0.0-20261122161243-be0f75fbfbd7
 )
 
 require (
