@@ -19,19 +19,28 @@ import (
 // -> 同步输入法状态 -> 按需安排下一帧。引擎的 game 编排（reconcile / flushDirty / layout /
 // paint）与后端无关，这里只做转接。
 
-// gio 是唯一渲染后端：包加载即登记构造钩子、输入源与运行循环。
+// Gio 是默认渲染后端；可选后端模块初始化时可通过 SetBackend 替换。
+type gioBackend struct{}
+
+func (gioBackend) NewFont(px float32, weight int, italic bool) FontFace {
+	return gioNewFont(px, weight, italic)
+}
+
+func (gioBackend) NewBitmap(img image.Image) Bitmap {
+	return &gioImage{src: img, op: gpaint.NewImageOp(img)}
+}
+
+func (gioBackend) NewVecPath(d string, scale float32) VecPath {
+	if d == "" {
+		return nil
+	}
+	return &gioPath{d: d, scale: scale}
+}
+
+func (gioBackend) Run(root *Node, cfg WindowConfig) { gioRun(root, cfg) }
+
 func init() {
-	backendNewFont = gioNewFont
-	backendNewBitmap = func(img image.Image) bitmap {
-		return &gioImage{src: img, op: gpaint.NewImageOp(img)}
-	}
-	backendNewVecPath = func(d string, scale float32) vecPath {
-		if d == "" {
-			return nil
-		}
-		return &gioPath{d: d, scale: scale}
-	}
-	backendRun = gioRun
+	SetBackend(gioBackend{})
 	input = gioIn
 }
 
@@ -142,8 +151,17 @@ const caretBlinkPeriod = 500 * time.Millisecond
 // 注意不能用 g.hasLayoutAnim 判断：它只表示「树里存在 Animated 节点」且置位后从不复位，
 // 拿它当条件会让循环永远醒着。要用 tickLayoutAnim 的返回值（是否真的还在移动）。
 // wantsNextFrame 表示引擎还有事情要做、需要立刻再出一帧。
+func hasRunningLoops(g *game) bool {
+	for _, loop := range g.loops {
+		if loop.running && !loop.fiber.unmounted {
+			return true
+		}
+	}
+	return false
+}
+
 func wantsNextFrame(g *game, layoutMoving bool) bool {
-	return g.needsLayout || len(g.dirty) > 0 || len(g.anims) > 0 || len(g.loops) > 0 ||
+	return g.needsLayout || len(g.dirty) > 0 || len(g.anims) > 0 || hasRunningLoops(g) ||
 		layoutMoving || g.inputSelecting || g.imeComposing
 }
 

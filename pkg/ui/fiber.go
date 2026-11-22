@@ -52,6 +52,14 @@ type Fiber struct {
 // addCleanup 登记卸载清理（订阅退订等）。多次登记的函数按登记顺序执行。
 func (f *Fiber) addCleanup(fn func()) { f.cleanups = append(f.cleanups, fn) }
 
+// 只有结构变化才需要重走 Fiber 树同步 Yoga 链接和收集 Portal。
+func markStructureDirty() {
+	if activeGame != nil {
+		activeGame.structureClean = false
+		activeGame.portalsClean = false
+	}
+}
+
 // boundaryCount 是活动 ErrorBoundary 数量；为 0 时 renderComponent 走无 defer 的快路径。
 var boundaryCount int
 
@@ -101,6 +109,7 @@ func reconcile(parent, old *Fiber, n *Node) *Fiber {
 }
 
 func mountFiber(parent *Fiber, n *Node) *Fiber {
+	markStructureDirty()
 	f := &Fiber{typ: n.typ, key: n.key, parent: parent}
 	if parent != nil {
 		f.level = parent.level + 1
@@ -245,6 +254,7 @@ func renderComponent(f *Fiber) {
 }
 
 func unmount(f *Fiber) {
+	markStructureDirty()
 	f.unmounted = true
 	if f.renderContext != nil {
 		f.renderContext.cancel()
@@ -353,6 +363,7 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 
 	out := make([]*Fiber, 0, len(nodes))
 	uidx := 0
+	orderChanged := false
 	for _, nd := range nodes {
 		if nd == nil {
 			continue
@@ -374,14 +385,22 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 			uidx++
 		}
 
+		var current *Fiber
 		if match != nil {
 			updateFiber(match, nd)
-			out = append(out, match)
+			current = match
 		} else {
-			out = append(out, mountFiber(parent, nd))
+			current = mountFiber(parent, nd)
 		}
+		if len(out) >= len(old) || old[len(out)] != current {
+			orderChanged = true
+		}
+		out = append(out, current)
 	}
 
+	if orderChanged || len(out) != len(old) {
+		markStructureDirty()
+	}
 	for _, c := range unkeyed[min(uidx, len(unkeyed)):] {
 		unmount(c)
 	}
@@ -436,6 +455,7 @@ func attachRenderChild(parent, child *renderNode, index uint32) {
 	child.parent = parent
 	child.index = index
 	child.level = parent.level + 1
+	parent.markInheritedDirty()
 	if activeGame != nil && child.level > activeGame.maxLevel {
 		activeGame.maxLevel = child.level
 	}

@@ -31,7 +31,7 @@ func TestHitAtFractionalBoundary(t *testing.T) {
 func TestCursorKeepsSubPixelPrecision(t *testing.T) {
 	in := &gioInput{}
 	in.setCursor(10.6, 10.6)
-	x, y := in.cursor()
+	x, y := in.Cursor()
 	if x != 10.6 || y != 10.6 {
 		t.Fatalf("cursor=(%v,%v) want (10.6,10.6) —— 亚像素精度被丢掉了", x, y)
 	}

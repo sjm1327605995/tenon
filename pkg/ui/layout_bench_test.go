@@ -23,11 +23,31 @@ func BenchmarkRelink(b *testing.B) {
 	}
 }
 
+func BenchmarkLayoutCleanTree(b *testing.B) {
+	h := MountDefault(layoutBenchTree(200))
+	defer h.Close()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		h.g.layout()
+	}
+}
+
 func BenchmarkResolveInherited(b *testing.B) {
 	h := MountDefault(layoutBenchTree(200))
 	defer h.Close()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		resolveInherited(h.g.rootRN, inhText{})
+	}
+}
+
+func BenchmarkResolveInheritedDirtySubtree(b *testing.B) {
+	h := MountDefault(layoutBenchTree(200))
+	defer h.Close()
+	branch := h.g.rootRN.children[0]
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		branch.markInheritedDirty()
 		resolveInherited(h.g.rootRN, inhText{})
 	}
 }

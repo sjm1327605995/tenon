@@ -45,7 +45,8 @@ func useFloatingPosition(anchor ui.Rect, gap float32, above bool, opacity float3
 }
 
 func floatPanelC(p floatProps) *ui.Node {
-	pref, position := useFloatingPosition(p.anchor, 6, false, 1)
+	enter := ui.UseEnterTransition(100)
+	pref, position := useFloatingPosition(p.anchor, 6, false, enter)
 	vp := ui.Viewport()
 	panel := append([]ui.StyleOpt{
 		ui.Bg(p.th.Popover), ui.TextColor(p.th.PopoverForeground),

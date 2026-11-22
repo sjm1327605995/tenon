@@ -91,6 +91,8 @@ go test ./yoga/ -v
 
 `make lint` runs `go vet ./...`. On Linux without a display, install `xvfb` and run `./scripts/test.sh ./...`; `make test` uses the environment-detecting wrapper and preserves test failures in its exit status. On Windows, the Go commands above can be run directly in PowerShell.
 
+The root `./...` pattern does not cross module boundaries. Validate the optional game backend separately with `cd backend/g3n && go build ./... && go test ./...`; the repository's local `go.work` resolves the root module without adapter-specific downloads.
+
 ## 🏗️ Project Structure
 
 When adding new features, please respect the existing architecture (see [ARCHITECTURE.md](ARCHITECTURE.md)):
@@ -99,6 +101,7 @@ When adding new features, please respect the existing architecture (see [ARCHITE
 - `pkg/shadcn/` — shadcn/ui-style component library built on `pkg/ui`
 - `pkg/decl/`, `pkg/value/`, `pkg/router/` — declarations, data binding, and navigation
 - `pkg/hotreload/` — Yaegi-based live preview
+- `backend/g3n/` — Optional G3N game backend in a separate Go module
 - `yoga/` — Yoga layout engine (Go port, minimize changes)
 - `example/` — Runnable examples: `accordion`, `card3d`, `component`, `router`, `simple`, `struct`
 

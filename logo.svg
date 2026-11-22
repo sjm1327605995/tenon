@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 347 396" fill="none" role="img" aria-labelledby="t d">
+  <title id="t">Tenon</title>
+  <desc id="d">Three beams meeting in an isometric interlocking joint — a mortise-and-tenon mark.</desc>
+  <g stroke="#3f2c19" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- painted back-to-front; fills: top #EACFA8, left #C8975F, right #A56E3B -->
+    <path d="M253 336 L173 382 L173 290 L253 244 Z" fill="#A56E3B"/>
+    <path d="M333 198 L253 244 L253 152 L333 106 Z" fill="#A56E3B"/>
+    <path d="M94 336 L173 382 L173 290 L94 244 Z" fill="#C8975F"/>
+    <path d="M14 198 L94 244 L94 152 L14 106 Z" fill="#C8975F"/>
+    <path d="M253 60 L333 106 L253 152 L173 106 Z" fill="#EACFA8"/>
+    <path d="M94 60 L173 106 L94 152 L14 106 Z" fill="#EACFA8"/>
+    <path d="M173 290 L94 336 L94 244 L173 198 Z" fill="#A56E3B"/>
+    <path d="M253 152 L173 198 L173 106 L253 60 Z" fill="#A56E3B"/>
+    <path d="M333 290 L253 336 L253 244 L333 198 Z" fill="#A56E3B"/>
+    <path d="M173 290 L253 336 L253 244 L173 198 Z" fill="#C8975F"/>
+    <path d="M94 152 L173 198 L173 106 L94 60 Z" fill="#C8975F"/>
+    <path d="M14 290 L94 336 L94 244 L14 198 Z" fill="#C8975F"/>
+    <path d="M253 152 L333 198 L253 244 L173 198 Z" fill="#EACFA8"/>
+    <path d="M94 152 L173 198 L94 244 L14 198 Z" fill="#EACFA8"/>
+    <path d="M173 14 L253 60 L173 106 L94 60 Z" fill="#EACFA8"/>
+  </g>
+</svg>

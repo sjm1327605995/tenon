@@ -43,7 +43,7 @@ type gioPath struct {
 	valid bool
 }
 
-func (*gioPath) isVecPath() {}
+func (*gioPath) IsVecPath() {}
 
 // buildPath 把 SVG 路径按本地坐标解析一次；绘制时通过仿射平移到目标位置。
 func (p *gioPainter) buildPath(gp *gioPath) clip.PathSpec {
@@ -137,7 +137,26 @@ func (p *gioPainter) rrectPath(x, y, w, h, r float32) clip.PathSpec {
 	return pth.End()
 }
 
+func (p *gioPainter) shapePath(x, y, w, h, r float32) clip.PathSpec {
+	if r >= 0 {
+		return p.rrectPath(x, y, w, h, r)
+	}
+	cut := minf(-r, minf(w, h)/2)
+	var pth clip.Path
+	pth.Begin(p.ops)
+	pth.MoveTo(f32.Pt(x, y))
+	pth.LineTo(f32.Pt(x+w, y))
+	pth.LineTo(f32.Pt(x+w, y+h-cut))
+	pth.LineTo(f32.Pt(x+w-cut, y+h))
+	pth.LineTo(f32.Pt(x, y+h))
+	pth.Close()
+	return pth.End()
+}
+
 func (p *gioPainter) rrectOp(x, y, w, h, r float32) clip.Op {
+	if r < 0 {
+		return clip.Outline{Path: p.shapePath(x, y, w, h, r)}.Op()
+	}
 	if clampRadius(w, h, r) <= 0 {
 		// 直角矩形：clip.Rect 是整数，但直角边缘本就落在像素格上，取整无损且更省。
 		return clip.Rect(image.Rect(int(x+0.5), int(y+0.5), int(x+w+0.5), int(y+h+0.5))).Op()
@@ -193,7 +212,7 @@ func (p *gioPainter) StrokeRect(x, y, w, h, r, width float32, c Color) {
 	if c.A == 0 || width <= 0 || w <= 0 || h <= 0 {
 		return
 	}
-	st := clip.Stroke{Path: p.rrectPath(x, y, w, h, r), Width: width}.Op().Push(p.ops)
+	st := clip.Stroke{Path: p.shapePath(x, y, w, h, r), Width: width}.Op().Push(p.ops)
 	gpaint.ColorOp{Color: nrgba(c)}.Add(p.ops)
 	gpaint.PaintOp{}.Add(p.ops)
 	st.Pop()
@@ -319,8 +338,9 @@ func (p *gioPainter) EndLayer(t layerTransform) {
 	// 纯 2D：绕中心缩放/旋转 + 平移。
 	aff := f32.Affine2D{}
 	ctr := f32.Pt(t.cx, t.cy)
-	if t.scale != 1 && t.scale != 0 {
-		aff = aff.Scale(ctr, f32.Pt(t.scale, t.scale))
+	sx, sy := t.xyScale()
+	if (sx != 1 && sx != 0) || (sy != 1 && sy != 0) {
+		aff = aff.Scale(ctr, f32.Pt(sx, sy))
 	}
 	if t.rotate != 0 {
 		aff = aff.Rotate(ctr, float32(float64(t.rotate)*math.Pi/180))

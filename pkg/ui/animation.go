@@ -10,6 +10,11 @@ func EaseOut(t float32) float32 {
 	return 1 - u*u*u
 }
 
+func EaseOutQuad(t float32) float32 {
+	u := 1 - t
+	return 1 - u*u
+}
+
 func EaseIn(t float32) float32 { return t * t * t }
 
 func EaseInOut(t float32) float32 {
@@ -60,18 +65,34 @@ func UseTween(target, durationMs float32, ease Easing) float32 {
 	return h.cur
 }
 
+// UseEnterTransition 在组件挂载后从 0 平滑进入 1。
+func UseEnterTransition(durationMs float32) float32 {
+	visible, setVisible := UseState(false)
+	_, progress := UseTransition(visible, durationMs)
+	UseEffect(func() Cleanup {
+		setVisible(true)
+		return nil
+	})
+	return progress
+}
+
 type loopHook struct {
 	elapsed float32 // 秒
 	fiber   *Fiber
 	active  bool
+	running bool
 }
 
 // UseElapsed 返回自挂载以来的秒数，并让引擎每帧重渲染该组件（用于持续动画，如加载指示器）。
-func UseElapsed() float32 {
+func UseElapsed() float32 { return UseElapsedActive(true) }
+
+// UseElapsedActive 仅在 active 时推进时间并请求重渲染；暂停后保留累计时间。
+func UseElapsedActive(active bool) float32 {
 	f := currentFiber
 	_, raw := nextHook(f, func() any { return &loopHook{fiber: f} })
 	h := raw.(*loopHook)
 	h.fiber = f
+	h.running = active
 	if !h.active {
 		h.active = true
 		if activeGame != nil {

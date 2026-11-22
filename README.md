@@ -104,6 +104,19 @@ Keep bindings on the component or in another persistent owner rather than creati
 
 UI state runs on the UI thread. From background goroutines, schedule changes with `ui.Post(func() { ... })` or the component context's `Post` method. A component's context is bound when it mounts and canceled when it unmounts.
 
+## Optional G3N game backend
+
+Gio remains the default renderer. For full 3D game scenes, import the independent [`backend/g3n`](backend/g3n) module: G3N owns scenes, meshes, models, lighting, physics, and audio, while Tenon provides declarative UI.
+
+```go
+g3n.Use(g3n.Options{Launch: func(game *g3n.Game) {
+    // Build the game scene with G3N's native API.
+}})
+ui.Run(ui.Text("Tenon UI on G3N"))
+```
+
+The core module has no G3N dependency, and the adapter needs no extra asset pack or linker flags. `GameScene` adds declarative Camera, Mesh/Sphere/Cube, Material, Light, and Transform components with shared resources, `value.Value` bindings, and Spin animation. See the [backend guide](backend/g3n/README.md) for builds and the native 3D example.
+
 ## Examples
 
 Run these commands from the repository root:
@@ -129,6 +142,7 @@ Run these commands from the repository root:
 | [`pkg/decl`](pkg/decl/README.md) | Optional struct declarations and automatic conversion at component boundaries |
 | [`pkg/router`](pkg/router) | Stack navigation, named routes, and route parameters |
 | [`pkg/hotreload`](pkg/hotreload) | Yaegi-based live preview and generated interpreter exports |
+| [`backend/g3n`](backend/g3n) | Optional G3N game backend in an independent Go module |
 | [`yoga`](yoga) | Pure-Go flexbox layout engine |
 
 ## Documentation

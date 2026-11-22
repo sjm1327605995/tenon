@@ -6,3 +6,6 @@ import _ "embed"
 //
 //go:embed assets/OPPOSans-Medium.ttf
 var cjkFont []byte
+
+// DefaultFontData 返回内置 OPPOSans 字体的只读字节，供可选渲染后端复用。
+func DefaultFontData() []byte { return cjkFont }

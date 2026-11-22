@@ -46,16 +46,16 @@ func TestGioInputFiltersIncludeFocusFilter(t *testing.T) {
 func TestGioEditEventFeedsTypedChars(t *testing.T) {
 	g := &gioInput{}
 	g.resetFrame()
-	if len(g.typedChars()) != 0 {
+	if len(g.TypedChars()) != 0 {
 		t.Fatal("新一帧开头 typedChars 应为空")
 	}
 	// 模拟 gio 投递的字符输入
 	g.typed = append(g.typed, []rune("你好a")...)
-	if got := string(g.typedChars()); got != "你好a" {
+	if got := string(g.TypedChars()); got != "你好a" {
 		t.Fatalf("typedChars=%q want %q", got, "你好a")
 	}
 	g.resetFrame()
-	if got := string(g.typedChars()); got != "" {
+	if got := string(g.TypedChars()); got != "" {
 		t.Fatalf("resetFrame 后 typedChars 应清空，得到 %q", got)
 	}
 }

@@ -62,6 +62,10 @@ func UseState[T any](initial T) (T, func(T)) {
 			}
 		}
 	}
+	if h.value == nil {
+		var zero T
+		return zero, h.setter.(func(T))
+	}
 	return h.value.(T), h.setter.(func(T))
 }
 

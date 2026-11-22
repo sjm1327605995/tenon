@@ -797,6 +797,65 @@ func TestMemoRefreshesClosureProps(t *testing.T) {
 
 // ---- UseTween：数值补间动画 ----
 
+func TestUseStateSupportsNilInterface(t *testing.T) {
+	h := Mount(Use(func(_ struct{}) *Node {
+		value, _ := UseState[error](nil)
+		if value != nil {
+			t.Fatal("nil interface state was replaced")
+		}
+		return Text("nil state")
+	}, struct{}{}), 100, 100)
+	defer h.Close()
+}
+
+func TestUseElapsedActivePausesWithoutFrames(t *testing.T) {
+	var setActive func(bool)
+	elapsed := float32(0)
+	h := Mount(Use(func(_ struct{}) *Node {
+		running, setRunning := UseState(false)
+		setActive = setRunning
+		elapsed = UseElapsedActive(running)
+		return Text("clock")
+	}, struct{}{}), 100, 100)
+	defer h.Close()
+	h.Step(100)
+	if elapsed != 0 || hasRunningLoops(h.g) {
+		t.Fatal("paused clock requested continuous frames")
+	}
+	setActive(true)
+	h.Step(0)
+	h.Step(100)
+	if elapsed != 0.1 {
+		t.Fatalf("running elapsed = %v", elapsed)
+	}
+	setActive(false)
+	h.Step(0)
+	h.Step(100)
+	if elapsed != 0.1 || hasRunningLoops(h.g) {
+		t.Fatalf("paused clock advanced or kept scheduling: %v", elapsed)
+	}
+}
+
+func TestUseEnterTransition(t *testing.T) {
+	var last float32
+	h := Mount(Use(func(_ struct{}) *Node {
+		last = UseEnterTransition(100)
+		return Text("enter")
+	}, struct{}{}), 100, 100)
+	defer h.Close()
+	if last != 0 {
+		t.Fatalf("initial enter progress = %v", last)
+	}
+	h.Step(50)
+	if last <= 0 || last >= 1 {
+		t.Fatalf("mid enter progress = %v", last)
+	}
+	h.Step(60)
+	if last != 1 {
+		t.Fatalf("final enter progress = %v", last)
+	}
+}
+
 func TestUseTween(t *testing.T) {
 	g := newGame()
 	var setTarget func(float32)
@@ -1014,6 +1073,62 @@ func TestIncrementalRelink(t *testing.T) {
 	}
 }
 
+func TestContentUpdateKeepsStructureAndPortalCache(t *testing.T) {
+	h := MountDefault(Div(Text("main"), Portal(Div(Text("overlay")))))
+	defer h.Close()
+	portal := h.g.portals[0]
+	if !h.g.structureClean || !h.g.portalsClean {
+		t.Fatal("initial layout did not settle structure caches")
+	}
+
+	h.g.rootFiber = reconcile(nil, h.g.rootFiber, Div(Text("updated"), Portal(Div(Text("updated overlay")))))
+	if !h.g.structureClean || !h.g.portalsClean {
+		t.Fatal("content-only update invalidated structure caches")
+	}
+	h.settle()
+	if len(h.g.portals) != 1 || h.g.portals[0] != portal {
+		t.Fatal("content-only update rebuilt the portal list")
+	}
+	if got := h.Root().ByText("updated"); !got.Exists() {
+		t.Fatal("main content was not updated")
+	}
+	if got := h.Overlays()[0].ByText("updated overlay"); !got.Exists() {
+		t.Fatal("portal content was not updated")
+	}
+
+	h.g.rootFiber = reconcile(nil, h.g.rootFiber, Div(Text("updated")))
+	h.settle()
+	if len(h.g.portals) != 0 {
+		t.Fatal("portal removal did not invalidate the cached list")
+	}
+}
+
+func TestKeyedReorderInvalidatesStructure(t *testing.T) {
+	tree := func(labels ...string) *Node {
+		kids := make([]*Node, len(labels))
+		for i, label := range labels {
+			kids[i] = Div(Key(label), Text(label))
+		}
+		return Div(kids...)
+	}
+	h := MountDefault(tree("A", "B", "C"))
+	defer h.Close()
+	root := h.g.rootRN
+	a, b, c := root.children[0], root.children[1], root.children[2]
+
+	h.g.rootFiber = reconcile(nil, h.g.rootFiber, tree("C", "A", "B"))
+	if h.g.structureClean || h.g.portalsClean {
+		t.Fatal("keyed reorder did not invalidate structure caches")
+	}
+	h.settle()
+	if root.children[0] != c || root.children[1] != a || root.children[2] != b {
+		t.Fatal("yoga children were not relinked after keyed reorder")
+	}
+	if got := []string{root.children[0].children[0].text, root.children[1].children[0].text, root.children[2].children[0].text}; got[0] != "C" || got[1] != "A" || got[2] != "B" {
+		t.Fatalf("reordered text = %v, want [C A B]", got)
+	}
+}
+
 // ---- 输入光标定位 & 剪贴板 ----
 
 func TestInputCaretFromX(t *testing.T) {
@@ -1135,6 +1250,23 @@ func TestUseEscape(t *testing.T) {
 
 // ---- UseMeasure：读回元素屏幕矩形（锚定基座）----
 
+func TestUseMeasureIncludesAncestorTransforms(t *testing.T) {
+	g := newGame()
+	var got Rect
+	comp := func(_ struct{}) *Node {
+		ref, rect := UseMeasure()
+		got = rect
+		return Div(Style(Width(200), Height(100), ScaleXY(1.5, 0.5)),
+			Div(ref, Style(Width(40), Height(20), Absolute, Left(20), Top(10))))
+	}
+	g.mountRoot(Use(comp, struct{}{}))
+	g.drain()
+	want := Rect{X: -20, Y: 30, W: 60, H: 10}
+	if got != want {
+		t.Fatalf("transformed measured rect = %+v, want %+v", got, want)
+	}
+}
+
 func TestUseMeasure(t *testing.T) {
 	g := newGame()
 	var got Rect
@@ -1219,6 +1351,56 @@ func TestTextInheritance(t *testing.T) {
 	nested := root.children[2].children[0]
 	if c, s := nested.color, nested.effSize; c != red || s != 24 {
 		t.Fatalf("nested inherit: color=%v size=%v want red/24", c, s)
+	}
+}
+
+func TestTextInheritanceCacheInvalidation(t *testing.T) {
+	red, green, blue := Hex("#ff0000"), Hex("#00ff00"), Hex("#0000ff")
+	tree := func(color Color, size, richSize float32) *Node {
+		rich := Text("rich")
+		if richSize > 0 {
+			rich = Text("rich", FontSize(richSize))
+		}
+		return Div(
+			Div(Style(TextColor(color), FontSize(size)), Text("plain"), RichText(rich)),
+			Div(Style(TextColor(blue)), Text("stable")),
+		)
+	}
+	h := MountDefault(tree(red, 24, 0))
+	defer h.Close()
+	root := h.g.rootRN
+	plain, rich, stable := root.children[0].children[0], root.children[0].children[1], root.children[1].children[0]
+
+	h.g.rootFiber = reconcile(nil, h.g.rootFiber, tree(green, 12, 0))
+	h.settle()
+	if plain.color != green || plain.effSize != 12 || rich.runs[0].color != green || rich.runs[0].rSize != 12 {
+		t.Fatalf("ancestor update was not resolved: plain=(%v,%v) rich=(%v,%v)",
+			plain.color, plain.effSize, rich.runs[0].color, rich.runs[0].rSize)
+	}
+	if stable.color != blue {
+		t.Fatalf("unchanged sibling changed color to %v", stable.color)
+	}
+
+	h.g.rootFiber = reconcile(nil, h.g.rootFiber, tree(green, 12, 30))
+	h.settle()
+	if rich.runs[0].rSize != 30 {
+		t.Fatalf("rich text update retained cached size %v, want 30", rich.runs[0].rSize)
+	}
+}
+
+func TestTextInheritanceCacheScaleInvalidation(t *testing.T) {
+	h := MountDefault(Div(Style(FontSize(20)), Text("plain"), RichText(Text("rich"))))
+	defer h.Close()
+	defer func() { uiScale = 1 }()
+	plain, rich := h.g.rootRN.children[0], h.g.rootRN.children[1]
+
+	uiScale = 2
+	h.settle()
+	if plain.effScale != 2 || plain.lineH != 52 {
+		t.Fatalf("plain text scale=(%v,%v), want scale=2 lineH=52", plain.effScale, plain.lineH)
+	}
+	if rich.runs[0].rScale != 2 || rich.runs[0].lineH != 52 {
+		t.Fatalf("rich text scale=(%v,%v), want scale=2 lineH=52", rich.runs[0].rScale, rich.runs[0].lineH)
 	}
 }
 

@@ -24,6 +24,8 @@ type game struct {
 	dirty          []*Fiber
 	pendingEffects []func()
 	needsLayout    bool
+	structureClean bool
+	portalsClean   bool
 	focusedFiber   *Fiber
 	anims          []*tweenHook
 	loops          []*loopHook
@@ -79,6 +81,24 @@ type windowConfig struct {
 	sync       bool
 }
 
+// WindowConfig 是传给渲染后端的只读窗口配置。
+type WindowConfig = windowConfig
+
+// Size 返回初始逻辑尺寸。
+func (c windowConfig) Size() (w, h int) { return c.w, c.h }
+
+// Title 返回窗口标题。
+func (c windowConfig) Title() string { return c.title }
+
+// MinSize 返回最小逻辑尺寸，0 表示不限制。
+func (c windowConfig) MinSize() (w, h int) { return c.minW, c.minH }
+
+// MaxSize 返回最大逻辑尺寸，0 表示不限制。
+func (c windowConfig) MaxSize() (w, h int) { return c.maxW, c.maxH }
+
+// Fullscreen 报告是否以全屏启动。
+func (c windowConfig) Fullscreen() bool { return c.fullscreen }
+
 var winCfg = windowConfig{w: 800, h: 600, title: "Tenon UI"}
 
 // WindowSize 设置初始窗口的逻辑尺寸（须在 Run 之前调用）。
@@ -120,6 +140,7 @@ func (g *game) dispose() {
 	g.hoverHit, g.hoverHitValid = nil, false
 	g.hoverCount, g.maxLevel = 0, 0
 	g.focusedFiber, g.dragging, g.pressedNode = nil, nil, nil
+	g.structureClean, g.portalsClean = false, false
 	g.hasLayoutAnim = false
 	g.frameCache = gioFrameCache{}
 	if activeGame == g {
@@ -231,10 +252,13 @@ func (g *game) tickLoops(dt float32) {
 	for _, h := range g.loops {
 		if h.fiber.unmounted {
 			h.active = false
+			h.running = false
 			continue
 		}
-		h.elapsed += dt / 1000
-		g.markDirty(h.fiber)
+		if h.running {
+			h.elapsed += dt / 1000
+			g.markDirty(h.fiber)
+		}
 		live = append(live, h)
 	}
 	g.loops = live
@@ -257,7 +281,10 @@ func (g *game) layout() {
 	}
 	g.hitVersion++
 	g.visualVersion++
-	relink(g.rootFiber) // 增量：仅结构变化时改动 yoga 链接
+	if !g.structureClean {
+		relink(g.rootFiber)
+		g.structureClean = true
+	}
 	g.clearDisabledInteractions()
 	resolveInherited(g.rootRN, inhText{})
 
@@ -283,8 +310,11 @@ func (g *game) layout() {
 
 // layoutPortals 为每个 Portal 建立全屏独立布局根并计算其 bounds（同样按需重算）。
 func (g *game) layoutPortals(windowChanged, boundsDirty bool) {
-	g.portals = g.portals[:0]
-	collectPortals(g.rootFiber, &g.portals)
+	if !g.portalsClean {
+		g.portals = g.portals[:0]
+		collectPortals(g.rootFiber, &g.portals)
+		g.portalsClean = true
+	}
 	for _, pf := range g.portals {
 		root := pf.overlayRoot
 		if !renderChildrenEqual(pf, root.children) {
@@ -343,8 +373,8 @@ func (g *game) handleInput() {
 	// 滚轮：把滚动施加到光标下最近的可滚动祖先。
 	// wheel() 与 bounds 同为物理像素，直接相加即可 —— 不要再乘 uiScale，那会在高 DPI 上
 	// 把滚动速度按缩放倍数放大（150% 缩放下快 1.5 倍）。
-	if _, wy := input.wheel(); wy != 0 {
-		x, y := input.cursor()
+	if _, wy := input.Wheel(); wy != 0 {
+		x, y := input.Cursor()
 		for c := g.hitTop(x, y); c != nil; c = c.parent {
 			if c.scroll {
 				c.scrollY += wy
@@ -355,8 +385,8 @@ func (g *game) handleInput() {
 		}
 	}
 
-	if input.mouseJustPressed(btnLeft) {
-		x, y := input.cursor()
+	if input.MouseJustPressed(btnLeft) {
+		x, y := input.Cursor()
 		n := g.interactiveHit(x, y)
 		// 聚焦：命中 input 则聚焦；单击定位光标并开始拖选，双击选词，三击选全部
 		if n != nil && n.kind == rnInput {
@@ -412,8 +442,8 @@ func (g *game) handleInput() {
 		}
 	}
 	// 右键：向上冒泡找第一个 onContextMenu，回调光标逻辑坐标
-	if input.mouseJustPressed(btnRight) {
-		x, y := input.cursor()
+	if input.MouseJustPressed(btnRight) {
+		x, y := input.Cursor()
 		for c := g.interactiveHit(x, y); c != nil; c = c.parent {
 			if c.onContextMenu != nil {
 				c.onContextMenu(float32(x)/uiScale, float32(y)/uiScale)
@@ -433,7 +463,7 @@ func (g *game) updateInputSelection() {
 	if !g.inputSelecting {
 		return
 	}
-	if !input.mousePressed(btnLeft) {
+	if !input.MousePressed(btnLeft) {
 		g.inputSelecting = false
 		return
 	}
@@ -441,7 +471,7 @@ func (g *game) updateInputSelection() {
 	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.isDisabled() {
 		return
 	}
-	x, y := input.cursor()
+	x, y := input.Cursor()
 	caret := f.rnode.caretAt(float32(x), float32(y))
 	if f.rnode.caretPos != caret {
 		g.visualVersion++
@@ -454,7 +484,7 @@ func (g *game) updatePress() {
 	if g.pressedNode == nil {
 		return
 	}
-	if !input.mousePressed(btnLeft) {
+	if !input.MousePressed(btnLeft) {
 		if g.pressedNode.onPress != nil {
 			g.pressedNode.onPress(false)
 		}
@@ -465,25 +495,25 @@ func (g *game) updatePress() {
 // handleKeyboardNav 处理 Tab 焦点切换、Enter/Space 激活、Esc 失焦。
 // 决策逻辑抽到 focusNext/fireEscape/activateFocused，供无窗口的测试驱动复用。
 func (g *game) handleKeyboardNav() {
-	if input.keyJustPressed(keyTab) {
-		g.focusNext(!input.keyPressed(keyShift))
+	if input.KeyJustPressed(keyTab) {
+		g.focusNext(!input.KeyPressed(keyShift))
 	}
 	// 方向键：在导航组内移动焦点（输入框聚焦时 moveFocusInGroup 自动放行给光标）
 	switch {
-	case input.keyJustPressed(keyDown):
+	case input.KeyJustPressed(keyDown):
 		g.moveFocusInGroup(true, NavVertical)
-	case input.keyJustPressed(keyUp):
+	case input.KeyJustPressed(keyUp):
 		g.moveFocusInGroup(false, NavVertical)
-	case input.keyJustPressed(keyRight):
+	case input.KeyJustPressed(keyRight):
 		g.moveFocusInGroup(true, NavHorizontal)
-	case input.keyJustPressed(keyLeft):
+	case input.KeyJustPressed(keyLeft):
 		g.moveFocusInGroup(false, NavHorizontal)
 	}
-	if input.keyJustPressed(keyEscape) {
+	if input.KeyJustPressed(keyEscape) {
 		g.fireEscape()
 	}
 	// Enter/Space 激活聚焦的可点击元素（输入框不拦截，交给文本编辑）
-	if input.keyJustPressed(keyEnter) || input.keyJustPressed(keySpace) {
+	if input.KeyJustPressed(keyEnter) || input.KeyJustPressed(keySpace) {
 		g.activateFocused()
 	}
 }
@@ -542,11 +572,11 @@ func (g *game) updateDrag() {
 	if g.dragging == nil {
 		return
 	}
-	if !input.mousePressed(btnLeft) {
+	if !input.MousePressed(btnLeft) {
 		g.dragging = nil
 		return
 	}
-	x, y := input.cursor()
+	x, y := input.Cursor()
 	dx, dy := float32(x)-g.dragLastX, float32(y)-g.dragLastY
 	if dx != 0 || dy != 0 {
 		g.dragLastX, g.dragLastY = float32(x), float32(y)
@@ -571,8 +601,8 @@ func (g *game) editFocusedInput() {
 	caret := clampi(rn.caretPos, 0, len(val))
 	anchor := clampi(rn.selAnchor, 0, len(val))
 
-	shift := input.keyPressed(keyShift)
-	ctrl := input.keyPressed(keyCtrl) || input.keyPressed(keyMeta)
+	shift := input.KeyPressed(keyShift)
+	ctrl := input.KeyPressed(keyCtrl) || input.KeyPressed(keyMeta)
 
 	selLo := func() int { return min(anchor, caret) }
 	selHi := func() int { return max(anchor, caret) }
@@ -592,18 +622,18 @@ func (g *game) editFocusedInput() {
 	// 快捷键
 	if ctrl {
 		switch {
-		case input.keyJustPressed(keyA):
+		case input.KeyJustPressed(keyA):
 			anchor, caret = 0, len(val)
-		case input.keyJustPressed(keyC):
+		case input.KeyJustPressed(keyC):
 			if hasSel() {
 				setClipboard(val[selLo():selHi()])
 			}
-		case input.keyJustPressed(keyX):
+		case input.KeyJustPressed(keyX):
 			if hasSel() {
 				setClipboard(val[selLo():selHi()])
 				delSel()
 			}
-		case input.keyJustPressed(keyV):
+		case input.KeyJustPressed(keyV):
 			if hasSel() {
 				delSel()
 			}
@@ -614,7 +644,7 @@ func (g *game) editFocusedInput() {
 		}
 	} else {
 		// 文本输入（有选区时先替换）
-		for _, r := range input.typedChars() {
+		for _, r := range input.TypedChars() {
 			if r >= 0x20 && r != 0x7f {
 				if hasSel() {
 					delSel()
@@ -675,16 +705,16 @@ func (g *game) editFocusedInput() {
 		}
 		afterMove()
 	}
-	if input.keyJustPressed(keyHome) {
+	if input.KeyJustPressed(keyHome) {
 		caret = 0
 		afterMove()
 	}
-	if input.keyJustPressed(keyEnd) {
+	if input.KeyJustPressed(keyEnd) {
 		caret = len(val)
 		afterMove()
 	}
 	submit := false
-	if input.keyJustPressed(keyEnter) {
+	if input.KeyJustPressed(keyEnter) {
 		if rn.multiline {
 			if hasSel() {
 				delSel()
@@ -715,7 +745,7 @@ func (g *game) editFocusedInput() {
 
 // updateHover 计算光标下的悬停链，触发 enter/leave 回调（回调内一般 setState 驱动重渲染）。
 func (g *game) updateHover() {
-	x, y := input.cursor()
+	x, y := input.Cursor()
 	// 坐标和树版本都不变时复用命中结果；活动帧使用父子索引位图，不再分配悬停 map。
 	cacheValid := g.hoverHitValid && g.hoverHitVersion == g.hitVersion &&
 		x == g.hoverHitX && y == g.hoverHitY

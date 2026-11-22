@@ -49,7 +49,8 @@ type StyleProps struct {
 	opacity float32
 
 	// 变换（围绕自身中心，2D）
-	scale          float32
+	scale, scaleY  float32
+	hasScaleY      bool
 	rotate         float32 // 角度（绕 Z 轴，2D 旋转）
 	transX, transY float32
 
@@ -88,7 +89,7 @@ func newStyleProps() StyleProps {
 		width: n, height: n, widthPct: n, heightPct: n,
 		minW: n, minH: n, maxW: n, maxH: n,
 		posT: n, posR: n, posB: n, posL: n,
-		opacity: 1, scale: 1,
+		opacity: 1, scale: 1, scaleY: 1,
 	}
 }
 
@@ -181,6 +182,12 @@ func LinearGradient(from, to Color, angleDeg float32) StyleOpt {
 	}
 }
 func Radius(v float32) StyleOpt { return func(s *StyleProps) { s.radius = v } }
+
+// CutCorner replaces the bottom-right rounded corner with a diagonal cut.
+func CutCorner(v float32) StyleOpt {
+	return func(s *StyleProps) { s.radius = -absf(v) }
+}
+
 func Border(w float32, c Color) StyleOpt {
 	return func(s *StyleProps) { s.borderW, s.borderColor = w, c }
 }
@@ -193,7 +200,15 @@ func Opacity(v float32) StyleOpt { return func(s *StyleProps) { s.opacity = v } 
 
 // ---- 变换（围绕元素中心）----
 
-func Scale(v float32) StyleOpt    { return func(s *StyleProps) { s.scale = v } }
+func Scale(v float32) StyleOpt {
+	return func(s *StyleProps) { s.scale, s.scaleY, s.hasScaleY = v, v, true }
+}
+
+// ScaleXY applies independent horizontal and vertical scaling around the center.
+func ScaleXY(x, y float32) StyleOpt {
+	return func(s *StyleProps) { s.scale, s.scaleY, s.hasScaleY = x, y, true }
+}
+
 func Rotate(deg float32) StyleOpt { return func(s *StyleProps) { s.rotate = deg } }
 func TranslateXY(x, y float32) StyleOpt {
 	return func(s *StyleProps) { s.transX, s.transY = x, y }

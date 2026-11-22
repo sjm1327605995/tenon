@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	_ "golang.org/x/image/webp"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
@@ -91,6 +92,11 @@ type renderNode struct {
 	inhItalic      bool
 	hasInhItalic   bool
 
+	// 子树继承解析缓存：上下文、DPI 均未变化且未标脏时可整棵跳过。
+	inheritCtx      inhText
+	inheritScale    float32
+	inheritResolved bool
+
 	// input
 	value       string
 	placeholder string
@@ -139,7 +145,8 @@ type renderNode struct {
 	contentH float32
 
 	opacity        float32
-	scale          float32
+	scale, scaleY  float32
+	scaleYSet      bool
 	rotate         float32
 	transX, transY float32
 
@@ -172,13 +179,20 @@ type renderNode struct {
 func (rn *renderNode) effTransX() float32 { return rn.transX + rn.offX }
 func (rn *renderNode) effTransY() float32 { return rn.transY + rn.offY }
 
+func (rn *renderNode) effectiveScaleY() float32 {
+	if !rn.scaleYSet {
+		return rn.scale
+	}
+	return rn.scaleY
+}
+
 // has3D 表示本节点带伪 3D 变换（需要走投影绘制路径）。
 func (rn *renderNode) has3D() bool {
 	return rn.rotateX != 0 || rn.rotateY != 0 || rn.transZ != 0
 }
 
 func (rn *renderNode) hasTransform() bool {
-	return rn.scale != 1 || rn.rotate != 0 || rn.effTransX() != 0 || rn.effTransY() != 0 || rn.has3D()
+	return rn.scale != 1 || (rn.scaleYSet && rn.scaleY != 1) || rn.rotate != 0 || rn.effTransX() != 0 || rn.effTransY() != 0 || rn.has3D()
 }
 
 func (rn *renderNode) needsLayer() bool {
@@ -319,8 +333,20 @@ func (rn *renderNode) scaledIconPath() vecPath {
 	return ip
 }
 
+// markInheritedDirty 标脏本节点及祖先；兄弟子树的继承缓存仍可复用。
+func (rn *renderNode) markInheritedDirty() {
+	rn.inheritResolved = false
+	for p := rn.parent; p != nil && p.inheritResolved; p = p.parent {
+		p.inheritResolved = false
+	}
+}
+
 // applyTextStyle 只记录本节点显式设置的文本样式；生效值由 resolveInherited 决定。
 func (rn *renderNode) applyTextStyle(st StyleProps) {
+	changed := rn.explicitColor != st.hasColor || rn.ownColor != st.color ||
+		rn.explicitSize != st.hasFontSize || rn.ownSize != st.fontSize ||
+		rn.explicitWeight != st.hasWeight || rn.ownWeight != st.weight ||
+		rn.explicitItalic != st.hasItalic || rn.ownItalic != st.italic
 	rn.explicitColor = st.hasColor
 	rn.ownColor = st.color
 	rn.explicitSize = st.hasFontSize
@@ -329,6 +355,9 @@ func (rn *renderNode) applyTextStyle(st StyleProps) {
 	rn.ownWeight = st.weight
 	rn.explicitItalic = st.hasItalic
 	rn.ownItalic = st.italic
+	if changed {
+		rn.markInheritedDirty()
+	}
 	if rn.effSize == 0 { // 初始回退，保证在 resolve 前也有可用字体
 		rn.setEffectiveText(Black, 16, 400, false)
 	}
@@ -366,8 +395,12 @@ type inhText struct {
 }
 
 // resolveInherited 自顶向下解析文本继承（颜色/字号/字重/斜体）；文本/输入节点未显式设置时采用继承值。
-// 须在测量（CalculateLayout）之前调用。
+// 须在测量（CalculateLayout）之前调用。已解析子树只有在上下文、DPI 或样式变化时才重算。
 func resolveInherited(rn *renderNode, ctx inhText) {
+	if rn.inheritResolved && rn.inheritCtx == ctx && rn.inheritScale == uiScale {
+		return
+	}
+	resolvedCtx := ctx
 	switch rn.kind {
 	case rnIcon:
 		c := Black
@@ -380,7 +413,7 @@ func resolveInherited(rn *renderNode, ctx inhText) {
 	case rnText, rnInput:
 		if rn.kind == rnText && len(rn.runs) > 0 {
 			rn.resolveRuns(ctx)
-			return
+			break
 		}
 		c := Black
 		if rn.explicitColor {
@@ -424,6 +457,7 @@ func resolveInherited(rn *renderNode, ctx inhText) {
 			resolveInherited(ch, ctx)
 		}
 	}
+	rn.inheritCtx, rn.inheritScale, rn.inheritResolved = resolvedCtx, uiScale, true
 }
 
 func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
@@ -431,6 +465,7 @@ func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
 	rn.text = s
 	if changed {
 		rn.runs = runs // 未变化时保留旧 runs（含已解析的字体缓存）
+		rn.markInheritedDirty()
 	}
 	rn.applyTextStyle(st)
 	if changed {
@@ -690,7 +725,8 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.borderW = s.borderW * k
 	rn.borderColor = s.borderColor
 	rn.opacity = s.opacity
-	rn.scale = s.scale
+	rn.scale, rn.scaleY = s.scale, s.scaleY
+	rn.scaleYSet = s.hasScaleY
 	rn.rotate = s.rotate
 	rn.transX, rn.transY = s.transX*k, s.transY*k
 	rn.rotateX, rn.rotateY = s.rotateX, s.rotateY
@@ -708,6 +744,10 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	}
 
 	// 容器可通过 TextColor/FontSize/FontWeight/Italic 为后代文本设定继承值
+	inheritChanged := rn.hasInhColor != s.hasColor || rn.inhColor != s.color ||
+		rn.hasInhSize != s.hasFontSize || rn.inhSize != s.fontSize ||
+		rn.hasInhWeight != s.hasWeight || rn.inhWeight != s.weight ||
+		rn.hasInhItalic != s.hasItalic || rn.inhItalic != s.italic
 	rn.hasInhColor = s.hasColor
 	rn.inhColor = s.color
 	rn.hasInhSize = s.hasFontSize
@@ -716,6 +756,9 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.inhWeight = s.weight
 	rn.hasInhItalic = s.hasItalic
 	rn.inhItalic = s.italic
+	if inheritChanged {
+		rn.markInheritedDirty()
+	}
 
 	rn.animatedLayout = s.animateLayout
 	if s.animateLayout && activeGame != nil {
@@ -786,7 +829,7 @@ func layerOf(rn *renderNode, cam *camera3D) layerTransform {
 	t := layerTransform{
 		cx: b.X + b.W/2, cy: b.Y + b.H/2,
 		w: b.W, h: b.H,
-		scale: rn.scale, rotate: rn.rotate,
+		scale: rn.scale, scaleY: rn.effectiveScaleY(), rotate: rn.rotate,
 		tx: rn.effTransX(), ty: rn.effTransY(), opacity: rn.opacity,
 		rotateX: rn.rotateX, rotateY: rn.rotateY,
 		transZ: rn.transZ, perspective: rn.perspective,
@@ -1283,7 +1326,9 @@ func (rn *renderNode) invTransform(px, py float32, cam *camera3D) (float32, floa
 	}
 	if rn.scale != 0 {
 		x /= rn.scale
-		y /= rn.scale
+	}
+	if scaleY := rn.effectiveScaleY(); scaleY != 0 {
+		y /= scaleY
 	}
 	return x + cx, y + cy
 }

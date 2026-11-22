@@ -1,42 +1,75 @@
 package ui
 
-// painter 是绘制后端的抽象：paint 遍历只依赖这些原语。当前实现为 gio（gioPainter），
+// Painter 是绘制后端的抽象：paint 遍历只依赖这些原语。默认实现为 Gio，
 // 测试用录制后端（recordPainter，无需 GPU）。坐标均为物理像素，与 renderNode.bounds 一致。
-type painter interface {
+type Painter interface {
 	FillRect(x, y, w, h, r float32, c Color)
 	FillGradient(x, y, w, h, r float32, from, to Color, angle float32) // 线性渐变填充
 	StrokeRect(x, y, w, h, r, width float32, c Color)
 	Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c Color)
 	Line(x0, y0, x1, y1 float32, c Color)
-	DrawText(s string, face fontFace, c Color, x, y float32, fauxBold, fauxItalic bool)
-	DrawImage(img bitmap, dst Rect, opacity float32)
-	FillPath(path vecPath, x, y float32, c Color)          // 填充路径（实心图标）
-	StrokePath(path vecPath, x, y, width float32, c Color) // 描边路径（线性图标，圆角端点）
+	DrawText(s string, face FontFace, c Color, x, y float32, fauxBold, fauxItalic bool)
+	DrawImage(img Bitmap, dst Rect, opacity float32)
+	FillPath(path VecPath, x, y float32, c Color)          // 填充路径（实心图标）
+	StrokePath(path VecPath, x, y, width float32, c Color) // 描边路径（线性图标，圆角端点）
 	PushClip(r Rect, radius float32)                       // radius>0 裁剪到圆角矩形
 	PopClip()
 	BeginLayer()
-	EndLayer(t layerTransform)
+	EndLayer(t LayerTransform)
 	// 投影层（伪 3D）：逐元素录制、逐元素仿射回放。BeginProjected/EndProjected 之间
 	// 用 BeginProjectedElement/EndProjectedElement 成对包裹每个元素的绘制（第一个元素
 	// 应是层自身，rect 传层的 bounds）；回放时每个元素贴自己四角投影的前三角 ——
 	// 斜切误差从「整层尺寸」降到「元素尺寸」。命中端用 elementContentAffine 的逆，
 	// 与绘制端共用同一份 projAffine，画哪点哪。
-	BeginProjected(t layerTransform)
+	BeginProjected(t LayerTransform)
 	BeginProjectedElement(r Rect)
 	EndProjectedElement()
 	// ProjectedImage 在投影层里登记一个「精确单应贴图」元素：整块图按 quad（元素四角的
 	// 真实投影，顺序 左上/右上/左下/右下）预变形后正着贴，绕开仿射斜切 —— 用于「元素
 	// 自身就是一整块图」的情形。clip 非 nil 时按层裁剪矩形+圆角裁剪（裁剪路径随元素
 	// 仿射变形，与常规元素路径一致）。cacheKey 标识图像内容。
-	ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32)
+	ProjectedImage(img Bitmap, quad [4]Point, opacity float32, cacheKey string, clip *Rect, clipR float32)
 	EndProjected()
+}
+
+type painter = Painter
+
+// LayerTransform 是一个图层合回时施加的变换和透明度。后端通过 Snapshot 读取。
+type LayerTransform = layerTransform
+
+// Point 是投影四边形中的二维点。
+type Point = pt
+
+// Layer 是 LayerTransform 的只读快照，供外部渲染后端使用。
+type Layer struct {
+	CX, CY              float32
+	W, H                float32
+	Scale, ScaleY       float32
+	Rotate              float32
+	TX, TY              float32
+	Opacity             float32
+	RotateX, RotateY    float32
+	TransZ, Perspective float32
+	CameraX, CameraY    float32
+	HasCamera           bool
+}
+
+// Snapshot 返回图层的全部绘制变换。
+func (t layerTransform) Snapshot() Layer {
+	return Layer{
+		CX: t.cx, CY: t.cy, W: t.w, H: t.h,
+		Scale: t.scale, ScaleY: t.scaleY, Rotate: t.rotate, TX: t.tx, TY: t.ty, Opacity: t.opacity,
+		RotateX: t.rotateX, RotateY: t.rotateY, TransZ: t.transZ, Perspective: t.perspective,
+		CameraX: t.camX, CameraY: t.camY, HasCamera: t.hasCam,
+	}
 }
 
 // layerTransform 是一个图层合回时施加的变换 + 整组透明度（围绕中心 cx,cy）。
 type layerTransform struct {
 	cx, cy        float32 // 元素中心（变换与透视的锚点）
 	w, h          float32 // 元素尺寸（伪 3D 按四角投影求仿射时要用）
-	scale, rotate float32 // 2D 缩放 + 绕 Z 轴旋转
+	scale, scaleY float32 // 2D 横向/纵向缩放
+	rotate        float32 // 绕 Z 轴旋转
 	tx, ty        float32
 	opacity       float32
 
@@ -62,6 +95,14 @@ func (t layerTransform) origin() (float32, float32) {
 
 func (t layerTransform) is3D() bool {
 	return t.rotateX != 0 || t.rotateY != 0 || t.transZ != 0
+}
+
+func (t layerTransform) xyScale() (float32, float32) {
+	y := t.scaleY
+	if y == 0 {
+		y = t.scale
+	}
+	return t.scale, y
 }
 
 // ---- 录制后端（测试用，无需 GPU）----

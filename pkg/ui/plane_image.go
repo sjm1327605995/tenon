@@ -34,10 +34,11 @@ var planeCache = map[string]planeCacheEntry{}
 // planeCacheKey 把 key 与所有影响投影结果的量拼成缓存键。
 // 少拼一个量，就会在那个量变化时悄悄用上过期的变形结果。
 func planeCacheKey(key string, t layerTransform) string {
-	return fmt.Sprintf("%s|%.2f,%.2f|%.2f,%.2f|%.3f,%.3f,%.3f,%.3f|%.3f,%.3f|%.3f,%.3f",
+	sx, sy := t.xyScale()
+	return fmt.Sprintf("%s|%.2f,%.2f|%.2f,%.2f|%.3f,%.3f,%.3f,%.3f|%.3f,%.3f|%.3f,%.3f|%.3f",
 		key, t.cx, t.cy, t.w, t.h,
 		t.rotateX, t.rotateY, t.transZ, t.perspective,
-		t.scale, t.rotate, t.tx, t.ty)
+		sx, t.rotate, t.tx, t.ty, sy)
 }
 
 // planeBBox 返回投影四边形的屏幕包围盒（向外取整到整像素）。

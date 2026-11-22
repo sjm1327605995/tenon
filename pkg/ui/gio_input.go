@@ -44,16 +44,16 @@ type gioEdit struct {
 
 var gioIn = &gioInput{}
 
-func (g *gioInput) cursor() (float32, float32) { return g.curX, g.curY }
+func (g *gioInput) Cursor() (float32, float32) { return g.curX, g.curY }
 
 // setCursor 记录光标位置（物理像素，保留亚像素精度）。
 func (g *gioInput) setCursor(x, y float32)           { g.curX, g.curY = x, y }
-func (g *gioInput) wheel() (float32, float32)        { return g.wheelX, g.wheelY }
-func (g *gioInput) mousePressed(b mouseBtn) bool     { return g.btnDown[b] }
-func (g *gioInput) mouseJustPressed(b mouseBtn) bool { return g.btnJust[b] }
-func (g *gioInput) typedChars() []rune               { return g.typed }
+func (g *gioInput) Wheel() (float32, float32)        { return g.wheelX, g.wheelY }
+func (g *gioInput) MousePressed(b mouseBtn) bool     { return g.btnDown[b] }
+func (g *gioInput) MouseJustPressed(b mouseBtn) bool { return g.btnJust[b] }
+func (g *gioInput) TypedChars() []rune               { return g.typed }
 
-func (g *gioInput) keyPressed(k inKey) bool {
+func (g *gioInput) KeyPressed(k inKey) bool {
 	switch k {
 	case keyShift:
 		return g.mods&key.ModShift != 0
@@ -65,7 +65,7 @@ func (g *gioInput) keyPressed(k inKey) bool {
 	return g.keyDown[k]
 }
 
-func (g *gioInput) keyJustPressed(k inKey) bool { return g.keyJust[k] }
+func (g *gioInput) KeyJustPressed(k inKey) bool { return g.keyJust[k] }
 
 // resetFrame 每帧开头清零边沿状态（保留光标/按住/修饰键等持久状态）。
 func (g *gioInput) resetFrame() {
@@ -207,7 +207,7 @@ func gioCursor(g *game) pointer.Cursor {
 	if g.rootRN == nil {
 		return pointer.CursorDefault
 	}
-	x, y := gioIn.cursor()
+	x, y := gioIn.Cursor()
 	for c := g.interactiveHit(x, y); c != nil; c = c.parent {
 		switch {
 		case c.kind == rnInput:

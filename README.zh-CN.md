@@ -104,6 +104,19 @@ go run .
 
 UI 状态在 UI 线程中读写。后台 goroutine 通过 `ui.Post(func() { ... })` 或组件 Context 的 `Post` 方法调度更新。组件挂载后才能获取 Context，卸载时其生命周期自动取消。
 
+## 可选 G3N 游戏后端
+
+默认渲染后端仍是 Gio。需要完整 3D 游戏场景时，可导入独立的 [`backend/g3n`](backend/g3n) 模块，由 G3N 提供场景、网格、模型、灯光、物理和音频，Tenon 负责声明式 UI：
+
+```go
+g3n.Use(g3n.Options{Launch: func(game *g3n.Game) {
+    // 使用 G3N 原生 API 创建游戏场景。
+}})
+ui.Run(ui.Text("Tenon UI on G3N"))
+```
+
+主模块不依赖 G3N；适配层不需要额外资源包或链接参数。`GameScene` 还提供声明式 Camera、Mesh/Sphere/Cube、Material、Light 和 Transform 组件，支持资源共享、`value.Value` 属性绑定与 Spin 动画。构建与原生 3D 示例见[后端说明](backend/g3n/README.md)。
+
 ## 示例
 
 在仓库根目录运行：
@@ -129,6 +142,7 @@ UI 状态在 UI 线程中读写。后台 goroutine 通过 `ui.Post(func() { ... 
 | [`pkg/decl`](pkg/decl/README.md) | 可选的结构体声明与组件边界自动转换 |
 | [`pkg/router`](pkg/router) | 栈式导航、具名路由和路由参数 |
 | [`pkg/hotreload`](pkg/hotreload) | 基于 Yaegi 的实时预览与解释器导出 |
+| [`backend/g3n`](backend/g3n) | 可选 G3N 游戏后端，独立 Go module，不影响默认 Gio |
 | [`yoga`](yoga) | 纯 Go flex 布局引擎 |
 
 ## 文档

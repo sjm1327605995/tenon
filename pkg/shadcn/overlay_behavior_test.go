@@ -2,6 +2,7 @@ package shadcn
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
@@ -42,6 +43,44 @@ func TestPopoverWithFixedAnchorStaysInViewportAfterResize(t *testing.T) {
 	h.Root().ByText("Fixed anchor").Click()
 	h.Resize(240, 150)
 	assertInViewport(t, floatingPanelQuery(h).Bounds(), 240, 150)
+}
+
+func TestSelectUsesTransformedAnchorAndWorksWithoutCallback(t *testing.T) {
+	h := ui.Mount(ui.Div(ui.Style(ui.Fill),
+		ui.Div(ui.Style(ui.Absolute, ui.Left(100), ui.Top(80), ui.Width(200), ui.Height(100), ui.ScaleXY(1.5, 1.25)),
+			Select(SelectProps{Options: []string{"A", "B"}, Placeholder: "Choose", Style: []ui.StyleOpt{ui.Width(120), ui.Height(30)}}))), 400, 300)
+	if !h.ClickAt(140, 86.25) {
+		t.Fatal("scaled select trigger did not open")
+	}
+	if len(h.Overlays()) != 1 {
+		t.Fatal("select did not open")
+	}
+	panel := floatingPanelQuery(h).Bounds()
+	if math.Abs(float64(panel.X-50)) > 0.01 || math.Abs(float64(panel.Y-111)) > 0.01 {
+		t.Fatalf("select panel is not aligned to transformed trigger: %+v", panel)
+	}
+	if !h.Overlays()[0].ByText("B").Click() {
+		t.Fatal("select option did not fire")
+	}
+	if len(h.Overlays()) != 0 || !h.Root().ByText("B").Exists() {
+		t.Fatal("uncontrolled select did not display the chosen value and close")
+	}
+}
+
+func TestSelectItemsSeparateLabelFromValue(t *testing.T) {
+	selected := ""
+	h := ui.Mount(Select(SelectProps{
+		Value:    "5",
+		Items:    []SelectOption{{Label: "Master Rule 2020", Value: "5"}, {Label: "Master Rule 2017", Value: "4"}},
+		OnChange: func(value string) { selected = value },
+	}), 400, 300)
+	defer h.Close()
+	if !h.Root().ByText("Master Rule 2020").Click() || !h.Overlays()[0].ByText("Master Rule 2017").Click() {
+		t.Fatal("label/value select interaction failed")
+	}
+	if selected != "4" || !h.Root().ByText("Master Rule 2017").Exists() {
+		t.Fatalf("selected value=%q texts=%v", selected, h.Root().Texts())
+	}
 }
 
 func TestSelectLongListRemainsScrollableAndSelectable(t *testing.T) {

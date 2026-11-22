@@ -20,17 +20,17 @@ type harnessInput struct {
 	btnJust [3]bool
 }
 
-func (i *harnessInput) cursor() (float32, float32) { return i.x, i.y }
-func (i *harnessInput) wheel() (float32, float32)  { return i.wheelX, i.wheelY }
-func (i *harnessInput) mousePressed(b mouseBtn) bool {
+func (i *harnessInput) Cursor() (float32, float32) { return i.x, i.y }
+func (i *harnessInput) Wheel() (float32, float32)  { return i.wheelX, i.wheelY }
+func (i *harnessInput) MousePressed(b mouseBtn) bool {
 	return int(b) < len(i.btnHeld) && i.btnHeld[b]
 }
-func (i *harnessInput) mouseJustPressed(b mouseBtn) bool {
+func (i *harnessInput) MouseJustPressed(b mouseBtn) bool {
 	return int(b) < len(i.btnJust) && i.btnJust[b]
 }
-func (i *harnessInput) keyPressed(k inKey) bool     { return int(k) < len(i.held) && i.held[k] }
-func (i *harnessInput) keyJustPressed(k inKey) bool { return int(k) < len(i.just) && i.just[k] }
-func (i *harnessInput) typedChars() []rune          { return i.chars }
+func (i *harnessInput) KeyPressed(k inKey) bool     { return int(k) < len(i.held) && i.held[k] }
+func (i *harnessInput) KeyJustPressed(k inKey) bool { return int(k) < len(i.just) && i.just[k] }
+func (i *harnessInput) TypedChars() []rune          { return i.chars }
 
 // pressKey 模拟按下一个键并跑一遍生产帧循环里处理按键的那两步，顺序与 run.go 的
 // updateInput 一致：handleKeyboardNav（Tab/Esc/Enter 激活）在前，editFocusedInput

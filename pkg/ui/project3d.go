@@ -59,9 +59,12 @@ func project3D(t layerTransform, ox, oy float32) pt {
 		x2 /= denom
 		y2 /= denom
 	}
-	if s := float64(t.scale); s != 0 {
-		x2 *= s
-		y2 *= s
+	sx, sy := t.xyScale()
+	if sx != 0 {
+		x2 *= float64(sx)
+	}
+	if sy != 0 {
+		y2 *= float64(sy)
 	}
 	orgX, orgY := t.origin() // 无相机=元素中心，有相机=场景中心
 	return pt{

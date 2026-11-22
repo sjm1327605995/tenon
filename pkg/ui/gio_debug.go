@@ -34,7 +34,7 @@ func debugFrame(g *game, wantNext bool) {
 	if !debugInput {
 		return
 	}
-	x, y := input.cursor()
+	x, y := input.Cursor()
 	fmt.Printf("FRAME cursor=%.2f,%.2f hovered=%d dirty=%d anims=%d loops=%d needsLayout=%v next=%v\n",
 		x, y, g.hoverCount, len(g.dirty), len(g.anims), len(g.loops), g.needsLayout, wantNext)
 }

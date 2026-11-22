@@ -68,7 +68,7 @@ type hoverState struct {
 }
 
 func (rn *renderNode) advanceHover() {
-	rn.hover.self = [2]bool{rn.hover.self[1], rn.hover.self[0]}
+	rn.hover.self = [2]bool{false, rn.hover.self[0]}
 	rn.hover.children[0], rn.hover.children[1] = rn.hover.children[1], rn.hover.children[0]
 	rn.hover.children[0].Reset()
 	for _, child := range rn.children {
@@ -83,8 +83,9 @@ func (rn *renderNode) leavePreviousHover() {
 	if rn.hover.self[1] && !rn.hover.self[0] && rn.onHover != nil {
 		rn.onHover(false)
 	}
+	// 命中仍在这条父分支时，也可能已经从子元素退到容器本身，必须继续向下检查。
 	rn.hover.children[1].Range(func(index uint32) {
-		if !rn.hover.children[0].Has(index) && index < uint32(len(rn.children)) {
+		if index < uint32(len(rn.children)) {
 			rn.children[index].leavePreviousHover()
 		}
 	})
