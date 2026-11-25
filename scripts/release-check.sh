@@ -6,6 +6,11 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 cd "$ROOT"
 
+if [ -n "$(GOWORK=off go list -m -f '{{if .Replace}}{{.Replace}}{{end}}' github.com/sjm1327605995/tenon 2>/dev/null)" ]; then
+    echo "backend/g3n/go.mod must not contain development replace directives" >&2
+    exit 1
+fi
+
 run() {
     echo "==> $*"
     "$@"

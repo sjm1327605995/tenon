@@ -62,7 +62,7 @@ All notable changes to Tenon are documented here. The project is pre-1.0; public
 
 - Added curated Yoga 3.2.1 upstream fixtures.
 - Added external consumer, hot-reload, lifecycle, accessibility, BiDi and real Gio window tests.
-- Added an external versioned-plugin consumer that executes payload validation and close/reactivate lifecycle checks in the release script; equivalent CI coverage is configured.
+- Added an external versioned-plugin consumer that executes payload validation and close/reactivate lifecycle checks in the release script; equivalent CI coverage is configured. The release script also rejects development `replace` directives in `backend/g3n/go.mod` with `GOWORK=off`.
 - Regenerated hot-reload symbols and added interpreted execution coverage for SVG parsing, icons, image blur and grayscale.
 - Added shared `WarpImageToQuad` and G3N cached projected-image warps; Gio/G3N four-color projection captures have mean RGBA differences below one channel value.
 - Completed the Phase 6 performance baseline with a full documented UI/Yoga benchmark run, lifecycle cleanup and memory-trend verification.
