@@ -6,12 +6,12 @@ This matrix distinguishes implementation, configured CI and executed verificatio
 
 | Backend | Platform | Build and tests | Real-window verification |
 | --- | --- | --- | --- |
-| Gio | Windows | Passing locally; Windows CI configured | Accordion, BiDi, real two-window, interactive-catalog and gradient/filter captures passed locally; BiDi, multiwindow, catalog, gradient/filter and tilted 3D-card smoke jobs configured in CI |
+| Gio | Windows | Passing locally; Windows CI configured | Accordion, BiDi, real two-window, interactive-catalog and gradient/filter captures passed locally; BiDi, multiwindow, catalog, gradient/filter, tilted 3D-card and projected-image smoke jobs configured in CI |
 | Gio | macOS | macOS CI configured | BiDi, multiwindow, catalog and gradient/filter smoke jobs configured; not yet executed remotely |
-| Gio | Linux | Ubuntu build-test and race passed remotely at `f30269f`; WSL root race passed locally after excluding six named headless GPU pixel tests, so full race is not claimed locally | BiDi, real two-window, interactive-catalog, gradient/filter and tilted 3D-card captures passed locally in WSLg; current screenshot jobs are configured but not yet executed remotely |
+| Gio | Linux | Ubuntu build-test and race passed remotely at `f30269f`; WSL root race passed locally after excluding six named headless GPU pixel tests, so full race is not claimed locally | BiDi, real two-window, interactive-catalog, gradient/filter and tilted 3D-card captures passed locally in WSLg; Xvfb accordion, gradient/filter, tilted 3D-card and projected-image screenshot jobs are configured but not yet executed remotely |
 | G3N | Windows | Requires CGO, MinGW-w64 and G3N's native runtime | Not verified in the current environment (`CGO_ENABLED=0`) |
 | G3N | macOS | Requires CGO, OpenAL and Vorbis | Not verified; no dedicated CI job yet |
-| G3N | Linux | Build, full tests and race passed locally in WSL with CGO/GCC; Ubuntu CI configured with G3N's documented native dependencies | Native plugin, failed-mount/two-cycle close-remount and SVG UI parity windows passed locally in WSLg; Xvfb smokes configured in CI but not yet executed remotely |
+| G3N | Linux | Build, full tests and race passed locally in WSL with CGO/GCC; Ubuntu CI configured with G3N's documented native dependencies | Native plugin, failed-mount/two-cycle close-remount, SVG UI parity and projected-image windows passed locally in WSLg; Xvfb smokes configured in CI but not yet executed remotely |
 
 ## Remote CI evidence
 

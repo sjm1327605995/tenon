@@ -138,6 +138,21 @@ jobs:
           path: ${{ runner.temp }}/tenon-card3d-linux.png
           if-no-files-found: error
 
+      - name: Real Gio projected-image smoke
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-projected-linux.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          xvfb-run -a go run ./example/projectedparity
+          test -s "$TENON_CAPTURE"
+
+      - name: Upload projected-image screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-projected-linux
+          path: ${{ runner.temp }}/tenon-projected-linux.png
+          if-no-files-found: error
+
   build-test-desktop:
     strategy:
       fail-fast: false
@@ -222,6 +237,20 @@ jobs:
         with:
           name: tenon-card3d-${{ matrix.os }}
           path: ${{ runner.temp }}/tenon-card3d-${{ matrix.os }}.png
+          if-no-files-found: error
+      - name: Real Gio projected-image smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-projected-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/projectedparity
+          test -s "$TENON_CAPTURE"
+      - name: Upload projected-image screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-projected-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-projected-${{ matrix.os }}.png
           if-no-files-found: error
 
   build-test-g3n:
