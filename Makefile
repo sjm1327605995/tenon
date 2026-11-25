@@ -1,4 +1,4 @@
-.PHONY: test test-ui test-widgets test-yoga test-all bench lint vet
+.PHONY: test test-ui test-widgets test-yoga test-all bench lint vet release-check api-check api-update
 
 # 快速测试（跳过需要 GUI 的测试）
 test-yoga:
@@ -36,3 +36,14 @@ build:
 # benchmark
 bench:
 	./scripts/test.sh ./yoga/... -bench=. -benchmem
+
+# 发布前检查（跳过项不算 1.0 发布证据）
+release-check:
+	bash ./scripts/release-check.sh
+
+# 公开 API 基线检查与有意更新
+api-check:
+	bash ./scripts/api-check.sh
+
+api-update:
+	go run scripts/api_snapshot.go docs/public-api.txt

@@ -158,36 +158,16 @@ func wrapParaSpans(para string, base int, face fontFace, lineH float64, width fl
 
 // xInSpan 返回原始字节偏移 off 在该行内相对行首 tx 的 x 坐标。
 func (sp wrapSpan) xInSpan(off int, face fontFace, lineH float64, tx float32) float32 {
-	rel := off - sp.start
-	if rel < 0 {
-		rel = 0
-	}
-	if rel > len(sp.text) {
-		rel = len(sp.text)
-	}
-	return tx + measureW(sp.text[:rel], face, lineH)
+	rel := clampi(off-sp.start, 0, len(sp.text))
+	return bidiCaretX(sp.text, rel, face, lineH, tx)
 }
 
 // offsetInSpan 返回该行内相对行首 rel-x 处最近的原始字节偏移。
 func (sp wrapSpan) offsetInSpan(relX float32, face fontFace, lineH float64) int {
-	if relX <= 0 || sp.text == "" {
+	if sp.text == "" {
 		return sp.start
 	}
-	prevIdx, prevW := 0, float32(0)
-	for i := 1; i <= len(sp.text); i++ {
-		if i < len(sp.text) && !isRuneStart(sp.text[i]) {
-			continue
-		}
-		w := measureW(sp.text[:i], face, lineH)
-		if w >= relX {
-			if w-relX < relX-prevW {
-				return sp.start + i
-			}
-			return sp.start + prevIdx
-		}
-		prevIdx, prevW = i, w
-	}
-	return sp.start + len(sp.text)
+	return sp.start + bidiOffset(sp.text, relX, face, lineH)
 }
 
 func isRuneStart(b byte) bool { return b&0xC0 != 0x80 }

@@ -19,7 +19,7 @@ A declarative GUI toolkit for Go, with composable components, reactive data bind
 
 ## Project status
 
-Tenon is under active development. APIs may change before 1.0. Screen-reader accessibility, bidirectional text, native menus, and multiple windows remain planned work; see the [roadmap](ROADMAP.md) for current capabilities and limitations.
+Tenon is under active development. APIs may change before 1.0. Basic Gio accessibility semantics and BiDi text, including styled RichText, are available, while full BiDi and screen-reader workflows and native menus remain planned work; see the [roadmap](ROADMAP.md) for current capabilities and limitations.
 
 ## Quick start
 
@@ -93,6 +93,8 @@ Editing the input updates `Name` and the text below it. The button changes the s
 
 ## API guide
 
+**Default:** use an embedded `ui.Component` for application pages and components that need fields or lifecycle state; use function components and Hooks for reusable components that do not need object fields. Struct declarations are optional syntax; avoid mixing component identities at the same boundary.
+
 | Need | Start with |
 | --- | --- |
 | A component with fields and lifecycle context | Embed `ui.Component`, implement `Render() ui.NodeSource`, and mount with `ui.Render(instance)`. Read theme, viewport, effects, and scheduling through `Context()`. |
@@ -115,7 +117,7 @@ g3n.Use(g3n.Options{Launch: func(game *g3n.Game) {
 ui.Run(ui.Text("Tenon UI on G3N"))
 ```
 
-The core module has no G3N dependency, and the adapter needs no extra asset pack or linker flags. `GameScene` adds declarative Camera, Mesh/Sphere/Cube, Material, Light, and Transform components with shared resources, `value.Value` bindings, and Spin animation. See the [backend guide](backend/g3n/README.md) for builds and the native 3D example.
+The core module has no G3N dependency, and the adapter needs no extra asset pack or linker flags. `GameScene` adds declarative Camera, Mesh/Sphere/Cube, Material, Light, and Transform components with shared resources, `value.Value` bindings, and Spin animation. `Scene3DPluginRegistry` resolves built-in and third-party nodes through one lifecycle. `Plugin3DVersion` and `RegisterPluginVersion` select exact plugin versions, optional `Scene3DValidator` checks payloads before native allocation, and `SupportsPlugin` queries capabilities; the unversioned `Plugin3D` API remains available. See the [backend guide](backend/g3n/README.md) for builds, the native 3D example, and plugin examples.
 
 ## Examples
 
@@ -123,10 +125,16 @@ Run these commands from the repository root:
 
 | Example | Command | Demonstrates |
 | --- | --- | --- |
+| [Quick start](example/quickstart) | `go run ./example/quickstart` | The same complete profile application shown above |
 | [Component](example/component) | `go run ./example/component` | Embedded component, context, and Value / Bind |
 | [Simple](example/simple) | `go run ./example/simple` | Function components, fluent styles, input submission, and lists |
 | [Component showcase](example/accordion) | `go run ./example/accordion` | Interactive shadcn-style documentation pages and light/dark themes |
 | [Router](example/router) | `go run ./example/router` | Stack navigation with push, pop, and replace |
+| [BiDi text](example/bidi) | `go run ./example/bidi` | Hebrew, Arabic, styled RichText, and input |
+| [Gradients and filters](example/gradient) | `go run ./example/gradient` | Gradients, rounded clipping, image blur and grayscale |
+| [Versioned plugin](example/plugin) | `go run ./example/plugin` | Public plugin validation, exact versions and close/remount lifecycle without native dependencies |
+| [Component catalog](example/catalog) | `go run ./example/catalog` | Scrollable, interactive examples of all major components |
+| [Multiple windows](example/multiwindow) | `go run ./example/multiwindow` | Independent input, IME, clipboard, and window lifecycles |
 | [3D cards](example/card3d) | `go run ./example/card3d` | Perspective, a shared camera, and projected images |
 | [Struct declarations](example/struct) | `go run ./example/struct` | Optional layouts expressed as Go structs |
 
@@ -149,7 +157,9 @@ Run these commands from the repository root:
 
 - [Documentation index](docs/README.md) — reading paths, package guides, and historical design material.
 - [Architecture](ARCHITECTURE.md) — the Node → Fiber → renderNode model and backend boundaries.
+- [Backend and platform support](docs/PLATFORM_SUPPORT.md) — capability matrix and verification status.
 - [Roadmap](ROADMAP.md) — implemented features, limitations, and planned work.
+- [Changelog](CHANGELOG.md) and [release guide](docs/RELEASING.md) — notable changes and release verification gates.
 - [API design notes](docs/API_ERGONOMICS.md) — the rationale behind component and binding syntax.
 - [Contributing](CONTRIBUTING.md) — environment setup, tests, and contribution guidelines.
 

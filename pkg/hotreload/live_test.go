@@ -1,9 +1,11 @@
 package hotreload
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
 )
@@ -54,6 +56,56 @@ func View() *ui.Node {
 	q := h.Root().ByKind("input")
 	if !q.Exists() || q.Focusable() || q.Type("x") || q.Value() != "locked" {
 		t.Fatal("interpreted Disabled input remained editable")
+	}
+}
+
+func TestLivePreviewReloadsAndRecovers(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "view.go")
+	var h *ui.Harness
+	writeText := func(text string) {
+		t.Helper()
+		src := fmt.Sprintf("package view\nimport ui \"github.com/sjm1327605995/tenon/pkg/ui\"\nfunc View() *ui.Node { return ui.Text(%q) }\n", text)
+		if err := os.WriteFile(file, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	waitFor := func(text string) {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if h := h; h != nil && h.Root().ByText(text).Exists() {
+				return
+			}
+			time.Sleep(50 * time.Millisecond)
+			if h != nil {
+				h.Step(0)
+			}
+		}
+		t.Fatalf("text %q did not appear; texts=%v", text, h.Root().Texts())
+	}
+
+	writeText("Before")
+	h = ui.MountDefault(LivePreview(file))
+	defer h.Close()
+	if !h.Root().ByText("Before").Exists() {
+		t.Fatal("initial live preview did not render")
+	}
+	time.Sleep(20 * time.Millisecond)
+	writeText("After")
+	waitFor("After")
+
+	if err := os.WriteFile(file, []byte("package view\nfunc Map[T any](x T) T { return x }\nfunc View() int { return 0 }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	waitFor("编译/解释错误")
+	if !h.Root().ByText("After").Exists() {
+		t.Fatal("interpret error removed the last good view")
+	}
+	time.Sleep(20 * time.Millisecond)
+	writeText("Recovered")
+	waitFor("Recovered")
+	if h.Root().ByText("编译/解释错误").Exists() {
+		t.Fatal("successful reload retained the error overlay")
 	}
 }
 

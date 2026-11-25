@@ -82,4 +82,4 @@ Anchored overlays (`Popover`/`DropdownMenu`/`Select`/`Combobox`/`DatePicker`) us
 
 ## Coverage
 
-~42 components across form / display / feedback / navigation / overlay / data — the full shadcn/ui core plus common extras — all on the same theme + interaction + measure + animation foundation.
+~42 components across form / display / feedback / navigation / overlay / data — the full shadcn/ui core plus common extras — all on the same theme + interaction + measure + animation foundation. Every documented component fixture is mounted and closed through the real Fiber/layout lifecycle in `TestAllComponentsMountAndClose`; key controls additionally have dedicated interaction, disabled and semantic tests.

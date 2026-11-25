@@ -30,6 +30,7 @@ func tabs(p TabsProps) *ui.Node {
 		}
 		kids = append(kids, ui.Button(
 			ui.Style(st...),
+			ui.AccessibilityRoleOf(ui.AccessibilityRadioButton), ui.AccessibilitySelected(active),
 			ui.OnClick(func() {
 				if p.OnChange != nil {
 					p.OnChange(idx)
@@ -68,6 +69,7 @@ func toggle(p ToggleProps) *ui.Node {
 	}
 	attrs := []*ui.Node{
 		ui.Style(st...),
+		ui.AccessibilityRoleOf(ui.AccessibilityCheckbox), ui.AccessibilitySelected(p.Pressed),
 		ui.OnClick(func() {
 			if p.OnChange != nil {
 				p.OnChange(!p.Pressed)
@@ -104,6 +106,7 @@ func toggleGroup(p ToggleGroupProps) *ui.Node {
 		}
 		kids = append(kids, ui.Button(
 			ui.Style(st...),
+			ui.AccessibilityRoleOf(ui.AccessibilityRadioButton), ui.AccessibilitySelected(active),
 			ui.OnClick(func() {
 				if p.OnChange != nil {
 					p.OnChange(o)

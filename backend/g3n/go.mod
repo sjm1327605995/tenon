@@ -2,9 +2,12 @@ module github.com/sjm1327605995/tenon/backend/g3n
 
 go 1.24.0
 
+replace github.com/sjm1327605995/tenon => ../..
+
 require (
 	github.com/g3n/engine v0.2.0
 	github.com/sjm1327605995/tenon v0.0.0-20261122161243-be0f75fbfbd7
+	golang.org/x/image v0.31.0
 )
 
 require (
@@ -15,7 +18,6 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/image v0.31.0 // indirect
 	golang.org/x/net v0.48.0 // indirect
 	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect

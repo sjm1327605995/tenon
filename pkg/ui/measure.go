@@ -9,16 +9,20 @@ type measureHook struct {
 // Viewport 返回当前视口的逻辑尺寸（用于浮层贴边翻转等）。
 // 在组件渲染中读取时，该组件会在窗口尺寸变化后自动重渲染。
 func Viewport() Rect {
-	if activeGame == nil {
+	g := activeGame
+	if currentFiber != nil {
+		g = currentFiber.game
+	}
+	if g == nil {
 		return Rect{}
 	}
 	if currentFiber != nil {
-		if activeGame.viewportReaders == nil {
-			activeGame.viewportReaders = make(map[*Fiber]struct{})
+		if g.viewportReaders == nil {
+			g.viewportReaders = make(map[*Fiber]struct{})
 		}
-		activeGame.viewportReaders[currentFiber] = struct{}{}
+		g.viewportReaders[currentFiber] = struct{}{}
 	}
-	return Rect{W: float32(activeGame.w) / uiScale, H: float32(activeGame.h) / uiScale}
+	return Rect{W: float32(g.w) / uiScale, H: float32(g.h) / uiScale}
 }
 
 // UseMeasure 返回一个属性和该元素最近测得的屏幕视觉矩形（逻辑像素）。
@@ -95,8 +99,8 @@ func syncMeasures(rn *renderNode) {
 		lg := measuredScreenRect(rn)
 		if rn.measure.rect != lg {
 			rn.measure.rect = lg
-			if activeGame != nil {
-				activeGame.markDirty(rn.measure.fiber)
+			if g := rn.measure.fiber.game; g != nil {
+				g.markDirty(rn.measure.fiber)
 			}
 		}
 	}
@@ -104,8 +108,8 @@ func syncMeasures(rn *renderNode) {
 		info := ScrollInfo{Offset: rn.scrollY / uiScale, Viewport: rn.bounds.H / uiScale}
 		if rn.scrollRef.info != info {
 			rn.scrollRef.info = info
-			if activeGame != nil {
-				activeGame.markDirty(rn.scrollRef.fiber)
+			if g := rn.scrollRef.fiber.game; g != nil {
+				g.markDirty(rn.scrollRef.fiber)
 			}
 		}
 	}

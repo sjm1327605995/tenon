@@ -36,10 +36,13 @@ type StyleProps struct {
 	gradTo      Color
 	gradAngle   float32
 	hasGradient bool
+	gradRadial  bool
 	radius      float32
 	borderW     float32
 	borderColor Color
 	clip        bool
+	imgBlur     float32
+	imgGray     float32
 
 	// 定位
 	absolute               bool
@@ -178,7 +181,35 @@ func Bg(c Color) StyleOpt { return func(s *StyleProps) { s.bg = c } }
 // angleDeg 为方向角（0=左→右，90=上→下，45=左上→右下）。会遵循圆角。
 func LinearGradient(from, to Color, angleDeg float32) StyleOpt {
 	return func(s *StyleProps) {
-		s.gradFrom, s.gradTo, s.gradAngle, s.hasGradient = from, to, angleDeg, true
+		s.gradFrom, s.gradTo, s.gradAngle, s.hasGradient, s.gradRadial = from, to, angleDeg, true, false
+	}
+}
+
+// RadialGradient fills the background from the center color to the outer color.
+func RadialGradient(from, to Color) StyleOpt {
+	return func(s *StyleProps) {
+		s.gradFrom, s.gradTo, s.hasGradient, s.gradRadial = from, to, true, true
+	}
+}
+
+// ImageBlur applies a cached box blur to an image; non-positive values disable it.
+func ImageBlur(radius float32) StyleOpt {
+	return func(s *StyleProps) {
+		if radius != radius {
+			radius = 0
+		}
+		s.imgBlur = max(radius, 0)
+	}
+}
+
+// ImageGrayscale blends an image toward luminance using amount in [0, 1].
+// Zero disables the filter, one produces a fully grayscale image, and NaN is treated as zero.
+func ImageGrayscale(amount float32) StyleOpt {
+	return func(s *StyleProps) {
+		if amount != amount {
+			amount = 0
+		}
+		s.imgGray = min(max(amount, 0), 1)
 	}
 }
 func Radius(v float32) StyleOpt { return func(s *StyleProps) { s.radius = v } }

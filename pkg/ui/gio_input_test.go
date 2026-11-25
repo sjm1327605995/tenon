@@ -15,7 +15,7 @@ import (
 // focusable，所以两者都得注册 —— 这个测试就是钉住这一点。
 func TestGioInputFiltersIncludeFocusFilter(t *testing.T) {
 	var hasFocus, hasPointer, hasKey bool
-	for _, f := range gioInputFilters() {
+	for _, f := range gioIn.filters() {
 		switch f := f.(type) {
 		case key.FocusFilter:
 			if f.Target == gioTag {

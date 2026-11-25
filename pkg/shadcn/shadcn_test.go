@@ -6,9 +6,7 @@ import (
 	ui "github.com/sjm1327605995/tenon/pkg/ui"
 )
 
-// TestConstruct 确认所有组件构造器都能返回非空节点（编译期签名 + 运行期不 panic）。
-// 端到端渲染由 example/accordion 的实机运行覆盖。
-func TestConstruct(t *testing.T) {
+func componentFixtures() map[string]*ui.Node {
 	nodes := map[string]*ui.Node{
 		"Button":       Button(ButtonProps{Variant: Outline, OnClick: func() {}}, ui.Text("x")),
 		"Badge":        Badge(BadgeProps{Variant: BadgeDestructive}, ui.Text("x")),
@@ -50,9 +48,25 @@ func TestConstruct(t *testing.T) {
 		"Resizable":    Resizable(ResizableProps{Width: 300, Height: 100, Left: ui.Text("L"), Right: ui.Text("R")}),
 		"BarChart":     BarChart(BarChartProps{Data: []float32{1, 2, 3}, Labels: []string{"a", "b", "c"}, Width: 200, Height: 120}),
 	}
-	for name, n := range nodes {
+	return nodes
+}
+
+func TestConstruct(t *testing.T) {
+	for name, n := range componentFixtures() {
 		if n == nil {
 			t.Fatalf("%s returned nil", name)
 		}
+	}
+}
+
+func TestAllComponentsMountAndClose(t *testing.T) {
+	for name, node := range componentFixtures() {
+		t.Run(name, func(t *testing.T) {
+			h := ui.MountDefault(node)
+			if name != "Toaster" && !h.Root().Exists() {
+				t.Fatalf("%s did not produce a mounted render tree", name)
+			}
+			h.Close()
+		})
 	}
 }

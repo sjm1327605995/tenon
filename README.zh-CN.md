@@ -19,7 +19,7 @@ Go 语言的声明式 GUI 工具包，提供可组合组件、响应式数据绑
 
 ## 项目状态
 
-Tenon 正在持续开发，1.0 之前 API 可能调整。屏幕阅读器无障碍支持、双向文字、原生菜单与多窗口仍属于待办；当前能力和限制以[路线图](ROADMAP.md)为准。
+Tenon 正在持续开发，1.0 之前 API 可能调整。Gio 已提供基础无障碍语义，普通文本、输入框和 RichText 支持双向文字映射；完整双向文字与屏幕阅读器工作流和原生菜单仍属于待办。当前能力和限制以[路线图](ROADMAP.md)为准。
 
 ## 快速开始
 
@@ -93,6 +93,8 @@ go run .
 
 ## API 选择
 
+**默认推荐**：应用页面和需要字段、生命周期的组件使用内嵌 `ui.Component`；无对象字段的可复用组件使用函数组件与 Hooks。结构体声明是可选语法，不建议在同一个组件边界混用多种组件身份。
+
 | 场景 | 推荐入口 |
 | --- | --- |
 | 组件需要字段与生命周期上下文 | 内嵌 `ui.Component`，实现 `Render() ui.NodeSource`，通过 `ui.Render(instance)` 挂载；用 `Context()` 获取主题、窗口尺寸、副作用与调度能力。 |
@@ -115,7 +117,7 @@ g3n.Use(g3n.Options{Launch: func(game *g3n.Game) {
 ui.Run(ui.Text("Tenon UI on G3N"))
 ```
 
-主模块不依赖 G3N；适配层不需要额外资源包或链接参数。`GameScene` 还提供声明式 Camera、Mesh/Sphere/Cube、Material、Light 和 Transform 组件，支持资源共享、`value.Value` 属性绑定与 Spin 动画。构建与原生 3D 示例见[后端说明](backend/g3n/README.md)。
+主模块不依赖 G3N；适配层不需要额外资源包或链接参数。`GameScene` 提供声明式 Camera、Mesh/Sphere/Cube、Material、Light 和 Transform 组件，支持资源共享、`value.Value` 属性绑定与 Spin 动画。`Scene3DPluginRegistry` 让内建组件和第三方插件共用统一生命周期；`Plugin3DVersion` 与 `RegisterPluginVersion` 精确匹配插件版本，可选 `Scene3DValidator` 在原生资源分配前校验 payload，`SupportsPlugin` 查询注册能力，未版本化的 `Plugin3D` 继续可用。构建、原生 3D 与插件示例见[后端说明](backend/g3n/README.md)。
 
 ## 示例
 
@@ -123,10 +125,16 @@ ui.Run(ui.Text("Tenon UI on G3N"))
 
 | 示例 | 命令 | 内容 |
 | --- | --- | --- |
+| [快速开始](example/quickstart) | `go run ./example/quickstart` | 与上方完整应用相同的个人资料示例 |
 | [组件与绑定](example/component) | `go run ./example/component` | 内嵌 Component、Context、Value / Bind |
 | [简洁写法](example/simple) | `go run ./example/simple` | 函数组件、链式样式、输入提交与列表 |
 | [组件展示](example/accordion) | `go run ./example/accordion` | 可交互的 shadcn 风格文档页与明暗主题 |
 | [路由](example/router) | `go run ./example/router` | Push、Pop、Replace 栈式导航 |
+| [双向文字](example/bidi) | `go run ./example/bidi` | Hebrew、Arabic、RichText 与输入框 |
+| [渐变与滤镜](example/gradient) | `go run ./example/gradient` | 渐变、圆角裁剪、图片模糊与灰度 |
+| [版本化插件](example/plugin) | `go run ./example/plugin` | 公开插件校验、精确版本匹配与关闭/重挂载生命周期，无原生依赖 |
+| [组件目录](example/catalog) | `go run ./example/catalog` | 全部主要组件的可滚动、可操作目录 |
+| [多窗口](example/multiwindow) | `go run ./example/multiwindow` | 独立输入、IME、剪贴板与窗口生命周期 |
 | [3D 卡片](example/card3d) | `go run ./example/card3d` | 透视、共享相机与图片投影 |
 | [结构体声明](example/struct) | `go run ./example/struct` | 使用 Go 结构体声明布局的可选写法 |
 
@@ -149,7 +157,9 @@ ui.Run(ui.Text("Tenon UI on G3N"))
 
 - [文档索引](docs/README.md)：阅读路径、各包指南和历史设计资料。
 - [架构](ARCHITECTURE.md)：Node → Fiber → renderNode 模型与渲染后端边界。
+- [后端与平台支持](docs/PLATFORM_SUPPORT.md)：能力矩阵、已执行验证与待验证项目。
 - [路线图](ROADMAP.md)：已实现功能、限制与后续计划。
+- [变更记录](CHANGELOG.md)与[发布指南](docs/RELEASING.md)：公开变更与发布验收门槛。
 - [API 设计说明](docs/API_ERGONOMICS.md)：组件与数据绑定写法的设计依据。
 - [贡献指南](CONTRIBUTING.md)：环境搭建、测试与贡献流程。
 

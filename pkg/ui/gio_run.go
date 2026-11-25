@@ -5,10 +5,7 @@ import (
 	"time"
 
 	"gioui.org/app"
-	"gioui.org/io/event"
-	"gioui.org/io/key"
 	"gioui.org/op"
-	"gioui.org/op/clip"
 	gpaint "gioui.org/op/paint"
 	"gioui.org/unit"
 )
@@ -37,6 +34,16 @@ func (gioBackend) NewVecPath(d string, scale float32) VecPath {
 	return &gioPath{d: d, scale: scale}
 }
 
+func (gioBackend) Capabilities() BackendCapabilities {
+	return BackendCapabilities{
+		SVGPaths:        true,
+		RoundedClipping: true,
+		LayerTransforms: true,
+		ExactProjection: true,
+		Accessibility:   true,
+	}
+}
+
 func (gioBackend) Run(root *Node, cfg WindowConfig) { gioRun(root, cfg) }
 
 func init() {
@@ -62,79 +69,7 @@ func gioWindowOptions(cfg windowConfig) []app.Option {
 }
 
 func gioRun(root *Node, cfg windowConfig) {
-	enableYogaLayoutDebug()
-	g := &game{root: root, w: cfg.w, h: cfg.h}
-	activeGame = g
-
-	win := new(app.Window)
-	win.Option(gioWindowOptions(cfg)...)
-	setBackendWake(win.Invalidate) // 后台任务（Post）用它唤醒睡着的循环；可跨 goroutine 调用
-	defer func() {
-		g.dispose()
-		setBackendWake(nil)
-	}()
-
-	var ops op.Ops
-	last := time.Time{}
-	for {
-		switch e := win.Event().(type) {
-		case app.DestroyEvent:
-			return
-		case app.FrameEvent:
-			scale := e.Metric.PxPerDp
-			if scale < 1 {
-				scale = 1
-			}
-			if e.Size.X > 0 && (e.Size.X != g.w || e.Size.Y != g.h || scale != uiScale) {
-				uiScale = scale
-				g.w, g.h = e.Size.X, e.Size.Y
-				g.needsLayout = true
-			}
-
-			// 排空本帧输入事件到 gioIn，再驱动一帧（handleInput 读取 gioIn）。
-			gioIn.resetFrame()
-			if gioIn.process(e.Source) {
-				g.visualVersion++
-			}
-			// 输入法的编辑按 Range 替换，先落到聚焦输入框上，再让引擎跑这一帧。
-			gioIME.applyEdits(g, gioIn)
-			// 剪贴板同样先落地再跑帧：粘贴的文本本帧就能画出来，不用等下一帧。
-			gioClip.flush(e.Source, g)
-
-			// dt 用浮点毫秒：整数 Milliseconds() 会把高刷新率下的帧间隔截断（144Hz 的
-			// 6.9ms 变 6），帧间隔不足 1ms 时更会截成 0，而 tickAnims/tickLoops 遇 dt<=0
-			// 直接返回 —— 动画会卡住不动。
-			var dt float32
-			now := e.Now
-			if !last.IsZero() {
-				dt = float32(now.Sub(last).Seconds() * 1000)
-			}
-			last = now
-			layoutMoving := gioFrame(g, dt)
-
-			ops.Reset()
-			g.frameCache.Add(g, &ops, g.framePaintVersion(e.Now))
-			// 声明整窗为输入命中区（引擎自管内部焦点，这里整窗恒接收）。
-			area := clip.Rect{Max: e.Size}.Push(&ops)
-			event.Op(&ops, gioTag)
-			key.InputHintOp{Tag: gioTag, Hint: key.HintAny}.Add(&ops)
-			gioCursor(g).Add(&ops) // 文本框 I 型、可点击手型
-			area.Pop()
-			// 仅在尚未获得焦点时请求一次；每帧无脑请求会和 gio 的焦点管理打架。
-			if !gioIn.focused {
-				e.Source.Execute(key.FocusCmd{Tag: gioTag})
-			}
-			// 把聚焦输入框的光标位置与上下文文本发布给输入法（否则无法组字，只能打英文）。
-			if gioIn.snippetReq != nil {
-				gioIME.handleSnippetReq(e.Source, g, *gioIn.snippetReq)
-			}
-			gioIME.sync(e.Source, g)
-
-			e.Frame(&ops)
-			scheduleNextFrame(e, g, layoutMoving)
-			debugFrame(g, wantsNextFrame(g, layoutMoving))
-		}
-	}
+	newGioWindowRuntime(root, cfg).run()
 }
 
 // caretBlinkPeriod 是光标闪烁的半周期，须与 caretVisible() 的判据一致。
@@ -166,7 +101,7 @@ func wantsNextFrame(g *game, layoutMoving bool) bool {
 }
 
 func scheduleNextFrame(e app.FrameEvent, g *game, layoutMoving bool) {
-	if wantsNextFrame(g, layoutMoving) {
+	if pendingCapture != nil || wantsNextFrame(g, layoutMoving) {
 		e.Source.Execute(op.InvalidateCmd{})
 		return
 	}

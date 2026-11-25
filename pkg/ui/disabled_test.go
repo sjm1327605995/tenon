@@ -29,7 +29,7 @@ func TestDisabledInputRejectsKeyboardIMEAndPaste(t *testing.T) {
 		t.Fatalf("disabled input accepted an edit: value=%q changes=%d submits=%d", rn.value, changes, submits)
 	}
 	gioIn.setCursor(rn.bounds.X+1, rn.bounds.Y+1)
-	if got := gioCursor(h.g); got != pointer.CursorDefault {
+	if got := gioCursor(h.g, gioIn); got != pointer.CursorDefault {
 		t.Fatalf("disabled input cursor=%v, want default", got)
 	}
 }

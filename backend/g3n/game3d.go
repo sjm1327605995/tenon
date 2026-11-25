@@ -110,16 +110,23 @@ func Component3D(node *ui.GameNode3D) Component {
 	}
 }
 
+// Scene3DAdapter adapts a portable declaration to a native component.
+type Scene3DAdapter = ui.Scene3DAdapter
+
+// Scene3DAdapterFunc adapts a function to a Scene3DAdapter.
+type Scene3DAdapterFunc = ui.Scene3DAdapterFunc
+
+// NewScene3DPluginRegistry creates a registry with G3N's built-in adapter.
+// Third-party nodes can be added without changing Tenon or this backend.
+func NewScene3DPluginRegistry() *ui.Scene3DPluginRegistry {
+	registry := ui.NewScene3DPluginRegistry()
+	registry.RegisterAdapter(ui.Scene3DAdapterFunc(func(node *ui.GameNode3D) (ui.Game3DComponent, error) {
+		return Component3D(node), nil
+	}))
+	return registry
+}
+
 // Scene3D builds a native scene entirely from Tenon declarations.
 func Scene3D(scene *ui.NativeScene3D) *Scene {
-	if scene == nil {
-		return GameScene()
-	}
-	children := make([]Component, 0, len(scene.Children))
-	for _, node := range scene.Children {
-		if component := Component3D(node); component != nil {
-			children = append(children, component)
-		}
-	}
-	return GameScene(children...)
+	return GameSceneRuntime(NewScene3DPluginRegistry().MustBuild(scene))
 }

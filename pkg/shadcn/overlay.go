@@ -58,8 +58,8 @@ func floatPanelC(p floatProps) *ui.Node {
 	return ui.Portal(
 		ui.Div(
 			ui.Style(ui.Grow(1)),
-			ui.OnClick(p.onClose),
-			ui.ScrollView(append([]*ui.Node{ui.Style(panel...), pref, ui.OnClick(func() {})}, p.content...)...),
+			ui.OnClick(p.onClose), ui.Focusable(false),
+			ui.ScrollView(append([]*ui.Node{ui.Style(panel...), pref, ui.OnClick(func() {}), ui.Focusable(false)}, p.content...)...),
 		),
 	)
 }

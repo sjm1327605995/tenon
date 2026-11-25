@@ -31,7 +31,7 @@ func TestPortableScene3DMountsAndUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer scene.Close()
-	mesh := scene.children[0].(*MeshComponent)
+	mesh := scene.Components()[0].(*MeshComponent)
 	position.Set(ui.V3(2, 3, 4))
 	if got := mesh.Native.Position(); got.X != 2 || got.Y != 3 || got.Z != 4 {
 		t.Fatalf("portable position = %+v", got)
@@ -60,5 +60,43 @@ func TestPortableCustomGeometry(t *testing.T) {
 	geometry := mesh.Native.GetGeometry()
 	if geometry.VBO(gls.VertexPosition) == nil || geometry.VBO(gls.VertexNormal) == nil || geometry.VBO(gls.VertexTexcoord) == nil {
 		t.Fatal("portable geometry did not preserve its vertex buffers")
+	}
+}
+
+func TestNativeSceneRemountRecreatesLightAndKeepsSharedCamera(t *testing.T) {
+	sharedCamera := camera.New(1)
+	root := core.NewNode()
+	root.Add(sharedCamera)
+	scene := GameScene(
+		PerspectiveCamera(CameraProps{FOV: 60}),
+		AmbientLight(LightProps{}),
+	)
+	game := &Game{Scene: root, Camera: sharedCamera}
+	if err := scene.Mount(game); err != nil {
+		t.Fatal(err)
+	}
+	defer scene.Close()
+	light := scene.Components()[1].(*LightComponent)
+	firstLight := light.Native
+	if firstLight == nil {
+		t.Fatal("light did not mount")
+	}
+
+	scene.Close()
+	if sharedCamera.Parent() == nil {
+		t.Fatal("closing a declarative scene detached the shared game camera")
+	}
+	if light.Native != nil {
+		t.Fatal("closed light retained its native object")
+	}
+	if err := scene.Mount(game); err != nil {
+		t.Fatalf("native scene remount failed: %v", err)
+	}
+	if light.Native == nil || light.Native == firstLight {
+		t.Fatal("remount did not create a fresh light object")
+	}
+	scene.Close()
+	if sharedCamera.Parent() == nil {
+		t.Fatal("second close detached the shared game camera")
 	}
 }

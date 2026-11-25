@@ -1,6 +1,9 @@
 package ui
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // textRun 是富文本中一段样式一致的文本。一个 rnText 节点若持有 runs，即按多段混排绘制。
 type textRun struct {
@@ -25,9 +28,10 @@ type textRun struct {
 
 // richSeg 是排版后落在某一行上的一段（同一 run 的连续 token）。
 type richSeg struct {
-	run  int
-	text string
-	x    float32 // 相对行首的 x（物理像素）
+	run        int
+	text       string
+	x          float32 // 相对行首的 x（物理像素）
+	start, end int     // 在当前行逻辑文本中的字节区间
 }
 
 // richLine 是排版后的一行。
@@ -127,6 +131,7 @@ func layoutRuns(runs []textRun, width float32) ([]richLine, float32, float32) {
 	var lines []richLine
 	cur := richLine{}
 	curX := float32(0)
+	logicalLen := 0
 	maxW := float32(0)
 
 	grow := func(r *textRun) {
@@ -145,6 +150,7 @@ func layoutRuns(runs []textRun, width float32) ([]richLine, float32, float32) {
 		lines = append(lines, cur)
 		cur = richLine{}
 		curX = 0
+		logicalLen = 0
 	}
 
 	for ri := range runs {
@@ -166,7 +172,8 @@ func layoutRuns(runs []textRun, width float32) ([]richLine, float32, float32) {
 						continue
 					}
 				}
-				cur.segs = append(cur.segs, richSeg{ri, tk, curX})
+				cur.segs = append(cur.segs, richSeg{run: ri, text: tk, x: curX, start: logicalLen, end: logicalLen + len(tk)})
+				logicalLen += len(tk)
 				curX += measureW(tk, r.face, r.lineH)
 				grow(r)
 			}
@@ -175,7 +182,12 @@ func layoutRuns(runs []textRun, width float32) ([]richLine, float32, float32) {
 	pushLine()
 
 	var totalH float32
+	maxW = 0
 	for i := range lines {
+		reorderRichLine(&lines[i], runs)
+		if lines[i].width > maxW {
+			maxW = lines[i].width
+		}
 		if lines[i].height == 0 && len(runs) > 0 {
 			lines[i].height = float32(runs[0].lineH)
 			lines[i].ascent = runs[0].ascent
@@ -183,6 +195,50 @@ func layoutRuns(runs []textRun, width float32) ([]richLine, float32, float32) {
 		totalH += lines[i].height
 	}
 	return lines, maxW, totalH
+}
+
+type richVisualPiece struct {
+	run   int
+	text  string
+	order int
+}
+
+func reorderRichLine(line *richLine, runs []textRun) {
+	logical := ""
+	for _, seg := range line.segs {
+		logical += seg.text
+	}
+	visualRuns := bidiRuns(logical, nil, 0, 0)
+	if len(visualRuns) <= 1 && (len(visualRuns) == 0 || !visualRuns[0].rtl) {
+		return
+	}
+
+	segments := make([]richSeg, 0, len(line.segs))
+	x := float32(0)
+	for _, visual := range visualRuns {
+		pieces := make([]richVisualPiece, 0, len(line.segs))
+		for _, seg := range line.segs {
+			start, end := max(seg.start, visual.start), min(seg.end, visual.end)
+			if start >= end {
+				continue
+			}
+			if visual.rtl {
+				visualStart := visual.end - end
+				visualEnd := visual.end - start
+				pieces = append(pieces, richVisualPiece{run: seg.run, text: visual.text[visualStart:visualEnd], order: visualStart})
+			} else {
+				pieces = append(pieces, richVisualPiece{run: seg.run, text: visual.logical[start-visual.start : end-visual.start], order: start - visual.start})
+			}
+		}
+		sort.SliceStable(pieces, func(i, j int) bool { return pieces[i].order < pieces[j].order })
+		for _, piece := range pieces {
+			segments = append(segments, richSeg{run: piece.run, text: piece.text, x: x})
+			style := &runs[piece.run]
+			x += measureW(piece.text, style.face, style.lineH)
+		}
+	}
+	line.segs = segments
+	line.width = x
 }
 
 // paintRichText 逐行、逐段绘制富文本，混排时按基线对齐。

@@ -1,0 +1,1140 @@
+decl: func (b Box) Build() *ui.Node
+decl: func (b Button) Build() *ui.Node
+decl: func (c Checkbox) Build() *ui.Node
+decl: func (c Column) Build() *ui.Node
+decl: func (f Fragment) Build() *ui.Node
+decl: func (i Input) Build() *ui.Node
+decl: func (p ThemeProvider) Build() *ui.Node
+decl: func (r Row) Build() *ui.Node
+decl: func (s ScrollView) Build() *ui.Node
+decl: func (s Switch) Build() *ui.Node
+decl: func (t Text) Build() *ui.Node
+decl: func (t Textarea) Build() *ui.Node
+decl: func Consume[T any](ctx *Context, key *ui.Context[T]) T
+decl: func Func(render func() View) *ui.Node
+decl: func Memo[P any](render func(P) View, props P) *ui.Node
+decl: func Mount(root any, w, h int) *ui.Harness
+decl: func Render(component IComponent) *ui.Node
+decl: func Run(root any)
+decl: func State[T any](ctx *Context, initial T) (T, func(T))
+decl: func Use[P any](render func(P) View, props P) *ui.Node
+decl: type Box struct { Key string Width, Height float32 WidthPct, HeightPct float32 MinWidth, MinHeight float32 MaxWidth, MaxHeight float32 Padding, Gap float32 Grow, Shrink float32 Radius float32 Background ui.Color Disabled bool OnClick func() Style []ui.StyleOpt Attrs []*ui.Node Children []View }
+decl: type Button struct { Key string Text string Variant shadcn.Variant Size shadcn.Size Disabled bool OnClick func() Style []ui.StyleOpt Children []View }
+decl: type Checkbox struct { Key string Checked bool Disabled bool OnChange func(bool) Style []ui.StyleOpt }
+decl: type Column Box
+decl: type Component = ui.Component
+decl: type Context = ui.RenderContext
+decl: type Fragment struct { Key string Children []View }
+decl: type IComponent = ui.IComponent
+decl: type Input struct { Key string Value string Placeholder string Disabled bool OnChange func(string) OnSubmit func(string) Style []ui.StyleOpt Bind values.Bind[string] }
+decl: type Row Box
+decl: type ScrollView Box
+decl: type Switch Checkbox
+decl: type Text struct { Key string Value string FontSize float32 Color ui.Color Bold bool Style []ui.StyleOpt Bind values.Value[string] }
+decl: type Textarea struct { Key string Value string Placeholder string Rows int Disabled bool OnChange func(string) Style []ui.StyleOpt Bind values.Bind[string] }
+decl: type ThemeProvider struct { Theme ui.Theme Children []View }
+decl: type View = ui.NodeSource
+router: func (n *Navigator) CanPop() bool
+router: func (n *Navigator) Current() Route
+router: func (n *Navigator) Depth() int
+router: func (n *Navigator) Pop()
+router: func (n *Navigator) PopToRoot()
+router: func (n *Navigator) Push(name string, params Params)
+router: func (n *Navigator) Replace(name string, params Params)
+router: func Router(p Props) *ui.Node
+router: func UseNavigate() *Navigator
+router: func UseRoute() Route
+router: type Navigator struct{}
+router: type Params map[string]string
+router: type Props struct { Initial string Params Params Screens map[string]Screen }
+router: type Route struct { Name string Params Params }
+router: type Screen = func(Params) *ui.Node
+shadcn: const AlertDefault AlertVariant = iota
+shadcn: const AlertDestructive
+shadcn: const BadgeDefault BadgeVariant = iota
+shadcn: const BadgeDestructive
+shadcn: const BadgeOutline
+shadcn: const BadgeSecondary
+shadcn: const Default Variant = iota
+shadcn: const Destructive
+shadcn: const Ghost
+shadcn: const Link
+shadcn: const Outline
+shadcn: const Secondary
+shadcn: const SheetLeft
+shadcn: const SheetRight SheetSide = iota
+shadcn: const SizeDefault Size = iota
+shadcn: const SizeIcon
+shadcn: const SizeLg
+shadcn: const SizeSm
+shadcn: func Accordion(items []AccordionItemData) *ui.Node
+shadcn: func Alert(p AlertProps, children ...*ui.Node) *ui.Node
+shadcn: func AlertDescription(text string) *ui.Node
+shadcn: func AlertDialog(p AlertDialogProps) *ui.Node
+shadcn: func AlertTitle(text string) *ui.Node
+shadcn: func AspectRatio(width, ratio float32, children ...*ui.Node) *ui.Node
+shadcn: func Avatar(initials string, size float32) *ui.Node
+shadcn: func Badge(p BadgeProps, children ...*ui.Node) *ui.Node
+shadcn: func BarChart(p BarChartProps) *ui.Node
+shadcn: func Blockquote(s string) *ui.Node
+shadcn: func Breadcrumb(items []string, onSelect func(int)) *ui.Node
+shadcn: func Button(p ButtonProps, children ...*ui.Node) *ui.Node
+shadcn: func ButtonGroup(items []ButtonGroupItem) *ui.Node
+shadcn: func Calendar(p CalendarProps) *ui.Node
+shadcn: func Card(children ...*ui.Node) *ui.Node
+shadcn: func CardContent(children ...*ui.Node) *ui.Node
+shadcn: func CardDescription(text string) *ui.Node
+shadcn: func CardFooter(children ...*ui.Node) *ui.Node
+shadcn: func CardHeader(children ...*ui.Node) *ui.Node
+shadcn: func CardTitle(text string) *ui.Node
+shadcn: func Carousel(p CarouselProps) *ui.Node
+shadcn: func Checkbox(p CheckboxProps) *ui.Node
+shadcn: func Collapsible(open bool, onToggle func(), trigger *ui.Node, content ...*ui.Node) *ui.Node
+shadcn: func Combobox(p ComboboxProps) *ui.Node
+shadcn: func Command(p CommandProps) *ui.Node
+shadcn: func ContextMenu(trigger *ui.Node, items []MenuItem) *ui.Node
+shadcn: func DataTable(p DataTableProps) *ui.Node
+shadcn: func DatePicker(p DatePickerProps) *ui.Node
+shadcn: func Dialog(p DialogProps, children ...*ui.Node) *ui.Node
+shadcn: func DialogDescription(text string) *ui.Node
+shadcn: func DialogTitle(text string) *ui.Node
+shadcn: func Drawer(p DrawerProps, children ...*ui.Node) *ui.Node
+shadcn: func DropdownMenu(trigger *ui.Node, items []MenuItem) *ui.Node
+shadcn: func Empty(p EmptyProps, actions ...*ui.Node) *ui.Node
+shadcn: func Field(p FieldProps, control *ui.Node) *ui.Node
+shadcn: func Form(p FormProps) *ui.Node
+shadcn: func H1(s string) *ui.Node
+shadcn: func H2(s string) *ui.Node
+shadcn: func H3(s string) *ui.Node
+shadcn: func H4(s string) *ui.Node
+shadcn: func HoverCard(trigger *ui.Node, content ...*ui.Node) *ui.Node
+shadcn: func InlineCode(s string) *ui.Node
+shadcn: func Input(p InputProps) *ui.Node
+shadcn: func InputGroup(p InputGroupProps) *ui.Node
+shadcn: func InputOTP(p InputOTPProps) *ui.Node
+shadcn: func Item(p ItemProps) *ui.Node
+shadcn: func Kbd(text string) *ui.Node
+shadcn: func KbdGroup(keys ...string) *ui.Node
+shadcn: func Label(text any) *ui.Node
+shadcn: func Large(s string) *ui.Node
+shadcn: func Lead(s string) *ui.Node
+shadcn: func LineChart(p LineChartProps) *ui.Node
+shadcn: func Menubar(menus []MenubarMenu) *ui.Node
+shadcn: func Muted(s string) *ui.Node
+shadcn: func MutedColor() ui.StyleOpt
+shadcn: func NavigationMenu(items []NavItem) *ui.Node
+shadcn: func P(s string) *ui.Node
+shadcn: func Pagination(p PaginationProps) *ui.Node
+shadcn: func PieChart(p PieChartProps) *ui.Node
+shadcn: func Popover(trigger *ui.Node, content ...*ui.Node) *ui.Node
+shadcn: func Progress(value float32) *ui.Node
+shadcn: func RadioGroup(p RadioGroupProps) *ui.Node
+shadcn: func Resizable(p ResizableProps) *ui.Node
+shadcn: func ScrollArea(height float32, children ...*ui.Node) *ui.Node
+shadcn: func Select(p SelectProps) *ui.Node
+shadcn: func Separator(p SeparatorProps) *ui.Node
+shadcn: func Sheet(p SheetProps, children ...*ui.Node) *ui.Node
+shadcn: func SheetDescription(text string) *ui.Node
+shadcn: func SheetTitle(text string) *ui.Node
+shadcn: func Sidebar(p SidebarProps) *ui.Node
+shadcn: func Skeleton(width, height float32) *ui.Node
+shadcn: func Slider(p SliderProps) *ui.Node
+shadcn: func Small(s string) *ui.Node
+shadcn: func Spinner(p SpinnerProps) *ui.Node
+shadcn: func Switch(p SwitchProps) *ui.Node
+shadcn: func Table(children ...*ui.Node) *ui.Node
+shadcn: func TableCell(children ...*ui.Node) *ui.Node
+shadcn: func TableHead(text string) *ui.Node
+shadcn: func TableRow(children ...*ui.Node) *ui.Node
+shadcn: func Tabs(p TabsProps) *ui.Node
+shadcn: func TextButton(text any, onClick func()) *ui.Node
+shadcn: func TextField(source any, onChange ...func(string)) *ui.Node
+shadcn: func TextMuted(s string, size float32) *ui.Node
+shadcn: func Textarea(p TextareaProps) *ui.Node
+shadcn: func Toast(title, desc string)
+shadcn: func ToastError(title, desc string)
+shadcn: func Toaster() *ui.Node
+shadcn: func Toggle(p ToggleProps, children ...*ui.Node) *ui.Node
+shadcn: func ToggleGroup(p ToggleGroupProps) *ui.Node
+shadcn: func Tooltip(text string, trigger *ui.Node) *ui.Node
+shadcn: type AccordionItemData struct { Title string Content []*ui.Node }
+shadcn: type AlertDialogProps struct { Open bool Title string Description string CancelLabel string ActionLabel string OnCancel func() OnAction func() Destructive bool }
+shadcn: type AlertProps struct{ Variant AlertVariant }
+shadcn: type AlertVariant int
+shadcn: type BadgeProps struct{ Variant BadgeVariant }
+shadcn: type BadgeVariant int
+shadcn: type BarChartProps struct { Data []float32 Labels []string Width, Height float32 }
+shadcn: type ButtonGroupItem struct { Label string OnClick func() Active bool }
+shadcn: type ButtonProps struct { Variant Variant Size Size OnClick func() Disabled bool }
+shadcn: type CalendarProps struct { Value time.Time OnChange func(time.Time) }
+shadcn: type CarouselProps struct { Slides []*ui.Node Width, Height float32 }
+shadcn: type CheckboxProps struct { Checked bool OnChange func(bool) Disabled bool }
+shadcn: type ComboboxOption struct { Value string Label string }
+shadcn: type ComboboxProps struct { Options []ComboboxOption Value string OnChange func(string) Placeholder string SearchPlaceholder string Empty string Width float32 }
+shadcn: type CommandItem struct { Label string OnSelect func() }
+shadcn: type CommandProps struct { Open bool OnClose func() Items []CommandItem Placeholder string }
+shadcn: type DataColumn struct { Key string Header string Sortable bool Width float32 }
+shadcn: type DataTableProps struct { Columns []DataColumn Rows []map[string]string Search bool PageSize int }
+shadcn: type DatePickerProps struct { Value time.Time OnChange func(time.Time) Placeholder string }
+shadcn: type DialogProps struct { Open bool OnClose func() }
+shadcn: type DrawerProps struct { Open bool OnClose func() Height float32 }
+shadcn: type EmptyProps struct { Icon *ui.Node Title string Description string }
+shadcn: type FieldProps struct { Label string Description string Error string }
+shadcn: type FormField struct { Name string Label string Description string Initial string Validate func(value string) string Control func(value string, onChange func(string)) *ui.Node }
+shadcn: type FormProps struct { Fields []FormField SubmitLabel string OnSubmit func(values map[string]string) }
+shadcn: type InputGroupProps struct { Value string OnChange func(string) Placeholder string Leading *ui.Node Trailing *ui.Node }
+shadcn: type InputOTPProps struct { Length int Value string OnChange func(string) }
+shadcn: type InputProps struct { Value string OnChange func(string) Placeholder string Disabled bool Bind values.Bind[string] }
+shadcn: type ItemProps struct { Media *ui.Node Title string Description string Trailing *ui.Node OnClick func() }
+shadcn: type LineChartProps struct { Data []float32 Width, Height float32 Area bool }
+shadcn: type MenuItem struct { Label string OnSelect func() }
+shadcn: type MenubarMenu struct { Label string Items []MenuItem }
+shadcn: type NavItem struct { Label string OnSelect func() Items []MenuItem }
+shadcn: type PaginationProps struct { Page, Total int OnChange func(int) }
+shadcn: type PieChartProps struct { Slices []PieSlice Size float32 Donut bool }
+shadcn: type PieSlice struct { Value float32 Color ui.Color Label string }
+shadcn: type RadioGroupProps struct { Value string Options []string OnChange func(string) }
+shadcn: type ResizableProps struct { Width, Height float32 Left, Right *ui.Node }
+shadcn: type SelectOption struct { Label string Value string }
+shadcn: type SelectProps struct { Value string Options []string Items []SelectOption OnChange func(string) Placeholder string Style []ui.StyleOpt }
+shadcn: type SeparatorProps struct{ Vertical bool }
+shadcn: type SheetProps struct { Open bool OnClose func() Side SheetSide Width float32 }
+shadcn: type SheetSide int
+shadcn: type SidebarGroup struct { Label string Items []SidebarItem }
+shadcn: type SidebarItem struct { Label string Icon *ui.Node Active bool OnClick func() }
+shadcn: type SidebarProps struct { Header *ui.Node Groups []SidebarGroup Footer *ui.Node Collapsed bool Width float32 }
+shadcn: type Size int
+shadcn: type SkeletonProps struct{ Width, Height float32 }
+shadcn: type SliderProps struct { Value, Min, Max float32 OnChange func(float32) }
+shadcn: type SpinnerProps struct { Size float32 Color ui.Color }
+shadcn: type SwitchProps struct { Checked bool OnChange func(bool) Disabled bool }
+shadcn: type TabsProps struct { Tabs []string Active int OnChange func(int) }
+shadcn: type TextareaProps struct { Value string OnChange func(string) Placeholder string Rows int Disabled bool Bind values.Bind[string] }
+shadcn: type ToggleGroupProps struct { Value string Options []string OnChange func(string) }
+shadcn: type ToggleProps struct { Pressed bool OnChange func(bool) }
+shadcn: type Variant int
+ui: const AccessibilityButton
+ui: const AccessibilityCheckbox
+ui: const AccessibilityRadioButton
+ui: const AccessibilityStaticText AccessibilityRole = iota + 1
+ui: const AccessibilitySwitch
+ui: const AccessibilityTextInput
+ui: const CursorDefault CursorRole = iota
+ui: const CursorPointer
+ui: const CursorText
+ui: const FitContain
+ui: const FitCover
+ui: const FitFill ObjectFit = iota
+ui: const Game3DAmbient
+ui: const Game3DCamera
+ui: const Game3DDirectional
+ui: const Game3DMesh Game3DNodeKind = iota
+ui: const Game3DNative
+ui: const Game3DPlugin
+ui: const Game3DPoint
+ui: const IconArrowRight = "M5 12h14M12 5l7 7-7 7"
+ui: const IconCheck = "M20 6 9 17l-5-5"
+ui: const IconChevronDown = "m6 9 6 6 6-6"
+ui: const IconChevronLeft = "m15 18-6-6 6-6"
+ui: const IconChevronRight = "m9 18 6-6-6-6"
+ui: const IconChevronUp = "m18 15-6-6-6 6"
+ui: const IconMinus = "M5 12h14"
+ui: const IconPlus = "M5 12h14M12 5v14"
+ui: const IconSearch = "M21 21l-4.3-4.3M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12"
+ui: const IconTrash = "M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"
+ui: const IconX = "M18 6 6 18M6 6l12 12"
+ui: const KeyA
+ui: const KeyBackspace
+ui: const KeyC
+ui: const KeyCtrl
+ui: const KeyDelete
+ui: const KeyDown
+ui: const KeyEnd
+ui: const KeyEnter
+ui: const KeyEscape
+ui: const KeyF12 InputKey = iota
+ui: const KeyHome
+ui: const KeyLeft
+ui: const KeyMeta
+ui: const KeyRight
+ui: const KeyShift
+ui: const KeySpace
+ui: const KeyTab
+ui: const KeyUp
+ui: const KeyV
+ui: const KeyX
+ui: const MouseLeft MouseButton = iota
+ui: const MouseRight
+ui: const NavBoth
+ui: const NavHorizontal
+ui: const NavVertical NavOrient = iota
+ui: const Shape3DCube
+ui: const Shape3DCustom Shape3DKind = iota
+ui: const Shape3DSphere
+ui: func (*Component) Build() *Node
+ui: func (*gioPath) IsVecPath()
+ui: func (b *childBitmap) Any() bool
+ui: func (b *childBitmap) Delete(index uint32)
+ui: func (b *childBitmap) Has(index uint32) bool
+ui: func (b *childBitmap) Range(fn func(index uint32))
+ui: func (b *childBitmap) Reset()
+ui: func (b *childBitmap) Set(index uint32)
+ui: func (c *Component) ComponentBase() *Component
+ui: func (c *Component) Context() *RenderContext
+ui: func (c *Component) SetState(update func())
+ui: func (c *Context[T]) Provider(value T, children ...*Node) *Node
+ui: func (c *RenderContext) Deadline() (time.Time, bool)
+ui: func (c *RenderContext) Done() <-chan struct{}
+ui: func (c *RenderContext) Effect(effect func() Cleanup, deps ...any)
+ui: func (c *RenderContext) Err() error
+ui: func (c *RenderContext) Invalidate()
+ui: func (c *RenderContext) Mounted() bool
+ui: func (c *RenderContext) Post(update func())
+ui: func (c *RenderContext) Theme() Theme
+ui: func (c *RenderContext) Update(update func())
+ui: func (c *RenderContext) Value(key any) any
+ui: func (c *RenderContext) Viewport() Rect
+ui: func (c *gioFrameCache) Add(g *game, ops *op.Ops, version uint64)
+ui: func (c Color) Alpha(a float32) Color
+ui: func (c Color) RGBA() (r, g, b, a uint32)
+ui: func (c windowConfig) Fullscreen() bool
+ui: func (c windowConfig) MaxSize() (w, h int)
+ui: func (c windowConfig) MinSize() (w, h int)
+ui: func (c windowConfig) Size() (w, h int)
+ui: func (c windowConfig) Title() string
+ui: func (f *gioFont) Measure(s string, lineH float64) float32
+ui: func (f *gioFont) Metrics() (float32, bool, bool)
+ui: func (f Scene3DAdapterFunc) Adapt3D(node *GameNode3D) (Game3DComponent, error)
+ui: func (g *gioInput) Cursor() (float32, float32)
+ui: func (g *gioInput) KeyJustPressed(k inKey) bool
+ui: func (g *gioInput) KeyPressed(k inKey) bool
+ui: func (g *gioInput) MouseJustPressed(b mouseBtn) bool
+ui: func (g *gioInput) MousePressed(b mouseBtn) bool
+ui: func (g *gioInput) TypedChars() []rune
+ui: func (g *gioInput) Wheel() (float32, float32)
+ui: func (gioBackend) Capabilities() BackendCapabilities
+ui: func (gioBackend) NewBitmap(img image.Image) Bitmap
+ui: func (gioBackend) NewFont(px float32, weight int, italic bool) FontFace
+ui: func (gioBackend) NewVecPath(d string, scale float32) VecPath
+ui: func (gioBackend) Run(root *Node, cfg WindowConfig)
+ui: func (h *Harness) AccessibilitySnapshot() []AccessibilityNode
+ui: func (h *Harness) Arrow(orient NavOrient, forward bool) *Query
+ui: func (h *Harness) ClickAt(x, y float32) bool
+ui: func (h *Harness) Close()
+ui: func (h *Harness) Enter() bool
+ui: func (h *Harness) Escape()
+ui: func (h *Harness) Focused() *Query
+ui: func (h *Harness) MouseDown(x, y float32) *Query
+ui: func (h *Harness) MoveTo(x, y float32)
+ui: func (h *Harness) Overlays() []*Query
+ui: func (h *Harness) Paint() []PaintOp
+ui: func (h *Harness) PaintTo(painter Painter)
+ui: func (h *Harness) Resize(w, hgt int)
+ui: func (h *Harness) RightClickAt(x, y float32) bool
+ui: func (h *Harness) Root() *Query
+ui: func (h *Harness) ShiftTab() *Query
+ui: func (h *Harness) Size() (w, hgt int)
+ui: func (h *Harness) Step(dtMs float32)
+ui: func (h *Harness) Tab() *Query
+ui: func (i *gioImage) Size() (int, int)
+ui: func (i *harnessInput) Cursor() (float32, float32)
+ui: func (i *harnessInput) KeyJustPressed(k inKey) bool
+ui: func (i *harnessInput) KeyPressed(k inKey) bool
+ui: func (i *harnessInput) MouseJustPressed(b mouseBtn) bool
+ui: func (i *harnessInput) MousePressed(b mouseBtn) bool
+ui: func (i *harnessInput) TypedChars() []rune
+ui: func (i *harnessInput) Wheel() (float32, float32)
+ui: func (n *Node) Bg(c Color) *Node
+ui: func (n *Node) Bind(value string, onChange func(string)) *Node
+ui: func (n *Node) Build() *Node
+ui: func (n *Node) Disabled(disabled bool) *Node
+ui: func (n *Node) FontSize(v float32) *Node
+ui: func (n *Node) Gap(v float32) *Node
+ui: func (n *Node) Height(v float32) *Node
+ui: func (n *Node) Key(key string) *Node
+ui: func (n *Node) OnClick(fn func()) *Node
+ui: func (n *Node) OnSubmit(fn func(string)) *Node
+ui: func (n *Node) Padding(v float32) *Node
+ui: func (n *Node) Placeholder(text string) *Node
+ui: func (n *Node) Radius(v float32) *Node
+ui: func (n *Node) Style(opts ...StyleOpt) *Node
+ui: func (n *Node) TextColor(c Color) *Node
+ui: func (n *Node) Width(v float32) *Node
+ui: func (n *Node) With(attrs ...*Node) *Node
+ui: func (p *gioPainter) BeginLayer()
+ui: func (p *gioPainter) BeginProjected(t layerTransform)
+ui: func (p *gioPainter) BeginProjectedElement(r Rect)
+ui: func (p *gioPainter) DrawImage(img bitmap, d Rect, opacity float32)
+ui: func (p *gioPainter) DrawText(s string, face fontFace, c Color, x, y float32, fauxBold, fauxItalic bool)
+ui: func (p *gioPainter) EndLayer(t layerTransform)
+ui: func (p *gioPainter) EndProjected()
+ui: func (p *gioPainter) EndProjectedElement()
+ui: func (p *gioPainter) FillGradient(x, y, w, h, r float32, from, to Color, angle float32)
+ui: func (p *gioPainter) FillPath(path vecPath, x, y float32, c Color)
+ui: func (p *gioPainter) FillRect(x, y, w, h, r float32, c Color)
+ui: func (p *gioPainter) Line(x0, y0, x1, y1 float32, c Color)
+ui: func (p *gioPainter) PopAccessibility()
+ui: func (p *gioPainter) PopClip()
+ui: func (p *gioPainter) ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32)
+ui: func (p *gioPainter) PushAccessibility(node AccessibilityNode)
+ui: func (p *gioPainter) PushClip(r Rect, radius float32)
+ui: func (p *gioPainter) Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c Color)
+ui: func (p *gioPainter) StrokePath(path vecPath, x, y, width float32, c Color)
+ui: func (p *gioPainter) StrokeRect(x, y, w, h, r, width float32, c Color)
+ui: func (p *recordPainter) BeginLayer()
+ui: func (p *recordPainter) BeginProjected(t layerTransform)
+ui: func (p *recordPainter) BeginProjectedElement(r Rect)
+ui: func (p *recordPainter) DrawImage(img bitmap, d Rect, opacity float32)
+ui: func (p *recordPainter) DrawText(s string, face fontFace, c Color, x, y float32, fb, fi bool)
+ui: func (p *recordPainter) EndLayer(t layerTransform)
+ui: func (p *recordPainter) EndProjected()
+ui: func (p *recordPainter) EndProjectedElement()
+ui: func (p *recordPainter) FillGradient(x, y, w, h, r float32, from, to Color, angle float32)
+ui: func (p *recordPainter) FillPath(path vecPath, x, y float32, c Color)
+ui: func (p *recordPainter) FillRect(x, y, w, h, r float32, c Color)
+ui: func (p *recordPainter) Line(x0, y0, x1, y1 float32, c Color)
+ui: func (p *recordPainter) PopClip()
+ui: func (p *recordPainter) ProjectedImage(img bitmap, quad [4]pt, opacity float32, cacheKey string, clip *Rect, clipR float32)
+ui: func (p *recordPainter) PushClip(r Rect, radius float32)
+ui: func (p *recordPainter) Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c Color)
+ui: func (p *recordPainter) StrokePath(path vecPath, x, y, width float32, c Color)
+ui: func (p *recordPainter) StrokeRect(x, y, w, h, r, width float32, c Color)
+ui: func (q *Query) AllByText(s string) []*Query
+ui: func (q *Query) AllText() string
+ui: func (q *Query) Backspace(n int) bool
+ui: func (q *Query) Bounds() Rect
+ui: func (q *Query) ByKind(kind string) *Query
+ui: func (q *Query) ByPlaceholder(s string) *Query
+ui: func (q *Query) ByText(s string) *Query
+ui: func (q *Query) Child(i int) *Query
+ui: func (q *Query) Children() []*Query
+ui: func (q *Query) Clear() bool
+ui: func (q *Query) Click() bool
+ui: func (q *Query) Clickable() bool
+ui: func (q *Query) Clickables() []*Query
+ui: func (q *Query) Count() int
+ui: func (q *Query) Drag(dx, dy float32) bool
+ui: func (q *Query) Exists() bool
+ui: func (q *Query) Find(pred func(*Query) bool) *Query
+ui: func (q *Query) FindAll(pred func(*Query) bool) []*Query
+ui: func (q *Query) Focus() *Query
+ui: func (q *Query) Focusable() bool
+ui: func (q *Query) Hover(on bool)
+ui: func (q *Query) IsFocused() bool
+ui: func (q *Query) Kind() string
+ui: func (q *Query) Placeholder() string
+ui: func (q *Query) Press(down bool) bool
+ui: func (q *Query) ScrollBy(dy float32) bool
+ui: func (q *Query) ScrollOffset() float32
+ui: func (q *Query) SetValue(text string) bool
+ui: func (q *Query) Text() string
+ui: func (q *Query) Texts() []string
+ui: func (q *Query) Type(text string) bool
+ui: func (q *Query) Value() string
+ui: func (q *Query) VisualBounds() Rect
+ui: func (r *BackendRuntime) AccessibilitySnapshot() []AccessibilityNode
+ui: func (r *BackendRuntime) Close()
+ui: func (r *BackendRuntime) Frame(dtMs float32) bool
+ui: func (r *BackendRuntime) Paint(p Painter)
+ui: func (r *BackendRuntime) PaintVersion(now time.Time) uint64
+ui: func (r *BackendRuntime) PointerCursor(x, y float32) CursorRole
+ui: func (r *BackendRuntime) PointerInteractive(x, y float32) bool
+ui: func (r *BackendRuntime) Resize(w, h int, scale float32)
+ui: func (r *BackendRuntime) Size() (w, h int)
+ui: func (r *BackendRuntime) WantsNextFrame(layoutMoving bool) bool
+ui: func (r *Scene3DPluginRegistry) Build(scene *NativeScene3D) (*Scene3DRuntime, error)
+ui: func (r *Scene3DPluginRegistry) MustBuild(scene *NativeScene3D) *Scene3DRuntime
+ui: func (r *Scene3DPluginRegistry) RegisterAdapter(adapter Scene3DAdapter)
+ui: func (r *Scene3DPluginRegistry) RegisterPlugin(name string, adapter Scene3DAdapter)
+ui: func (r *Scene3DPluginRegistry) RegisterPluginVersion(name string, version int, adapter Scene3DAdapter)
+ui: func (r *Scene3DPluginRegistry) SupportsPlugin(name string, version int) bool
+ui: func (s *Scene3DRuntime) Activate()
+ui: func (s *Scene3DRuntime) Close()
+ui: func (s *Scene3DRuntime) Components() []Game3DComponent
+ui: func (s *Scene3DRuntime) Update(dt time.Duration)
+ui: func (s *Signal[T]) Get() T
+ui: func (s *Signal[T]) Set(v T)
+ui: func (s *Signal[T]) Subscribe(fn func(T)) (unsubscribe func())
+ui: func (s *Store[T]) Get() T
+ui: func (s *Store[T]) Set(v T)
+ui: func (s *Store[T]) Update(fn func(T) T)
+ui: func (t layerTransform) Snapshot() Layer
+ui: func Absolute(s *StyleProps)
+ui: func AccessibilityLabel(label string) *Node
+ui: func AccessibilityRoleOf(role AccessibilityRole) *Node
+ui: func AccessibilitySelected(selected bool) *Node
+ui: func AmbientLight3D(props Light3DProps) *GameNode3D
+ui: func Animated(s *StyleProps)
+ui: func ArrowNav(o NavOrient) *Node
+ui: func Attrs(nodes ...*Node) *Node
+ui: func Bg(c Color) StyleOpt
+ui: func BindInput(sig values.Bind[string]) *Node
+ui: func Bind[T any](sig values.Value[T], format func(T) string) *Binding[T]
+ui: func Bold(s *StyleProps)
+ui: func Border(w float32, c Color) StyleOpt
+ui: func Bottom(v float32) StyleOpt
+ui: func Box(opts []StyleOpt, kids ...*Node) *Node
+ui: func Button(args ...*Node) *Node
+ui: func Capture(path string, afterFrames int, exit bool)
+ui: func Center(kids ...*Node) *Node
+ui: func Class(v string) *Node
+ui: func Clip(s *StyleProps)
+ui: func Clipboard() string
+ui: func Column(s *StyleProps)
+ui: func ContentAround(s *StyleProps)
+ui: func ContentBetween(s *StyleProps)
+ui: func ContentCenter(s *StyleProps)
+ui: func ContentEnd(s *StyleProps)
+ui: func ContentStart(s *StyleProps)
+ui: func ContentStretch(s *StyleProps)
+ui: func ContextValueIn[T any](ctx *RenderContext, key *Context[T]) T
+ui: func CreateContext[T any](def T) *Context[T]
+ui: func Cube3D(size float32) Shape3D
+ui: func CurrentBackendCapabilities() BackendCapabilities
+ui: func Custom3D(geometry *Geometry3D) Shape3D
+ui: func CutCorner(v float32) StyleOpt
+ui: func DefaultFontData() []byte
+ui: func DirectionalLight3D(props Light3DProps) *GameNode3D
+ui: func Disabled(disabled bool) *Node
+ui: func Div(args ...*Node) *Node
+ui: func EaseIn(t float32) float32
+ui: func EaseInOut(t float32) float32
+ui: func EaseOut(t float32) float32
+ui: func EaseOutQuad(t float32) float32
+ui: func ErrText(err any) string
+ui: func ErrorBoundary(fallback func(err any, retry func()) *Node, children ...*Node) *Node
+ui: func Fill(s *StyleProps)
+ui: func Fit(mode ObjectFit) *Node
+ui: func Focusable(focusable bool) *Node
+ui: func FontSize(v float32) StyleOpt
+ui: func FontWeight(w int) StyleOpt
+ui: func For[T any](items []T, render func(T) *Node) *Node
+ui: func Fragment(args ...*Node) *Node
+ui: func GameScene3D(children ...*GameNode3D) *NativeScene3D
+ui: func Gap(v float32) StyleOpt
+ui: func Grow(v float32) StyleOpt
+ui: func HSpace(w float32) *Node
+ui: func HStack(gap float32, kids ...*Node) *Node
+ui: func Height(v float32) StyleOpt
+ui: func HeightPct(v float32) StyleOpt
+ui: func Hex(s string) Color
+ui: func Icon(d string, size float32, opts ...StyleOpt) *Node
+ui: func IconFill(d string, size float32, opts ...StyleOpt) *Node
+ui: func Id(v string) *Node
+ui: func If(cond bool, n *Node) *Node
+ui: func ImageBlur(radius float32) StyleOpt
+ui: func ImageCacheBudget(bytes int64)
+ui: func ImageCacheStats() (entries int, bytes int64, evictions int)
+ui: func ImageGrayscale(amount float32) StyleOpt
+ui: func Img(args ...*Node) *Node
+ui: func Input(args ...*Node) *Node
+ui: func Italic(s *StyleProps)
+ui: func ItemsCenter(s *StyleProps)
+ui: func ItemsEnd(s *StyleProps)
+ui: func ItemsStart(s *StyleProps)
+ui: func JustifyBetween(s *StyleProps)
+ui: func JustifyCenter(s *StyleProps)
+ui: func JustifyEnd(s *StyleProps)
+ui: func JustifyStart(s *StyleProps)
+ui: func Key(v string) *Node
+ui: func Keyed(k string, n *Node) *Node
+ui: func Left(v float32) StyleOpt
+ui: func Linear(t float32) float32
+ui: func LinearGradient(from, to Color, angleDeg float32) StyleOpt
+ui: func Margin(v float32) StyleOpt
+ui: func MarginXY(h, v float32) StyleOpt
+ui: func MaxHeight(v float32) StyleOpt
+ui: func MaxWidth(v float32) StyleOpt
+ui: func Medium(s *StyleProps)
+ui: func MemoSource[P any, V NodeSource](fn func(P) V, props P) *Node
+ui: func Memo[P any](fn func(P) *Node, props P) *Node
+ui: func Mesh3D(props Mesh3DProps) *GameNode3D
+ui: func MinHeight(v float32) StyleOpt
+ui: func MinWidth(v float32) StyleOpt
+ui: func Mix(a, b Color, t float32) Color
+ui: func Mount(root *Node, w, h int) *Harness
+ui: func MountDefault(root *Node) *Harness
+ui: func Multiline() *Node
+ui: func Native3D(component any) *GameNode3D
+ui: func NewBackendRuntime(root *Node, cfg WindowConfig, input InputSource) *BackendRuntime
+ui: func NewScene3DPluginRegistry() *Scene3DPluginRegistry
+ui: func NewScene3DRuntime(components []Game3DComponent) *Scene3DRuntime
+ui: func NewSignal[T any](initial T) *Signal[T]
+ui: func NewStore[T any](initial T) *Store[T]
+ui: func NoWrap(s *StyleProps)
+ui: func OnChange(fn func(string)) *Node
+ui: func OnClick(fn func()) *Node
+ui: func OnContextMenu(fn func(x, y float32)) *Node
+ui: func OnDrag(fn func(dx, dy float32)) *Node
+ui: func OnHover(fn func(bool)) *Node
+ui: func OnPress(fn func(bool)) *Node
+ui: func OnSubmit(fn func(value string)) *Node
+ui: func Opacity(v float32) StyleOpt
+ui: func Padding(v float32) StyleOpt
+ui: func PaddingXY(h, v float32) StyleOpt
+ui: func ParseSVGPath(d string, scale float32, sink SVGPathSink)
+ui: func Perspective(px float32) StyleOpt
+ui: func PerspectiveCamera3D(props Camera3DProps) *GameNode3D
+ui: func Placeholder(v string) *Node
+ui: func PlaneImage(key string, img image.Image) *Node
+ui: func Plugin3D(name string, payload any) *GameNode3D
+ui: func Plugin3DVersion(name string, version int, payload any) *GameNode3D
+ui: func PointLight3D(props Light3DProps) *GameNode3D
+ui: func Portal(args ...*Node) *Node
+ui: func Post(fn func())
+ui: func RadialGradient(from, to Color) StyleOpt
+ui: func Radius(v float32) StyleOpt
+ui: func Render(component IComponent) *Node
+ui: func RichText(spans ...*Node) *Node
+ui: func Right(v float32) StyleOpt
+ui: func Rotate(deg float32) StyleOpt
+ui: func RotateX(deg float32) StyleOpt
+ui: func RotateY(deg float32) StyleOpt
+ui: func Row(s *StyleProps)
+ui: func Run(root *Node)
+ui: func RunWindows(roots ...*Node) error
+ui: func Scale(v float32) StyleOpt
+ui: func ScaleXY(x, y float32) StyleOpt
+ui: func Scene3D(s *StyleProps)
+ui: func Screenshot(root *Node, w, h int) (*image.RGBA, error)
+ui: func ScrollView(args ...*Node) *Node
+ui: func Semibold(s *StyleProps)
+ui: func SetBackend(backend Backend)
+ui: func SetClipboardProvider(get func() string, set func(string))
+ui: func SetClipboardText(s string)
+ui: func Shadow(c Color, offX, offY, blur, spread float32) StyleOpt
+ui: func Shrink(v float32) StyleOpt
+ui: func Spacer() *Node
+ui: func Span(args ...*Node) *Node
+ui: func Sphere3D(radius float64, widthSegments, heightSegments int) Shape3D
+ui: func Src(v string) *Node
+ui: func SrcImage(key string, img image.Image) *Node
+ui: func StateIn[T any](ctx *RenderContext, initial T) (T, func(T))
+ui: func Style(opts ...StyleOpt) *Node
+ui: func StyleIf(cond bool, opts ...StyleOpt) StyleOpt
+ui: func Styles(opts ...StyleOpt) StyleOpt
+ui: func Text(content any, args ...any) *Node
+ui: func TextColor(c Color) StyleOpt
+ui: func ThemeProvider(t Theme, children ...*Node) *Node
+ui: func Top(v float32) StyleOpt
+ui: func TranslateXY(x, y float32) StyleOpt
+ui: func TranslateZ(z float32) StyleOpt
+ui: func TrapFocus() *Node
+ui: func UseCallback[F any](fn F, deps ...any) F
+ui: func UseContext[T any](c *Context[T]) T
+ui: func UseEffect(fn func() Cleanup, deps ...any)
+ui: func UseElapsed() float32
+ui: func UseElapsedActive(active bool) float32
+ui: func UseEnterTransition(durationMs float32) float32
+ui: func UseEscape(active bool, fn func())
+ui: func UseInteraction() (hovered, pressed bool, attrs *Node)
+ui: func UseMeasure() (*Node, Rect)
+ui: func UseMemo[T any](create func() T, deps ...any) T
+ui: func UseReducer[S any, A any](reducer func(S, A) S, initial S) (S, func(A))
+ui: func UseRef[T any](initial T) *T
+ui: func UseScroll() (*Node, ScrollInfo)
+ui: func UseSource[P any, V NodeSource](fn func(P) V, props P) *Node
+ui: func UseState[T any](initial T) (T, func(T))
+ui: func UseStoreEq[T any, S any](s *Store[T], selector func(T) S, equals func(S, S) bool) S
+ui: func UseStore[T any, S any](s *Store[T], selector func(T) S) S
+ui: func UseTheme() Theme
+ui: func UseTransition(visible bool, durationMs float32) (bool, float32)
+ui: func UseTween(target, durationMs float32, ease Easing) float32
+ui: func UseValue[T any](source values.Value[T]) T
+ui: func Use[P any](fn func(P) *Node, props P) *Node
+ui: func V3(x, y, z float32) Vec3
+ui: func VSpace(h float32) *Node
+ui: func VStack(gap float32, kids ...*Node) *Node
+ui: func Value(v string) *Node
+ui: func Vector(d string, w, h, stroke float32, opts ...StyleOpt) *Node
+ui: func View(fn func() *Node) *Node
+ui: func ViewSource[V NodeSource](fn func() V) *Node
+ui: func Viewport() Rect
+ui: func VirtualList(p VirtualListProps) *Node
+ui: func Width(v float32) StyleOpt
+ui: func WidthPct(v float32) StyleOpt
+ui: func WindowFullscreen(on bool)
+ui: func WindowMaxSize(w, h int)
+ui: func WindowMinSize(w, h int)
+ui: func WindowSize(w, h int)
+ui: func WindowTitle(t string)
+ui: func Wrap(s *StyleProps)
+ui: func WrapReverse(s *StyleProps)
+ui: func ZIndex(v int) StyleOpt
+ui: type AccessibilityNode struct { Role AccessibilityRole Label string Value string Enabled bool Focused bool Selected bool HasSelected bool Bounds Rect Parent int }
+ui: type AccessibilityPainter interface { PushAccessibility(AccessibilityNode) PopAccessibility() }
+ui: type AccessibilityRole uint8
+ui: type Backend interface { NewFont(px float32, weight int, italic bool) FontFace NewBitmap(img image.Image) Bitmap NewVecPath(svgPath string, scale float32) VecPath Run(root *Node, cfg WindowConfig) }
+ui: type BackendCapabilities struct { SVGPaths bool RoundedClipping bool LayerTransforms bool ExactProjection bool Accessibility bool }
+ui: type BackendCapabilityProvider interface{ Capabilities() BackendCapabilities }
+ui: type BackendRuntime struct{}
+ui: type Binding[T any] struct{}
+ui: type Bitmap interface{ Size() (w, h int) }
+ui: type Camera3DProps struct { FOV, Near, Far float32 Transform Transform3DProps }
+ui: type Cleanup func()
+ui: type Color struct{ R, G, B, A uint8 }
+ui: type Component struct{}
+ui: type Context[T any] struct{}
+ui: type CursorRole uint8
+ui: type Easing func(float32) float32
+ui: type Fiber struct{}
+ui: type FontFace interface { Measure(s string, lineH float64) float32 Metrics() (ascent float32, fauxBold, fauxItalic bool) }
+ui: type Game3DComponent interface { Update(time.Duration) Close() }
+ui: type Game3DNodeKind uint8
+ui: type GameNode3D struct { Kind Game3DNodeKind Mesh *Mesh3DProps Camera *Camera3DProps Light *Light3DProps Native any PluginName string PluginVersion int }
+ui: type Geometry3D struct{ Positions, Normals, UVs []float32 }
+ui: type Harness struct{}
+ui: type IComponent interface { NodeSource Render() NodeSource Context() *RenderContext ComponentBase() *Component }
+ui: type InputKey int
+ui: type InputSource interface { Cursor() (float32, float32) Wheel() (float32, float32) MousePressed(MouseButton) bool MouseJustPressed(MouseButton) bool KeyPressed(InputKey) bool KeyJustPressed(InputKey) bool TypedChars() []rune }
+ui: type Layer struct { CX, CY float32 W, H float32 Scale, ScaleY float32 Rotate float32 TX, TY float32 Opacity float32 RotateX, RotateY float32 TransZ, Perspective float32 CameraX, CameraY float32 HasCamera bool }
+ui: type LayerTransform = layerTransform
+ui: type Light3DProps struct { Color value.Value[Color] Intensity value.Value[float32] Transform Transform3DProps }
+ui: type Material3DProps struct { Color value.Value[Color] Opacity value.Value[float32] Texture image.Image TextureKey string Unlit bool CacheKey string }
+ui: type Mesh3DProps struct { Shape Shape3D Material Material3DProps Transform Transform3DProps }
+ui: type MouseButton int
+ui: type NativeScene3D struct{ Children []*GameNode3D }
+ui: type NavOrient int
+ui: type Node struct{}
+ui: type NodeSource interface{ Build() *Node }
+ui: type ObjectFit int
+ui: type PaintOp struct { Kind string Rect Rect Radius, Width float32 Color Color Text string X0, Y0, X1, Y1 float32 Opacity float32 }
+ui: type Painter interface { FillRect(x, y, w, h, r float32, c Color) FillGradient(x, y, w, h, r float32, from, to Color, angle float32) StrokeRect(x, y, w, h, r, width float32, c Color) Shadow(x, y, w, h, r, offX, offY, blur, spread float32, c Color) Line(x0, y0, x1, y1 float32, c Color) DrawText(s string, face FontFace, c Color, x, y float32, fauxBold, fauxItalic bool) DrawImage(img Bitmap, dst Rect, opacity float32) FillPath(path VecPath, x, y float32, c Color) StrokePath(path VecPath, x, y, width float32, c Color) PushClip(r Rect, radius float32) PopClip() BeginLayer() EndLayer(t LayerTransform) BeginProjected(t LayerTransform) BeginProjectedElement(r Rect) EndProjectedElement() ProjectedImage(img Bitmap, quad [4]Point, opacity float32, cacheKey string, clip *Rect, clipR float32) EndProjected() }
+ui: type Point = pt
+ui: type Query struct{}
+ui: type Rect struct{ X, Y, W, H float32 }
+ui: type RenderContext struct{}
+ui: type SVGPathSink interface { MoveTo(x, y float32) LineTo(x, y float32) CubeTo(x1, y1, x2, y2, x, y float32) QuadTo(x1, y1, x, y float32) ClosePath() }
+ui: type Scene3DAdapter interface { Adapt3D(*GameNode3D) (Game3DComponent, error) }
+ui: type Scene3DAdapterFunc func(*GameNode3D) (Game3DComponent, error)
+ui: type Scene3DPluginRegistry struct{}
+ui: type Scene3DRuntime struct{}
+ui: type Scene3DValidator interface{ Validate3D(*GameNode3D) error }
+ui: type ScrollInfo struct { Offset float32 Viewport float32 }
+ui: type Shape3D struct { Kind Shape3DKind Size float32 Radius float64 WidthSegments, HeightSegments int Geometry *Geometry3D }
+ui: type Shape3DKind uint8
+ui: type Signal[T any] struct{}
+ui: type Store[T any] struct{}
+ui: type StyleOpt func(*StyleProps)
+ui: type StyleProps struct{}
+ui: type Theme struct { Background, Foreground Color Card, CardForeground Color Popover, PopoverForeground Color Primary, PrimaryForeground Color Secondary, SecondaryForeground Color Muted, MutedForeground Color Accent, AccentForeground Color Destructive, DestructiveForeground Color Border, Input, Ring Color Radius float32 }
+ui: type Transform3DProps struct { Position value.Value[Vec3] Rotation value.Value[Vec3] Scale value.Value[Vec3] Spin value.Value[Vec3] }
+ui: type Vec3 struct{ X, Y, Z float32 }
+ui: type VecPath interface{ IsVecPath() }
+ui: type VirtualListProps struct { Count int ItemHeight float32 Height float32 Render func(i int) *Node Overscan int }
+ui: type WindowConfig = windowConfig
+ui: var Black = Color{0, 0, 0, 255}
+ui: var Blue = Color{59, 130, 246, 255}
+ui: var DarkGray = Color{75, 85, 99, 255}
+ui: var DarkTheme = Theme{Background: Hex("#0a0a0a"), Foreground: Hex("#fafafa"), Card: Hex("#0a0a0a"), CardForeground: Hex("#fafafa"), Popover: Hex("#0a0a0a"), PopoverForeground: Hex("#fafafa"), Primary: Hex("#fafafa"), PrimaryForeground: Hex("#18181b"), Secondary: Hex("#27272a"), SecondaryForeground: Hex("#fafafa"), Muted: Hex("#27272a"), MutedForeground: Hex("#a1a1aa"), Accent: Hex("#27272a"), AccentForeground: Hex("#fafafa"), Destructive: Hex("#7f1d1d"), DestructiveForeground: Hex("#fafafa"), Border: Hex("#27272a"), Input: Hex("#27272a"), Ring: Hex("#d4d4d8"), Radius: 10}
+ui: var FrameSync = true
+ui: var Gray = Color{156, 163, 175, 255}
+ui: var Green = Color{34, 197, 94, 255}
+ui: var LightGray = Color{243, 244, 246, 255}
+ui: var LightTheme = Theme{Background: Hex("#ffffff"), Foreground: Hex("#0a0a0a"), Card: Hex("#ffffff"), CardForeground: Hex("#0a0a0a"), Popover: Hex("#ffffff"), PopoverForeground: Hex("#0a0a0a"), Primary: Hex("#18181b"), PrimaryForeground: Hex("#fafafa"), Secondary: Hex("#f4f4f5"), SecondaryForeground: Hex("#18181b"), Muted: Hex("#f4f4f5"), MutedForeground: Hex("#71717a"), Accent: Hex("#f4f4f5"), AccentForeground: Hex("#18181b"), Destructive: Hex("#ef4444"), DestructiveForeground: Hex("#fafafa"), Border: Hex("#e4e4e7"), Input: Hex("#e4e4e7"), Ring: Hex("#a1a1aa"), Radius: 10}
+ui: var Red = Color{220, 38, 38, 255}
+ui: var Transparent = Color{0, 0, 0, 0}
+ui: var White = Color{255, 255, 255, 255}
+value: func (b *binding[T]) Get() T
+value: func (b *binding[T]) Set(next T)
+value: func (b *binding[T]) Subscribe(fn func(T)) func()
+value: func (c constant[T]) Get() T
+value: func (constant[T]) Subscribe(func(T)) func()
+value: func (m *mapped[A, B]) Get() B
+value: func (m *mapped[A, B]) Subscribe(fn func(B)) func()
+value: func Map[A, B any](source Value[A], fn func(A) B) Value[B]
+value: func New[T any](initial T, hooks ...Hooks[T]) Bind[T]
+value: func Static[T any](v T) Value[T]
+value: type Bind[T any] interface { Value[T] Set(T) }
+value: type Hooks[T any] struct { BeforeSet func(old, next T) (T, error) OnChange func(old, next T) OnError func(error) OnSubscribe func() OnUnsubscribe func() }
+value: type Value[T any] interface { Get() T Subscribe(func(T)) func() }
+yoga: const AUTO_BITS uint32 = 0x7faaaaaa
+yoga: const AlignAuto Align = iota
+yoga: const AlignBaseline
+yoga: const AlignCenter
+yoga: const AlignCount = 9
+yoga: const AlignFlexEnd
+yoga: const AlignFlexStart
+yoga: const AlignSpaceAround
+yoga: const AlignSpaceBetween
+yoga: const AlignSpaceEvenly
+yoga: const AlignStretch
+yoga: const BIAS uint32 = 0x20000000
+yoga: const BoxSizingBorderBox BoxSizing = iota
+yoga: const BoxSizingContentBox
+yoga: const BoxSizingCount = 2
+yoga: const DefaultFlexGrow float32 = 0.0
+yoga: const DefaultFlexShrink float32 = 0.0
+yoga: const DimensionCount = 2
+yoga: const DimensionHeight
+yoga: const DimensionWidth Dimension = iota
+yoga: const DirectionCount = 3
+yoga: const DirectionInherit Direction = iota
+yoga: const DirectionLTR
+yoga: const DirectionRTL
+yoga: const DisplayContents
+yoga: const DisplayCount = 3
+yoga: const DisplayFlex Display = iota
+yoga: const DisplayNone
+yoga: const EdgeAll
+yoga: const EdgeBottom
+yoga: const EdgeCount = 9
+yoga: const EdgeEnd
+yoga: const EdgeHorizontal
+yoga: const EdgeLeft Edge = iota
+yoga: const EdgeRight
+yoga: const EdgeStart
+yoga: const EdgeTop
+yoga: const EdgeVertical
+yoga: const ErrataAbsolutePercentAgainstInnerSize = 4
+yoga: const ErrataAbsolutePositionWithoutInsetsExcludesPadding = 2
+yoga: const ErrataAll = 2147483647
+yoga: const ErrataClassic = 2147483646
+yoga: const ErrataNone Errata = 0
+yoga: const ErrataPositionStaticBehavesLikeRelative = 16
+yoga: const ErrataStartingEndingEdgeFromFlexDirection = 8
+yoga: const ErrataStretchFlexBasis = 1
+yoga: const EventLayoutPassEnd
+yoga: const EventLayoutPassStart
+yoga: const EventMeasureCallbackEnd
+yoga: const EventMeasureCallbackStart
+yoga: const EventNodeAllocation EventType = iota
+yoga: const EventNodeBaselineEnd
+yoga: const EventNodeBaselineStart
+yoga: const EventNodeDeallocation
+yoga: const EventNodeLayout
+yoga: const ExperimentalFeatureAbsolutePercentageAgainstPaddingEdge
+yoga: const ExperimentalFeatureCount = 3
+yoga: const ExperimentalFeatureFixJNILocalRefOverflows
+yoga: const ExperimentalFeatureWebFlexBasis ExperimentalFeature = iota
+yoga: const FlexDirectionColumn FlexDirection = iota
+yoga: const FlexDirectionColumnReverse
+yoga: const FlexDirectionCount = 4
+yoga: const FlexDirectionRow
+yoga: const FlexDirectionRowReverse
+yoga: const GutterAll
+yoga: const GutterColumn Gutter = iota
+yoga: const GutterCount = 3
+yoga: const GutterRow
+yoga: const JustifyCenter
+yoga: const JustifyCount = 6
+yoga: const JustifyFlexEnd
+yoga: const JustifyFlexStart Justify = iota
+yoga: const JustifySpaceAround
+yoga: const JustifySpaceBetween
+yoga: const JustifySpaceEvenly
+yoga: const LOWER_BOUND float32 = 1.08420217e-19
+yoga: const LayoutPassReasonAbsLayout
+yoga: const LayoutPassReasonAbsMeasureChild
+yoga: const LayoutPassReasonCount
+yoga: const LayoutPassReasonFlexLayout
+yoga: const LayoutPassReasonFlexMeasure
+yoga: const LayoutPassReasonInitial LayoutPassReason = iota
+yoga: const LayoutPassReasonMeasureChild
+yoga: const LayoutPassReasonMultilineStretch
+yoga: const LayoutPassReasonStretch
+yoga: const LayoutTypeCachedLayout
+yoga: const LayoutTypeCachedMeasure
+yoga: const LayoutTypeLayout LayoutType = iota
+yoga: const LayoutTypeMeasure
+yoga: const LogLevelCount = 6
+yoga: const LogLevelDebug
+yoga: const LogLevelError LogLevel = iota
+yoga: const LogLevelFatal
+yoga: const LogLevelInfo
+yoga: const LogLevelVerbose
+yoga: const LogLevelWarn
+yoga: const MaxCachedMeasurements int32 = 8
+yoga: const MeasureModeAtMost
+yoga: const MeasureModeCount = 3
+yoga: const MeasureModeExactly
+yoga: const MeasureModeUndefined MeasureMode = iota
+yoga: const NodeTypeCount = 2
+yoga: const NodeTypeDefault NodeType = iota
+yoga: const NodeTypeText
+yoga: const OverflowCount = 3
+yoga: const OverflowHidden
+yoga: const OverflowScroll
+yoga: const OverflowVisible Overflow = iota
+yoga: const PERCENT_BIT uint32 = 0x40000000
+yoga: const PositionTypeAbsolute
+yoga: const PositionTypeCount = 3
+yoga: const PositionTypeRelative
+yoga: const PositionTypeStatic PositionType = iota
+yoga: const PrintOptionsChildren
+yoga: const PrintOptionsCount = 3
+yoga: const PrintOptionsLayout PrintOptions = 1 << iota
+yoga: const PrintOptionsStyle
+yoga: const SizingModeFitContent
+yoga: const SizingModeMaxContent
+yoga: const SizingModeStretchFit SizingMode = iota
+yoga: const UPPER_BOUND_PERCENT float32 = 18446742974197923840.0
+yoga: const UPPER_BOUND_POINT float32 = 36893485948395847680.0
+yoga: const UnitAuto
+yoga: const UnitCount = 4
+yoga: const UnitPercent
+yoga: const UnitPoint
+yoga: const UnitUndefined Unit = iota
+yoga: const UpstreamVersion = "3.2.1"
+yoga: const WebDefaultFlexShrink float32 = 1.0
+yoga: const WrapCount = 3
+yoga: const WrapNoWrap Wrap = iota
+yoga: const WrapWrap
+yoga: const WrapWrapReverse
+yoga: const ZERO_BITS_PERCENT uint32 = 0x7f80f0f0
+yoga: const ZERO_BITS_POINT uint32 = 0x7f8f0f0f
+yoga: func (a Align) String() string
+yoga: func (b BoxSizing) String() string
+yoga: func (bitset *EnumBitset) Count() int
+yoga: func (bitset *EnumBitset) Reset(index uint)
+yoga: func (bitset *EnumBitset) Set(index uint)
+yoga: func (bitset *EnumBitset) Test(index uint) bool
+yoga: func (config *Config) AddErrata(errata Errata)
+yoga: func (config *Config) GetContext() any
+yoga: func (config *Config) GetEnabledExperiments() EnumBitset
+yoga: func (config *Config) GetErrata() Errata
+yoga: func (config *Config) GetPointScaleFactor() float32
+yoga: func (config *Config) GetVersion() uint32
+yoga: func (config *Config) HasErrata(errata Errata) bool
+yoga: func (config *Config) IsExperimentalFeatureEnabled(feature ExperimentalFeature) bool
+yoga: func (config *Config) RemoveErrata(errata Errata)
+yoga: func (config *Config) SetCloneNodeCallback(callback CloneNodeFunc)
+yoga: func (config *Config) SetContext(context any)
+yoga: func (config *Config) SetErrata(errata Errata)
+yoga: func (config *Config) SetExperimentalFeatureEnabled(feature ExperimentalFeature, enabled bool)
+yoga: func (config *Config) SetLogger(logger Logger)
+yoga: func (config *Config) SetPointScaleFactor(pointScaleFactor float32)
+yoga: func (config *Config) SetShouldPrintTree(printTree bool)
+yoga: func (config *Config) SetUseWebDefaults(useWebDefaults bool)
+yoga: func (config *Config) ShouldPrintTree() bool
+yoga: func (config *Config) UseWebDefaults() bool
+yoga: func (cv CompactValue) Equal(other CompactValue) bool
+yoga: func (cv CompactValue) IsAuto() bool
+yoga: func (cv CompactValue) IsDefined() bool
+yoga: func (cv CompactValue) IsUndefined() bool
+yoga: func (cv CompactValue) Value() Value
+yoga: func (d Dimension) String() string
+yoga: func (d Direction) String() string
+yoga: func (d Display) String() string
+yoga: func (d LayoutData) CachedLayouts() int32
+yoga: func (d LayoutData) CachedMeasures() int32
+yoga: func (d LayoutData) Layouts() int32
+yoga: func (d LayoutData) MaxMeasureCache() uint32
+yoga: func (d LayoutData) MeasureCallbacks() int32
+yoga: func (d LayoutData) MeasureCallbacksFor(reason LayoutPassReason) uint32
+yoga: func (d LayoutData) Measures() int32
+yoga: func (e Edge) String() string
+yoga: func (e Errata) String() string
+yoga: func (e ExperimentalFeature) String() string
+yoga: func (f FlexDirection) String() string
+yoga: func (g Gutter) String() string
+yoga: func (j Justify) String() string
+yoga: func (l LogLevel) String() string
+yoga: func (m MeasureMode) String() string
+yoga: func (m SizingMode) MeasureMode() MeasureMode
+yoga: func (n *Node) LayoutBorder(edge Edge) float32
+yoga: func (n *Node) LayoutBottom() float32
+yoga: func (n *Node) LayoutDirection() Direction
+yoga: func (n *Node) LayoutHadOverflow() bool
+yoga: func (n *Node) LayoutHeight() float32
+yoga: func (n *Node) LayoutLeft() float32
+yoga: func (n *Node) LayoutMargin(edge Edge) float32
+yoga: func (n *Node) LayoutPadding(edge Edge) float32
+yoga: func (n *Node) LayoutRight() float32
+yoga: func (n *Node) LayoutTop() float32
+yoga: func (n *Node) LayoutWidth() float32
+yoga: func (n *Node) StyleGetAlignContent() Align
+yoga: func (n *Node) StyleGetAlignItems() Align
+yoga: func (n *Node) StyleGetAlignSelf() Align
+yoga: func (n *Node) StyleGetAspectRatio() float32
+yoga: func (n *Node) StyleGetBorder(edge Edge) float32
+yoga: func (n *Node) StyleGetBoxSizing() BoxSizing
+yoga: func (n *Node) StyleGetDirection() Direction
+yoga: func (n *Node) StyleGetDisplay() Display
+yoga: func (n *Node) StyleGetFlex() float32
+yoga: func (n *Node) StyleGetFlexBasis() Value
+yoga: func (n *Node) StyleGetFlexDirection() FlexDirection
+yoga: func (n *Node) StyleGetFlexGrow() float32
+yoga: func (n *Node) StyleGetFlexShrink() float32
+yoga: func (n *Node) StyleGetFlexWrap() Wrap
+yoga: func (n *Node) StyleGetGap(gutter Gutter) float32
+yoga: func (n *Node) StyleGetHeight() float32
+yoga: func (n *Node) StyleGetJustifyContent() Justify
+yoga: func (n *Node) StyleGetMargin(edge Edge) Value
+yoga: func (n *Node) StyleGetMaxHeight() Value
+yoga: func (n *Node) StyleGetMaxWidth() Value
+yoga: func (n *Node) StyleGetMinHeight() Value
+yoga: func (n *Node) StyleGetMinWidth() Value
+yoga: func (n *Node) StyleGetPadding(edge Edge) Value
+yoga: func (n *Node) StyleGetPosition(edge Edge) Value
+yoga: func (n *Node) StyleGetPositionType() PositionType
+yoga: func (n *Node) StyleGetWidth() float32
+yoga: func (n *Node) StyleSetAlignContent(alignContent Align)
+yoga: func (n *Node) StyleSetAlignItems(alignItems Align)
+yoga: func (n *Node) StyleSetAlignSelf(alignSelf Align)
+yoga: func (n *Node) StyleSetAspectRatio(aspectRatio float32)
+yoga: func (n *Node) StyleSetBorder(edge Edge, border float32)
+yoga: func (n *Node) StyleSetBoxSizing(boxSizing BoxSizing)
+yoga: func (n *Node) StyleSetDirection(direction Direction)
+yoga: func (n *Node) StyleSetDisplay(display Display)
+yoga: func (n *Node) StyleSetFlex(flex float32)
+yoga: func (n *Node) StyleSetFlexBasis(flexBasis float32)
+yoga: func (n *Node) StyleSetFlexBasisAuto()
+yoga: func (n *Node) StyleSetFlexBasisPercent(flexBasis float32)
+yoga: func (n *Node) StyleSetFlexDirection(flexDirection FlexDirection)
+yoga: func (n *Node) StyleSetFlexGrow(flexGrow float32)
+yoga: func (n *Node) StyleSetFlexShrink(flexShrink float32)
+yoga: func (n *Node) StyleSetFlexWrap(flexWrap Wrap)
+yoga: func (n *Node) StyleSetGap(gutter Gutter, gapLength float32)
+yoga: func (n *Node) StyleSetGapPercent(gutter Gutter, gapLength float32)
+yoga: func (n *Node) StyleSetHeight(height float32)
+yoga: func (n *Node) StyleSetHeightAuto()
+yoga: func (n *Node) StyleSetHeightPercent(height float32)
+yoga: func (n *Node) StyleSetJustifyContent(justifyContent Justify)
+yoga: func (n *Node) StyleSetMargin(edge Edge, margin float32)
+yoga: func (n *Node) StyleSetMarginAuto(edge Edge)
+yoga: func (n *Node) StyleSetMarginPercent(edge Edge, margin float32)
+yoga: func (n *Node) StyleSetMaxHeight(maxHeight float32)
+yoga: func (n *Node) StyleSetMaxHeightPercent(maxHeight float32)
+yoga: func (n *Node) StyleSetMaxWidth(maxWidth float32)
+yoga: func (n *Node) StyleSetMaxWidthPercent(maxWidth float32)
+yoga: func (n *Node) StyleSetMinHeight(minHeight float32)
+yoga: func (n *Node) StyleSetMinHeightPercent(minHeight float32)
+yoga: func (n *Node) StyleSetMinWidth(minWidth float32)
+yoga: func (n *Node) StyleSetMinWidthPercent(minWidth float32)
+yoga: func (n *Node) StyleSetOverflow(overflow Overflow)
+yoga: func (n *Node) StyleSetPadding(edge Edge, padding float32)
+yoga: func (n *Node) StyleSetPaddingPercent(edge Edge, padding float32)
+yoga: func (n *Node) StyleSetPosition(edge Edge, position float32)
+yoga: func (n *Node) StyleSetPositionAuto(edge Edge)
+yoga: func (n *Node) StyleSetPositionPercent(edge Edge, position float32)
+yoga: func (n *Node) StyleSetPositionType(positionType PositionType)
+yoga: func (n *Node) StyleSetWidth(points float32)
+yoga: func (n *Node) StyleSetWidthAuto()
+yoga: func (n *Node) StyleSetWidthPercent(percent float32)
+yoga: func (n NodeType) String() string
+yoga: func (node *Node) AlwaysFormsContainingBlock() bool
+yoga: func (node *Node) CalculateLayout(ownerWidth, ownerHeight float32, ownerDirection Direction)
+yoga: func (node *Node) Clone() *Node
+yoga: func (node *Node) CopyStyleFrom(other *Node)
+yoga: func (node *Node) Finalize()
+yoga: func (node *Node) Free()
+yoga: func (node *Node) FreeRecursive()
+yoga: func (node *Node) GetChild(index uint32) *Node
+yoga: func (node *Node) GetChildCount() uint32
+yoga: func (node *Node) GetChildren() []*Node
+yoga: func (node *Node) GetConfig() *Config
+yoga: func (node *Node) GetContext() any
+yoga: func (node *Node) GetDirtiedFunc() DirtiedFunc
+yoga: func (node *Node) GetHasNewLayout() bool
+yoga: func (node *Node) GetNodeType() NodeType
+yoga: func (node *Node) GetOwner() *Node
+yoga: func (node *Node) GetParent() *Node
+yoga: func (node *Node) HasBaselineFunc() bool
+yoga: func (node *Node) HasMeasureFunc() bool
+yoga: func (node *Node) InsertChild(child *Node, index uint32)
+yoga: func (node *Node) IsDirty() bool
+yoga: func (node *Node) IsReferenceBaseline() bool
+yoga: func (node *Node) MarkDirty()
+yoga: func (node *Node) RemoveAllChildren()
+yoga: func (node *Node) RemoveChild(child *Node)
+yoga: func (node *Node) Reset()
+yoga: func (node *Node) SetAlwaysFormsContainingBlock(always bool)
+yoga: func (node *Node) SetBaselineFunc(baselineFunc BaselineFunc)
+yoga: func (node *Node) SetChildren(children []*Node)
+yoga: func (node *Node) SetConfig(config *Config)
+yoga: func (node *Node) SetContext(context any)
+yoga: func (node *Node) SetDirtiedFunc(dirtiedFunc DirtiedFunc)
+yoga: func (node *Node) SetHasNewLayout(hasNewLayout bool)
+yoga: func (node *Node) SetIsReferenceBaseline(isReferenceBaseline bool)
+yoga: func (node *Node) SetMeasureFunc(measureFunc MeasureFunc)
+yoga: func (node *Node) SetNodeType(nodeType NodeType)
+yoga: func (node *Node) SetPrintFunc(printFunc PrintFunc)
+yoga: func (node *Node) SwapChild(child *Node, index uint32)
+yoga: func (o Overflow) String() string
+yoga: func (p PositionType) String() string
+yoga: func (p PrintOptions) String() string
+yoga: func (r LayoutPassReason) String() string
+yoga: func (t EventType) String() string
+yoga: func (u Unit) String() string
+yoga: func (v *Value) NotEqual(other Value) bool
+yoga: func (v Value) Equal(other Value) bool
+yoga: func (v Value) GetUnit() Unit
+yoga: func (v Value) GetValue() float32
+yoga: func (v Value) IsUndefined() bool
+yoga: func (w Wrap) String() string
+yoga: func CalculateLayout(node *Node, ownerWidth, ownerHeight float32, ownerDirection Direction)
+yoga: func CompactValueOf(value float32, unit Unit) CompactValue
+yoga: func CompactValueOfAuto() CompactValue
+yoga: func CompactValueOfPoint(value float32) CompactValue
+yoga: func CompactValueOfUndefined() CompactValue
+yoga: func CompactValuePercent(value float32) CompactValue
+yoga: func ConfigNew() *Config
+yoga: func DefaultLogger(config *Config, node *Node, level LogLevel, format string, args ...any) int
+yoga: func If[T any](expr bool, a, b T) T
+yoga: func IsDefined[T float32 | float64](value T) bool
+yoga: func IsInf(f float32, sign int) bool
+yoga: func IsNaN(f float32) (is bool)
+yoga: func IsUndefined[T float32 | float64](value T) bool
+yoga: func NewConfig(logger Logger) *Config
+yoga: func NewEnumBitset() EnumBitset
+yoga: func NewFloatOptional(value float32) FloatOptional
+yoga: func NewLayoutResults() *LayoutResults
+yoga: func NewNode() *Node
+yoga: func NewNodeWithConfig(config *Config) *Node
+yoga: func NewStyle() *Style
+yoga: func ResetEventSubscribers()
+yoga: func RoundValueToPixelGrid(value float64, pointScaleFactor float64, forceCeil bool, forceFloor bool) float32
+yoga: func SizingModeFromMeasureMode(mode MeasureMode) SizingMode
+yoga: func Subscribe(eventType EventType, subscriber Subscriber) func()
+yoga: func SubscribeAll(subscriber Subscriber) func()
+yoga: type Align uint8
+yoga: type BaselineFunc func(node *Node, width, height float32) float32
+yoga: type BoxSizing uint8
+yoga: type CachedMeasurement struct{}
+yoga: type CloneNodeFunc func(oldNode *Node, owner *Node, childIndex uint32) *Node
+yoga: type CompactValue struct{}
+yoga: type Config struct{}
+yoga: type Dimension uint8
+yoga: type Direction uint8
+yoga: type DirtiedFunc func(node *Node)
+yoga: type Display uint8
+yoga: type Edge uint8
+yoga: type EnumBitset struct{}
+yoga: type Errata uint32
+yoga: type Event struct { Type EventType Node *Node Config *Config LayoutType LayoutType LayoutData LayoutData Measure MeasureCallbackData Baseline float32 }
+yoga: type EventType uint8
+yoga: type ExperimentalFeature uint8
+yoga: type FlexDirection uint8
+yoga: type FlexLine struct{}
+yoga: type FlexLineRunningLayout struct{}
+yoga: type FloatOptional struct{}
+yoga: type Gutter uint8
+yoga: type Justify uint8
+yoga: type LayoutData struct{}
+yoga: type LayoutPassReason uint8
+yoga: type LayoutResults struct{}
+yoga: type LayoutType int
+yoga: type LogLevel uint8
+yoga: type Logger func(config *Config, node *Node, level LogLevel, format string, args ...any) int
+yoga: type MeasureCallbackData struct { Width, Height float32 WidthMode, HeightMode MeasureMode MeasuredWidth, MeasuredHeight float32 Reason LayoutPassReason }
+yoga: type MeasureFunc func(node *Node, width float32, widthMode MeasureMode, height float32, heightMode MeasureMode) Size
+yoga: type MeasureMode uint8
+yoga: type Node struct{}
+yoga: type NodeType uint8
+yoga: type Overflow uint8
+yoga: type PositionType uint8
+yoga: type PrintFunc func(node *Node)
+yoga: type PrintOptions uint8
+yoga: type Size struct { Width float32 Height float32 }
+yoga: type SizingMode uint8
+yoga: type Style struct{}
+yoga: type Subscriber func(Event)
+yoga: type Unit uint8
+yoga: type Value struct{}
+yoga: type Wrap uint8
+yoga: var NaN = math.Float32frombits(uvnan)
+yoga: var Undefined float32 = NaN
+yoga: var ValueAuto = Value{Undefined, UnitAuto}
+yoga: var ValueUndefined = Value{Undefined, UnitUndefined}
+yoga: var ValueZero = Value{0, UnitPoint}

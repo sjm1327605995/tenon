@@ -57,8 +57,8 @@ func UseTween(target, durationMs float32, ease Easing) float32 {
 		h.elapsed = 0
 		if !h.active {
 			h.active = true
-			if activeGame != nil {
-				activeGame.anims = append(activeGame.anims, h)
+			if f.game != nil {
+				f.game.anims = append(f.game.anims, h)
 			}
 		}
 	}
@@ -95,8 +95,8 @@ func UseElapsedActive(active bool) float32 {
 	h.running = active
 	if !h.active {
 		h.active = true
-		if activeGame != nil {
-			activeGame.loops = append(activeGame.loops, h)
+		if f.game != nil {
+			f.game.loops = append(f.game.loops, h)
 		}
 	}
 	return h.elapsed
@@ -146,8 +146,8 @@ func UseTransition(visible bool, durationMs float32) (bool, float32) {
 		tw.elapsed = 0
 		if !tw.active {
 			tw.active = true
-			if activeGame != nil {
-				activeGame.anims = append(activeGame.anims, tw)
+			if f.game != nil {
+				f.game.anims = append(f.game.anims, tw)
 			}
 		}
 	}

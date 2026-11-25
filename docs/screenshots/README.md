@@ -11,5 +11,6 @@ TENON_CAPTURE=docs/screenshots/accordion.png TENON_CAPTURE_FRAMES=45 go run ./ex
 ```
 
 `TENON_CAPTURE_FRAMES` waits a few frames so the scroll-reveal fade-in settles
-before the frame is saved. This captures only the app's own rendered frame — not
-the OS desktop.
+before the frame is saved. Environment-based capture closes the window after the
+attempt. Use `ui.Capture(path, frames, false)` to capture without exiting. This
+captures only the app's own rendered frame — not the OS desktop.

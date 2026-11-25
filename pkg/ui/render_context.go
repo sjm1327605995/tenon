@@ -93,7 +93,7 @@ func StateIn[T any](ctx *RenderContext, initial T) (T, func(T)) {
 			ctx.game.markDirty(ctx.fiber)
 		}
 	}
-	return h.value.(T), h.setter.(func(T))
+	return valueOrZero[T](h.value), h.setter.(func(T))
 }
 
 // ContextValueIn reads a typed provider value using ctx's component scope.

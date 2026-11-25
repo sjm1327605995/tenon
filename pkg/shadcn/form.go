@@ -23,7 +23,10 @@ func checkbox(p CheckboxProps) *ui.Node {
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
 	}
-	kids := []*ui.Node{ui.Style(st...), ui.Disabled(p.Disabled)}
+	kids := []*ui.Node{
+		ui.Style(st...), ui.Disabled(p.Disabled),
+		ui.AccessibilityRoleOf(ui.AccessibilityCheckbox), ui.AccessibilitySelected(p.Checked),
+	}
 	if !p.Disabled {
 		kids = append(kids, ui.OnClick(func() {
 			if p.OnChange != nil {
@@ -60,7 +63,10 @@ func switchC(p SwitchProps) *ui.Node {
 	if p.Disabled {
 		st = append(st, ui.Opacity(0.5))
 	}
-	attrs := []*ui.Node{ui.Style(st...), ui.Disabled(p.Disabled)}
+	attrs := []*ui.Node{
+		ui.Style(st...), ui.Disabled(p.Disabled),
+		ui.AccessibilityRoleOf(ui.AccessibilitySwitch), ui.AccessibilitySelected(p.Checked),
+	}
 	if !p.Disabled {
 		attrs = append(attrs, ui.OnClick(func() {
 			if p.OnChange != nil {
@@ -98,6 +104,7 @@ func radioGroup(p RadioGroupProps) *ui.Node {
 		}
 		kids = append(kids, ui.Div(
 			ui.Style(ui.Row, ui.Gap(8), ui.ItemsCenter),
+			ui.AccessibilityRoleOf(ui.AccessibilityRadioButton), ui.AccessibilitySelected(selected),
 			ui.OnClick(func() {
 				if p.OnChange != nil {
 					p.OnChange(o)

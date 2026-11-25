@@ -36,8 +36,8 @@ func errorBoundaryC(p ebProps) *Node {
 		err := f.caughtErr
 		retry := func() {
 			f.caughtErr = nil
-			if activeGame != nil {
-				activeGame.markDirty(f)
+			if f.game != nil {
+				f.game.markDirty(f)
 			}
 		}
 		if p.fallback != nil {

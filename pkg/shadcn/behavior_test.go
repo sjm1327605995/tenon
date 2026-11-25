@@ -331,6 +331,68 @@ func TestCheckboxTogglesControlledState(t *testing.T) {
 	}
 }
 
+func TestSwitchTogglesControlledStateAndHonorsDisabled(t *testing.T) {
+	app := func(_ struct{}) *ui.Node {
+		checked, set := ui.UseState(false)
+		status := "off"
+		if checked {
+			status = "on"
+		}
+		return ui.Div(
+			Switch(SwitchProps{Checked: checked, OnChange: func(v bool) { set(v) }}),
+			ui.Text(status),
+		)
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	clickables := h.Root().Clickables()
+	if len(clickables) == 0 {
+		t.Fatal("switch is not clickable")
+	}
+	clickables[0].Click()
+	if !h.Root().ByText("on").Exists() {
+		t.Fatalf("after click texts=%v, want on", h.Root().Texts())
+	}
+	switchNode := accessibilityRole(h.AccessibilitySnapshot(), ui.AccessibilitySwitch, "")
+	if switchNode == nil || !switchNode.Selected {
+		t.Fatalf("switch selected semantic=%+v", switchNode)
+	}
+
+	disabled := ui.MountDefault(Switch(SwitchProps{Disabled: true}))
+	defer disabled.Close()
+	if disabled.ClickAt(8, 9) {
+		t.Fatal("disabled switch handled a click")
+	}
+}
+
+func TestRadioGroupChangesSelection(t *testing.T) {
+	app := func(_ struct{}) *ui.Node {
+		selected, set := ui.UseState("A")
+		return ui.Div(
+			RadioGroup(RadioGroupProps{Value: selected, Options: []string{"A", "B"}, OnChange: func(v string) { set(v) }}),
+			ui.Text(selected),
+		)
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	if !h.Root().ByText("B").Click() {
+		t.Fatal("radio option B click found no handler")
+	}
+	nodes := h.Root().Texts()
+	seenB := false
+	for _, text := range nodes {
+		if text == "B" {
+			seenB = true
+		}
+	}
+	if !seenB {
+		t.Fatalf("selected value not rendered: %v", nodes)
+	}
+	radioA := accessibilityRole(h.AccessibilitySnapshot(), ui.AccessibilityRadioButton, "A")
+	radioB := accessibilityRole(h.AccessibilitySnapshot(), ui.AccessibilityRadioButton, "B")
+	if radioA == nil || radioA.Selected || radioB == nil || !radioB.Selected {
+		t.Fatalf("radio semantics A=%+v B=%+v", radioA, radioB)
+	}
+}
+
 func TestPopoverOpensAndEscapeCloses(t *testing.T) {
 	h := ui.MountDefault(ui.Div(Popover(ui.Text("open"), ui.Text("content"))))
 

@@ -27,11 +27,13 @@ func Toast(title, desc string) { addToast(title, desc, AlertDefault) }
 // ToastError 弹出一条错误样式通知。
 func ToastError(title, desc string) { addToast(title, desc, AlertDestructive) }
 
+var toastNow = time.Now
+
 func addToast(title, desc string, v AlertVariant) {
 	toastState.nextID++
 	toastState.items = append(toastState.items, toastItem{
 		id: toastState.nextID, title: title, desc: desc, variant: v,
-		expiry: time.Now().Add(3 * time.Second),
+		expiry: toastNow().Add(3 * time.Second),
 	})
 	if toastState.bump != nil {
 		toastState.bump()
@@ -84,7 +86,7 @@ func toastView(p toastViewProps) *ui.Node {
 	t := ui.UseElapsed() // 每帧检查过期
 	fired := ui.UseRef(false)
 	ui.UseEffect(func() ui.Cleanup {
-		if !*fired && time.Now().After(p.item.expiry) {
+		if !*fired && toastNow().After(p.item.expiry) {
 			*fired = true
 			p.onExpire()
 		}

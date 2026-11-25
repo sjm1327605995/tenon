@@ -43,8 +43,8 @@ func (s *Store[T]) Set(v T) {
 			continue
 		}
 		sub.last = next
-		if activeGame != nil {
-			activeGame.markDirty(sub.fiber)
+		if !sub.fiber.unmounted && sub.fiber.game != nil {
+			sub.fiber.game.markDirty(sub.fiber)
 		}
 	}
 }
@@ -52,7 +52,11 @@ func (s *Store[T]) Set(v T) {
 // Update 以当前状态为入参的函数式更新。
 func (s *Store[T]) Update(fn func(T) T) { s.Set(fn(s.value)) }
 
-type storeHook struct{ sub *storeSub }
+type storeHook struct {
+	sub         *storeSub
+	store       any
+	unsubscribe func()
+}
 
 // UseStore 订阅 store：selector 选中的切片变化时本组件重渲染，未变化则跳过；
 // 组件卸载时自动退订。多个组件可各选不同的切片，互不重渲染。
@@ -70,12 +74,17 @@ func UseStoreEq[T any, S any](s *Store[T], selector func(T) S, equals func(S, S)
 
 func useStore[T any, S any](s *Store[T], selector func(T) S, equals func(S, S) bool) S {
 	f := currentFiber
-	_, raw := nextHook(f, func() any {
+	_, raw := nextHook(f, func() any { return &storeHook{} })
+	h := raw.(*storeHook)
+	if h.store != s {
+		if h.unsubscribe != nil {
+			h.unsubscribe()
+		}
 		sub := &storeSub{
 			fiber:  f,
-			equals: func(a, b any) bool { return equals(a.(S), b.(S)) },
+			equals: func(a, b any) bool { return equals(valueOrZero[S](a), valueOrZero[S](b)) },
 		}
-		sub.sel = func(v any) any { return selector(v.(T)) }
+		sub.sel = func(v any) any { return selector(valueOrZero[T](v)) }
 		sub.last = sub.sel(s.value)
 		s.seq++
 		id := s.seq
@@ -83,15 +92,19 @@ func useStore[T any, S any](s *Store[T], selector func(T) S, equals func(S, S) b
 			s.subs = map[uint64]*storeSub{}
 		}
 		s.subs[id] = sub
-		f.addCleanup(func() { delete(s.subs, id) })
-		return &storeHook{sub: sub}
-	})
-	h := raw.(*storeHook)
-	// 每轮 render 刷新 selector 闭包：selector 可能捕获本轮作用域的变量。
-	h.sub.sel = func(v any) any { return selector(v.(T)) }
-	// getSnapshot 式复核：投影值在渲染期被直接改过（非经 Set）时对齐，防止显示回退。
-	if cur := h.sub.sel(s.value); !h.sub.equals(h.sub.last, cur) {
-		h.sub.last = cur
+		h.sub = sub
+		h.store = s
+		h.unsubscribe = func() { delete(s.subs, id) }
+		f.addCleanup(func() {
+			if h.unsubscribe != nil {
+				h.unsubscribe()
+				h.unsubscribe = nil
+			}
+		})
 	}
-	return h.sub.last.(S)
+	// 每轮 render 刷新 selector 闭包：selector 可能捕获本轮作用域的变量。
+	h.sub.sel = func(v any) any { return selector(valueOrZero[T](v)) }
+	// getSnapshot 式复核：投影值在渲染期被直接改过（非经 Set）时对齐，防止显示回退。
+	h.sub.last = h.sub.sel(s.value)
+	return valueOrZero[S](h.sub.last)
 }

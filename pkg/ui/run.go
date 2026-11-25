@@ -5,10 +5,12 @@ import (
 	"sort"
 	"time"
 
+	"gioui.org/io/event"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
-// activeGame 是当前运行的驱动实例，供 hooks 触发局部重渲染。
+// activeGame 是当前正在挂载或驱动的实例，用于建立根 Fiber 的所属运行时。
+// 挂载后的更新通过 Fiber.game 调度，不依赖后来激活的其他实例。
 var activeGame *game
 
 // uiScale 是设备像素比：用户以逻辑像素编写 UI，引擎在物理分辨率下渲染以获得清晰边缘（抗锯齿）。
@@ -49,6 +51,7 @@ type game struct {
 	hitTests        uint64
 	visualVersion   uint64
 	frameCache      gioFrameCache
+	inputTags       []event.Tag
 
 	// 多击检测（双击选词 / 三击选全部）
 	lastClickAt            time.Time
@@ -277,6 +280,8 @@ func (g *game) flushEffects() {
 
 func (g *game) layout() {
 	if g.rootRN == nil {
+		g.portals = nil
+		g.portalsClean = true
 		return
 	}
 	g.hitVersion++
@@ -323,7 +328,7 @@ func (g *game) layoutPortals(windowChanged, boundsDirty bool) {
 			root.yn.RemoveAllChildren()
 			root.children = kids
 			for i, k := range kids {
-				attachRenderChild(root, k, uint32(i))
+				attachRenderChild(root, k, uint32(i), pf.game)
 			}
 		}
 		root.yn.StyleSetWidth(float32(g.w))
@@ -377,9 +382,10 @@ func (g *game) handleInput() {
 		x, y := input.Cursor()
 		for c := g.hitTop(x, y); c != nil; c = c.parent {
 			if c.scroll {
-				c.scrollY += wy
-				g.needsLayout = true
-				g.boundsDirty = true // 滚动改变绝对 bounds 但不脏化 yoga
+				if c.scrollBy(wy) {
+					g.needsLayout = true
+					g.boundsDirty = true // 滚动改变绝对 bounds 但不脏化 yoga
+				}
 				break
 			}
 		}
@@ -588,7 +594,7 @@ func (g *game) updateDrag() {
 }
 
 // editFocusedInput 处理聚焦输入框的键盘编辑：文本输入、选区、剪切/复制/粘贴/全选（受控回流）。
-// 注：CJK 输入法组字（IME 预编辑）尚未在 gio 后端接入，此处只做手动编辑。
+// Gio 的 IME 预编辑由 gio_ime.go 同步；这里处理常规键盘编辑与受控值回流。
 func (g *game) editFocusedInput() {
 	f := g.focusedFiber
 	if f == nil || f.unmounted || f.rnode == nil || f.rnode.kind != rnInput || f.rnode.isDisabled() {

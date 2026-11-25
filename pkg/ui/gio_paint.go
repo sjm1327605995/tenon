@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	gpaint "gioui.org/op/paint"
@@ -60,12 +61,13 @@ func (p *gioPainter) buildPath(gp *gioPath) clip.PathSpec {
 }
 
 type gioPainter struct {
-	ops    *op.Ops
-	w, h   int
-	clips  []func()         // PushClip/PopClip 的出栈回调（LIFO）
-	layers []op.MacroOp     // BeginLayer/EndLayer 的宏栈
-	projs  []projLayerRec   // BeginProjected/EndProjected 的投影层栈
-	projEl []projElementRec // BeginProjectedElement/EndProjectedElement 的元素录制栈
+	ops               *op.Ops
+	accessibilityTags []event.Tag
+	w, h              int
+	clips             []func()         // PushClip/PopClip 的出栈回调（LIFO）
+	layers            []op.MacroOp     // BeginLayer/EndLayer 的宏栈
+	projs             []projLayerRec   // BeginProjected/EndProjected 的投影层栈
+	projEl            []projElementRec // BeginProjectedElement/EndProjectedElement 的元素录制栈
 }
 
 // projLayerRec 是一个投影层的录制结果：层变换 + 逐元素宏。
@@ -94,7 +96,9 @@ type projElementRec struct {
 	macro op.MacroOp
 }
 
-func newGioPainter(ops *op.Ops, w, h int) *gioPainter { return &gioPainter{ops: ops, w: w, h: h} }
+func newGioPainter(ops *op.Ops, w, h int) *gioPainter {
+	return &gioPainter{ops: ops, w: w, h: h}
+}
 
 // rrectOp 生成（可含圆角的）矩形裁剪 Op；r<=0 为直角矩形。
 //

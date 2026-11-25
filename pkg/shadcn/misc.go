@@ -130,7 +130,7 @@ func collapsible(p collapsibleProps) *ui.Node {
 	return ui.Div(ui.Style(ui.Column, ui.Gap(6)),
 		p.trigger,
 		ui.Div(ui.Style(ui.Height(h), ui.Clip),
-			ui.Div(append([]*ui.Node{cref, ui.Style(ui.Column, ui.Gap(6))}, p.content...)...),
+			ui.Div(append([]*ui.Node{cref, ui.Style(ui.Absolute, ui.Column, ui.Gap(6))}, p.content...)...),
 		),
 	)
 }

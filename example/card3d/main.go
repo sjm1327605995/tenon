@@ -26,17 +26,17 @@ func main() {
 
 func App(_ struct{}) *ui.Node {
 	return ui.Box([]ui.StyleOpt{
-		ui.Fill, ui.Bg(ui.Hex("#0f172a")), ui.ItemsCenter, ui.JustifyCenter, ui.Gap(28),
+		ui.Fill, ui.Bg(ui.Hex("#f1f5f9")), ui.ItemsCenter, ui.JustifyCenter, ui.Gap(28),
 	},
 		ui.Use(card, struct{}{}),
-		ui.Text("拖动卡片倾斜它 · 下方文字的排版始终不受 3D 影响",
-			ui.FontSize(14), ui.TextColor(ui.Hex("#94a3b8"))),
+		ui.Text("拖动卡片倾斜 · 松手回正",
+			ui.FontSize(14), ui.TextColor(ui.Hex("#64748b"))),
 	)
 }
 
 func card(_ struct{}) *ui.Node {
-	rx, setRX := ui.UseState[float32](0)
-	ry, setRY := ui.UseState[float32](0)
+	rx, setRX := ui.UseState[float32](-8)
+	ry, setRY := ui.UseState[float32](18)
 	hover, setHover := ui.UseState(false)
 
 	// 平滑过渡：松手回正、hover 时朝观察者浮起。
@@ -49,24 +49,20 @@ func card(_ struct{}) *ui.Node {
 	tz := ui.UseTween(lift, 220, ui.EaseOut)
 
 	return ui.Box([]ui.StyleOpt{
-		ui.Width(300), ui.Height(400), ui.Radius(18), ui.Clip, ui.Column,
-		ui.Bg(ui.Hex("#1e293b")), ui.Border(1, ui.Hex("#334155")),
-		// —— 伪 3D：透视 + 绕 X/Y 轴旋转 + Z 位移（锚定卡片中心）——
+		ui.Width(300), ui.Height(400), ui.Radius(24), ui.Clip, ui.Column,
+		ui.Bg(ui.White), ui.Border(1, ui.Hex("#e2e8f0")),
+		ui.Shadow(ui.Hex("#0f172a33"), 0, 16, 32, -8),
 		ui.Perspective(700), ui.RotateX(ax), ui.RotateY(ay), ui.TranslateZ(tz),
 	},
-		// 照片是纯图片元素：作为投影层的直接子元素，自动按四角真实投影精确贴图。
 		ui.Img(ui.SrcImage("hero", heroImage()), ui.Style(ui.Width(300), ui.Height(210))),
-		ui.Box([]ui.StyleOpt{
-			ui.Height(190), ui.ItemsCenter, ui.JustifyCenter, ui.Gap(6),
-			ui.LinearGradient(ui.Hex("#0f172a00"), ui.Hex("#0f172a"), 90),
-		},
-			ui.Text("HERO", ui.FontSize(26), ui.Bold, ui.TextColor(ui.White)),
-			ui.Text("整块图自动精确单应贴图", ui.FontSize(12), ui.TextColor(ui.Hex("#94a3b8"))),
-		),
-		ui.Box([]ui.StyleOpt{ui.Padding(20), ui.Gap(8), ui.Grow(1)},
-			ui.Text("伪 3D 卡片", ui.FontSize(20), ui.Semibold, ui.TextColor(ui.White)),
-			ui.Text("perspective + rotateX/rotateY。拖动我，松手回正。",
-				ui.FontSize(13), ui.TextColor(ui.Hex("#94a3b8"))),
+		ui.Box([]ui.StyleOpt{ui.Padding(20), ui.Gap(10), ui.Grow(1), ui.Column},
+			ui.Box([]ui.StyleOpt{ui.Width(88), ui.Bg(ui.Hex("#e0e7ff")), ui.Radius(999), ui.PaddingXY(10, 4)},
+				ui.Text("FEATURED", ui.FontSize(11), ui.Bold, ui.TextColor(ui.Hex("#4f46e5"))),
+			),
+			ui.Text("冰岛南岸", ui.FontSize(26), ui.Bold, ui.TextColor(ui.Hex("#0f172a"))),
+			ui.Text("Reynisfjara 黑沙滩", ui.FontSize(14), ui.TextColor(ui.Hex("#64748b"))),
+			ui.Div(ui.Style(ui.Grow(1))),
+			ui.Text("ICE  /  64.017°N", ui.FontSize(12), ui.TextColor(ui.Hex("#94a3b8"))),
 		),
 
 		// 交互：拖动改变倾角，离开时回正。附加为子节点即绑定到本卡片。

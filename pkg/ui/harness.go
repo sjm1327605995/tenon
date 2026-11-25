@@ -66,15 +66,23 @@ func (h *Harness) Root() *Query {
 // borders, clips, focus ring…) headlessly, i.e. golden-style paint tests.
 func (h *Harness) Paint() []PaintOp {
 	rp := &recordPainter{}
+	h.PaintTo(rp)
+	return rp.ops
+}
+
+// PaintTo paints the current tree and overlays into a caller-provided backend.
+func (h *Harness) PaintTo(painter Painter) {
+	if h == nil || h.g == nil || painter == nil {
+		return
+	}
 	if rn := rootRenderNode(h.g.rootFiber); rn != nil {
-		paint(rp, rn)
+		paint(painter, rn)
 	}
 	for _, pf := range h.g.portals {
 		if pf.overlayRoot != nil {
-			paint(rp, pf.overlayRoot)
+			paint(painter, pf.overlayRoot)
 		}
 	}
-	return rp.ops
 }
 
 // Overlays returns a Query per live Portal overlay (dialogs, dropdowns,
@@ -251,6 +259,10 @@ func (h *Harness) settle() {
 		for guard := 0; len(g.dirty) > 0 && guard < 100; guard++ {
 			g.flushDirty()
 		}
+		drainPosts()
+		if len(g.dirty) > 0 {
+			continue
+		}
 		g.rootRN = rootRenderNode(g.rootFiber)
 		g.layout()
 		if len(g.pendingEffects) == 0 {
@@ -317,7 +329,23 @@ func (q *Query) Bounds() Rect {
 	return q.rn.bounds
 }
 
+// VisualBounds returns the absolute rectangle after transforms and pseudo-3D projection.
+func (q *Query) VisualBounds() Rect {
+	if !q.Exists() {
+		return Rect{}
+	}
+	return measuredScreenRect(q.rn)
+}
+
 // Focusable reports whether the node participates in Tab focus navigation.
+// ScrollOffset returns the current vertical scroll offset in logical pixels.
+func (q *Query) ScrollOffset() float32 {
+	if !q.Exists() {
+		return 0
+	}
+	return q.rn.scrollY
+}
+
 func (q *Query) Focusable() bool { return q.Exists() && q.rn.focusable && !q.rn.isDisabled() }
 
 // Clickable reports whether the node itself carries an onClick handler.
@@ -606,8 +634,9 @@ func (q *Query) ScrollBy(dy float32) bool {
 	}
 	for c := q.rn; c != nil; c = c.parent {
 		if c.scroll {
-			c.scrollY += dy
-			q.h.g.boundsDirty = true
+			if c.scrollBy(dy) {
+				q.h.g.boundsDirty = true
+			}
 			q.h.settle()
 			return true
 		}

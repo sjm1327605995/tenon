@@ -11,6 +11,17 @@ func (rn *renderNode) isDisabled() bool {
 }
 
 // interactiveHit 保留禁用节点的命中遮挡，但不把它作为可激活目标返回。
+func (rn *renderNode) scrollBy(delta float32) bool {
+	if !rn.scroll {
+		return false
+	}
+	maxScroll := max(rn.contentH-rn.bounds.H, float32(0))
+	next := min(max(rn.scrollY+delta, float32(0)), maxScroll)
+	changed := next != rn.scrollY
+	rn.scrollY = next
+	return changed
+}
+
 func (g *game) interactiveHit(x, y float32) *renderNode {
 	n := g.hitTop(x, y)
 	if n != nil && n.isDisabled() {

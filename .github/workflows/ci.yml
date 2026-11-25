@@ -34,7 +34,7 @@ jobs:
             pkg-config libwayland-dev libx11-dev libx11-xcb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libgles2-mesa-dev libegl1-mesa-dev libffi-dev \
-            libxcursor-dev libxfixes-dev libvulkan-dev
+            libxcursor-dev libxfixes-dev libvulkan-dev xvfb xauth
 
       # 装完先自检：缺哪个 .pc 就在这里直接点名，而不是把报错留给下面的 vet/build，
       # 那里的错误信息（"build constraints exclude all Go files"）根本指不出真正的原因。
@@ -65,5 +65,211 @@ jobs:
       - name: go test
         run: go test ./...
 
+      - name: Build quickstart as an external consumer
+        run: |
+          consumer="${{ runner.temp }}/tenon-consumer"
+          mkdir -p "$consumer"
+          cp example/quickstart/main.go "$consumer/main.go"
+          cd "$consumer"
+          go mod init example.com/profile-app
+          go mod edit -require=github.com/sjm1327605995/tenon@v0.0.0
+          go mod edit -replace=github.com/sjm1327605995/tenon="${{ github.workspace }}"
+          go mod tidy
+          go build .
+
+      - name: Run versioned plugin lifecycle as an external consumer
+        run: |
+          consumer="${{ runner.temp }}/tenon-plugin-consumer"
+          mkdir -p "$consumer"
+          cp example/plugin/main.go "$consumer/main.go"
+          cd "$consumer"
+          go mod init example.com/plugin-consumer
+          go mod edit -require=github.com/sjm1327605995/tenon@v0.0.0
+          go mod edit -replace=github.com/sjm1327605995/tenon="${{ github.workspace }}"
+          go mod tidy
+          go build .
+          go run .
+
       - name: go test with race detector
         run: go test -race ./...
+
+      - name: Real Gio window screenshot smoke
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-accordion.png
+          TENON_CAPTURE_FRAMES: "45"
+        run: |
+          xvfb-run -a go run ./example/accordion
+          test -s "$TENON_CAPTURE"
+
+      - name: Upload Gio smoke screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-accordion-linux
+          path: ${{ runner.temp }}/tenon-accordion.png
+          if-no-files-found: error
+
+      - name: Real Gio gradient and image-filter smoke
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-gradient-linux.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          xvfb-run -a go run ./example/gradient
+          test -s "$TENON_CAPTURE"
+
+      - name: Upload gradient and image-filter screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-gradient-linux
+          path: ${{ runner.temp }}/tenon-gradient-linux.png
+          if-no-files-found: error
+
+      - name: Real Gio tilted 3D card smoke
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-card3d-linux.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          xvfb-run -a go run ./example/card3d
+          test -s "$TENON_CAPTURE"
+
+      - name: Upload tilted 3D card screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-card3d-linux
+          path: ${{ runner.temp }}/tenon-card3d-linux.png
+          if-no-files-found: error
+
+  build-test-desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: go build
+        run: go build ./...
+      - name: go test
+        run: go test ./...
+      - name: Real Gio BiDi window smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-bidi-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/bidi
+          test -s "$TENON_CAPTURE"
+      - name: Upload BiDi smoke screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-bidi-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-bidi-${{ matrix.os }}.png
+          if-no-files-found: error
+      - name: Real Gio multiwindow smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-multiwindow-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/multiwindow
+          test -s "$TENON_CAPTURE"
+      - name: Upload multiwindow smoke screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-multiwindow-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-multiwindow-${{ matrix.os }}.png
+          if-no-files-found: error
+      - name: Real Gio component catalog smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-catalog-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/catalog
+          test -s "$TENON_CAPTURE"
+      - name: Upload catalog smoke screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-catalog-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-catalog-${{ matrix.os }}.png
+          if-no-files-found: error
+      - name: Real Gio gradient and image-filter smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-gradient-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/gradient
+          test -s "$TENON_CAPTURE"
+      - name: Upload gradient and image-filter screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-gradient-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-gradient-${{ matrix.os }}.png
+          if-no-files-found: error
+      - name: Real Gio tilted 3D card smoke
+        shell: bash
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-card3d-${{ matrix.os }}.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          go run ./example/card3d
+          test -s "$TENON_CAPTURE"
+      - name: Upload tilted 3D card screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-card3d-${{ matrix.os }}
+          path: ${{ runner.temp }}/tenon-card3d-${{ matrix.os }}.png
+          if-no-files-found: error
+
+  build-test-g3n:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Install G3N build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xorg-dev libgl1-mesa-dev libopenal1 libopenal-dev \
+            libvorbis0a libvorbis-dev libvorbisfile3 xvfb xauth
+      - name: gofmt
+        working-directory: backend/g3n
+        run: |
+          fmt=$(gofmt -l .)
+          if [ -n "$fmt" ]; then echo "Not gofmt'd:"; echo "$fmt"; exit 1; fi
+      - name: go build
+        working-directory: backend/g3n
+        run: go build ./...
+      - name: go test
+        working-directory: backend/g3n
+        run: go test ./...
+      - name: Real G3N plugin window smoke
+        working-directory: backend/g3n
+        env:
+          TENON_SMOKE_FRAMES: "3"
+        run: xvfb-run -a go run ./example/plugin
+      - name: Real G3N close and remount smoke
+        working-directory: backend/g3n
+        env:
+          TENON_SMOKE_FRAMES: "12"
+        run: xvfb-run -a go run ./example/lifecycle
+      - name: Real G3N UI parity smoke
+        working-directory: backend/g3n
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-g3n-uiparity.png
+          TENON_CAPTURE_FRAMES: "300"
+          TENON_UI_SMOKE: "1"
+        run: |
+          xvfb-run -a go run ./example/uiparity
+          test -s "$TENON_CAPTURE"
+      - name: Upload G3N UI parity screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-g3n-uiparity-linux
+          path: ${{ runner.temp }}/tenon-g3n-uiparity.png
+          if-no-files-found: error

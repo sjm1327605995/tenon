@@ -107,17 +107,23 @@ func (p *painter) Shadow(x, y, w, h, r float32, offX, offY, blur, spread float32
 }
 
 func (p *painter) Line(x0, y0, x1, y1 float32, c ui.Color) {
-	distance := math.Hypot(float64(x1-x0), float64(y1-y0))
-	steps := max(1, int(distance/4))
-	for i := 0; i <= steps; i++ {
-		t := float32(i) / float32(steps)
-		p.FillRect(x0+(x1-x0)*t-0.5, y0+(y1-y0)*t-0.5, 1, 1, 0, c)
+	dx, dy := x1-x0, y1-y0
+	distance := float32(math.Hypot(float64(dx), float64(dy)))
+	if distance == 0 || c.A == 0 {
+		return
 	}
+	cx, cy := (x0+x1)/2, (y0+y1)/2
+	panel := p.panel(cx-distance/2, cy-0.5, distance, 1, c)
+	panel.SetRotationZ(-float32(math.Atan2(float64(dy), float64(dx))))
 }
 
-func (p *painter) DrawText(s string, face ui.FontFace, c ui.Color, x, y float32, _, _ bool) {
+func (p *painter) DrawText(s string, face ui.FontFace, c ui.Color, x, y float32, fauxBold, fauxItalic bool) {
 	f, ok := face.(*font)
 	if !ok || f == nil || s == "" {
+		return
+	}
+	if fauxBold || fauxItalic {
+		p.add(styledTextPanel(f, s, c, x, y, fauxBold, fauxItalic))
 		return
 	}
 	label := &labelPanel{Label: gui.NewLabelWithFont(s, f.font)}
@@ -142,8 +148,26 @@ func (p *painter) DrawImage(img ui.Bitmap, dst ui.Rect, opacity float32) {
 	p.add(withTransforms(panel))
 }
 
-func (p *painter) FillPath(ui.VecPath, float32, float32, ui.Color)            {}
-func (p *painter) StrokePath(ui.VecPath, float32, float32, float32, ui.Color) {}
+func (p *painter) FillPath(path ui.VecPath, x, y float32, c ui.Color) {
+	p.drawVector(path, 0, x, y, c, true)
+}
+
+func (p *painter) StrokePath(path ui.VecPath, x, y, width float32, c ui.Color) {
+	p.drawVector(path, width, x, y, c, false)
+}
+
+func (p *painter) drawVector(path ui.VecPath, width, x, y float32, c ui.Color, fill bool) {
+	vectorPath, ok := path.(*vectorPath)
+	if !ok || vectorPath == nil || c.A == 0 {
+		return
+	}
+	image := vectorPath.image(fill, width, c)
+	if image == nil {
+		return
+	}
+	w, h := image.bitmap.Size()
+	p.DrawImage(image.bitmap, ui.Rect{X: x + image.x, Y: y + image.y, W: float32(w), H: float32(h)}, 1)
+}
 
 func (p *painter) PushClip(r ui.Rect, _ float32) {
 	p.clips = append(p.clips, r)

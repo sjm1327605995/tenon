@@ -155,7 +155,7 @@ func (rn *renderNode) applyBoundText(s string) {
 	}
 	rn.text = s
 	rn.yn.MarkDirty()
-	if g := activeGame; g != nil {
+	if g := rn.ownerGame(); g != nil {
 		g.needsLayout = true
 	}
 }
@@ -204,8 +204,8 @@ func (rn *renderNode) applyBoundInput(value string) {
 	rn.selAnchor = clampi(rn.selAnchor, 0, len(value))
 	if changed {
 		rn.yn.MarkDirty()
-		if activeGame != nil {
-			activeGame.needsLayout = true
+		if g := rn.ownerGame(); g != nil {
+			g.needsLayout = true
 		}
 	}
 }

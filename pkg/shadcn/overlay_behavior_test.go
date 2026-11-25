@@ -170,3 +170,64 @@ func TestContextMenuStaysInViewport(t *testing.T) {
 		t.Fatal("repositioned context menu could not select and close")
 	}
 }
+
+func TestSheetEscapeClosesAndPanelClickDoesNot(t *testing.T) {
+	app := func(_ struct{}) *ui.Node {
+		open, setOpen := ui.UseState(true)
+		return ui.Div(Sheet(SheetProps{Open: open, OnClose: func() { setOpen(false) }}, ui.Text("Details")))
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	defer h.Close()
+	h.Step(250)
+	if len(h.Overlays()) != 1 {
+		t.Fatal("sheet did not open")
+	}
+	h.Overlays()[0].ByText("Details").Click()
+	if len(h.Overlays()) != 1 {
+		t.Fatal("clicking sheet content closed the drawer")
+	}
+	h.Escape()
+	h.Step(250)
+	if len(h.Overlays()) != 0 {
+		t.Fatal("Escape did not close the sheet")
+	}
+}
+
+func TestCollapsibleToggleChangesContentHeight(t *testing.T) {
+	app := func(_ struct{}) *ui.Node {
+		open, setOpen := ui.UseState(false)
+		return Collapsible(open, func() { setOpen(!open) }, ui.Text("Toggle"), ui.Text("Content"))
+	}
+	h := ui.MountDefault(ui.Use(app, struct{}{}))
+	defer h.Close()
+	if got := h.Root().Child(1).Bounds().H; got != 0 {
+		t.Fatalf("initial content height=%v, want 0", got)
+	}
+	h.Root().ByText("Toggle").Click()
+	h.Step(220)
+	if got := h.Root().Child(1).Bounds().H; got <= 0 {
+		t.Fatalf("expanded content height=%v, inner=%+v, texts=%v", got, h.Root().Child(1).Child(0).Bounds(), h.Root().Texts())
+	}
+	h.Root().ByText("Toggle").Click()
+	h.Step(220)
+	if got := h.Root().Child(1).Bounds().H; got != 0 {
+		t.Fatalf("collapsed content height=%v, want 0", got)
+	}
+}
+
+func TestTooltipHoverShowsAndHides(t *testing.T) {
+	h := ui.MountDefault(Tooltip("Help text", ui.Text("Trigger")))
+	defer h.Close()
+	if len(h.Overlays()) != 0 {
+		t.Fatal("tooltip was visible before hover")
+	}
+	trigger := h.Root().ByText("Trigger")
+	trigger.Hover(true)
+	if len(h.Overlays()) != 1 || !h.Overlays()[0].ByText("Help text").Exists() {
+		t.Fatal("hover did not show tooltip")
+	}
+	trigger.Hover(false)
+	if len(h.Overlays()) != 0 {
+		t.Fatal("hover leave did not hide tooltip")
+	}
+}

@@ -4,6 +4,8 @@ package g3n
 
 import (
 	"image"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/g3n/engine/camera"
@@ -63,6 +65,14 @@ func Use(options Options) {
 
 func init() { Use(Options{}) }
 
+func smokeFrameLimit() int {
+	value, err := strconv.Atoi(os.Getenv("TENON_SMOKE_FRAMES"))
+	if err != nil || value <= 0 {
+		return 0
+	}
+	return value
+}
+
 func (b *Backend) NewFont(px float32, weight int, italic bool) ui.FontFace {
 	key := fontKey{px: px, weight: weight, italic: italic}
 	if cached := b.fonts[key]; cached != nil {
@@ -72,7 +82,7 @@ func (b *Backend) NewFont(px float32, weight int, italic bool) ui.FontFace {
 	if err != nil {
 		return nil
 	}
-	cached := &font{font: face, px: px}
+	cached := &font{font: face, px: px, fauxBold: weight >= 600, fauxItalic: italic}
 	face.SetPointSize(float64(px))
 	b.fonts[key] = cached
 	return cached
@@ -87,6 +97,10 @@ func (b *Backend) NewBitmap(img image.Image) ui.Bitmap {
 
 func (b *Backend) NewVecPath(svgPath string, scale float32) ui.VecPath {
 	return &vectorPath{svg: svgPath, scale: scale}
+}
+
+func (b *Backend) Capabilities() ui.BackendCapabilities {
+	return ui.BackendCapabilities{SVGPaths: true, LayerTransforms: true}
 }
 
 func (b *Backend) Run(root *ui.Node, cfg ui.WindowConfig) {
@@ -138,6 +152,9 @@ func (b *Backend) Run(root *ui.Node, cfg ui.WindowConfig) {
 	paintW, paintH := 0, 0
 	painted := false
 	last := time.Now()
+	smokeRemaining := smokeFrameLimit()
+	capture := nativeCaptureFromEnv()
+	currentCursor := window.ArrowCursor
 	for !win.(*window.GlfwWindow).ShouldClose() {
 		now := time.Now()
 		dt := now.Sub(last)
@@ -151,6 +168,10 @@ func (b *Backend) Run(root *ui.Node, cfg ui.WindowConfig) {
 		cursorX, cursorY := input.Cursor()
 		uiInteractive := runtime.PointerInteractive(cursorX, cursorY)
 		runtime.Frame(float32(dt.Seconds() * 1000))
+		if next := nativeCursor(runtime.PointerCursor(cursorX, cursorY)); next != currentCursor {
+			win.(*window.GlfwWindow).SetCursor(next)
+			currentCursor = next
+		}
 		viewportX, viewportY, viewportW, viewportH := 0, 0, fbw, fbh
 		if b.options.SceneViewport != nil {
 			viewportX, viewportY, viewportW, viewportH = b.options.SceneViewport(fbw, fbh)
@@ -183,8 +204,17 @@ func (b *Backend) Run(root *ui.Node, cfg ui.WindowConfig) {
 		if err := rend.Render(uiRoot, cam); err != nil {
 			panic(err)
 		}
+		if capture.capture(win.Gls(), fbw, fbh) {
+			win.(*window.GlfwWindow).SetShouldClose(true)
+		}
 		win.(*window.GlfwWindow).SwapBuffers()
 		input.endFrame()
 		win.(*window.GlfwWindow).PollEvents()
+		if smokeRemaining > 0 {
+			smokeRemaining--
+			if smokeRemaining == 0 {
+				win.(*window.GlfwWindow).SetShouldClose(true)
+			}
+		}
 	}
 }

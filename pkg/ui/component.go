@@ -78,7 +78,7 @@ func renderComponentInstance(p componentInstanceProps) *Node {
 			}
 		}
 		lifetime, cancel := context.WithCancel(parent)
-		ctx = &RenderContext{fiber: f, game: activeGame, lifetime: lifetime, cancel: cancel}
+		ctx = &RenderContext{fiber: f, game: f.game, lifetime: lifetime, cancel: cancel}
 		f.renderContext = ctx
 	}
 	if ctx.owner != nil && ctx.owner != base && ctx.owner.context.Load() == ctx {

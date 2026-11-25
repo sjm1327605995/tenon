@@ -17,8 +17,10 @@ type fontKey struct {
 }
 
 type font struct {
-	font *text.Font
-	px   float32
+	font       *text.Font
+	px         float32
+	fauxBold   bool
+	fauxItalic bool
 }
 
 func (f *font) Measure(s string, _ float64) float32 {
@@ -27,7 +29,7 @@ func (f *font) Measure(s string, _ float64) float32 {
 }
 
 func (f *font) Metrics() (float32, bool, bool) {
-	return float32(f.font.Metrics().Ascent.Ceil()), false, false
+	return float32(f.font.Metrics().Ascent.Ceil()), f.fauxBold, f.fauxItalic
 }
 
 type bitmap struct {
@@ -89,6 +91,7 @@ func (b *bitmap) Size() (int, int) {
 type vectorPath struct {
 	svg   string
 	scale float32
+	cache vectorImageCache
 }
 
 func (*vectorPath) IsVecPath() {}

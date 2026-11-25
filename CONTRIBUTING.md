@@ -93,6 +93,8 @@ go test ./yoga/ -v
 
 The root `./...` pattern does not cross module boundaries. Validate the optional game backend separately with `cd backend/g3n && go build ./... && go test ./...`; the repository's local `go.work` resolves the root module without adapter-specific downloads.
 
+For a consolidated pre-release check, run `make release-check` and see [Releasing](docs/RELEASING.md). Any skipped native, race or window check is development feedback, not 1.0 release evidence.
+
 ## 🏗️ Project Structure
 
 When adding new features, please respect the existing architecture (see [ARCHITECTURE.md](ARCHITECTURE.md)):
@@ -108,6 +110,7 @@ When adding new features, please respect the existing architecture (see [ARCHITE
 ## 📝 Documentation
 
 - Update `README.md` and `README.zh-CN.md` if you add or modify public APIs
+- Run `make api-check`; for an intentional public signature change, use `make api-update` and document the migration in `CHANGELOG.md`
 - Keep both English and Chinese documentation in sync
 - Add code examples for new components or features
 

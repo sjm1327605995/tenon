@@ -52,7 +52,7 @@ var (
 		printFunc_:           nil,
 		dirtiedFunc_:         nil,
 		style_:               defaultStyle,
-		layout_:              LayoutResults{},
+		layout_:              *NewLayoutResults(),
 		lineIndex_:           0,
 		owner_:               nil,
 		children_:            make([]*Node, 0),

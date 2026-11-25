@@ -4,6 +4,7 @@ import (
 	"unicode/utf8"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	gioinput "gioui.org/io/input"
 	"gioui.org/io/key"
 )
@@ -26,13 +27,14 @@ import (
 
 // gioIMEState 记录上次发布给输入法的状态，避免每帧重复 Execute。
 type gioIMEState struct {
+	tag     event.Tag
 	snippet key.Snippet
 	sel     key.Range
 	caret   key.Caret
 	valid   bool
 }
 
-var gioIME gioIMEState
+var gioIME = gioIMEState{tag: gioTag}
 
 // focusedInput 返回当前聚焦的输入框渲染节点（没有则 nil）。
 func focusedInput(g *game) *renderNode {
@@ -127,7 +129,7 @@ func (m *gioIMEState) sync(src gioinput.Source, g *game) {
 	}
 	if !m.valid || sel != m.sel || caret != m.caret {
 		m.sel, m.caret, m.valid = sel, caret, true
-		src.Execute(key.SelectionCmd{Tag: gioTag, Range: sel, Caret: caret})
+		src.Execute(key.SelectionCmd{Tag: m.tag, Range: sel, Caret: caret})
 	}
 	m.sendSnippet(src, val, key.Range{Start: 0, End: utf8.RuneCountInString(val)})
 }
@@ -149,7 +151,7 @@ func (m *gioIMEState) sendSnippet(src gioinput.Source, val string, rng key.Range
 		return
 	}
 	m.snippet = sn
-	src.Execute(key.SnippetCmd{Tag: gioTag, Snippet: sn})
+	src.Execute(key.SnippetCmd{Tag: m.tag, Snippet: sn})
 }
 
 // substrRunes 按 rune 下标取子串。

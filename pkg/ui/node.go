@@ -70,12 +70,18 @@ func (n *Node) Build() *Node { return n }
 
 // hostProps 是把某个 host 元素的所有属性归拢后的结果。
 type hostProps struct {
-	style    StyleProps
-	onClick  func()
-	class    string
-	id       string
-	key      string
-	disabled bool
+	style                    StyleProps
+	onClick                  func()
+	class                    string
+	id                       string
+	key                      string
+	disabled                 bool
+	focusableSet             bool
+	focusableValue           bool
+	accessibilityLabel       string
+	accessibilityRole        AccessibilityRole
+	accessibilitySelected    bool
+	accessibilitySelectedSet bool
 
 	// input
 	value         string
@@ -156,6 +162,15 @@ func Img(args ...*Node) *Node    { return el("img", args) }
 // 外观由调用方的 Style 决定。
 func Disabled(disabled bool) *Node {
 	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) { hp.disabled = disabled }}
+}
+
+// Focusable overrides keyboard focus participation without changing click behavior.
+// It is useful for overlay wrappers that only intercept or dismiss pointer events.
+func Focusable(focusable bool) *Node {
+	return &Node{typ: typeAttr, applyAttr: func(hp *hostProps) {
+		hp.focusableSet = true
+		hp.focusableValue = focusable
+	}}
 }
 
 // ScrollView 是可垂直滚动的容器（内容超出时裁剪 + 滚轮滚动 + 滚动条）。

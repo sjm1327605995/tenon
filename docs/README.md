@@ -19,6 +19,10 @@ Start with the [English README](../README.md) or [中文 README](../README.zh-CN
 
 - [API ergonomics](API_ERGONOMICS.md) — component composition, fluent methods, optional struct declarations, and Value / Bind. / 组件组合、链式方法、可选结构体声明与数据协议。
 - [Screenshots](screenshots/README.md) — visual reference and capture instructions. / 界面截图与生成方式。
+- [Backend and platform support](PLATFORM_SUPPORT.md) — capability matrix and executed versus configured verification. / 后端能力矩阵、已执行验证与仅配置的验证。
+- [Runtime lifecycle](RUNTIME_LIFECYCLE.md) — terminal UI runtime close versus reactivatable 3D scenes. / UI 运行时终态关闭与可重新激活的 3D 场景。
+- [Performance baselines](PERFORMANCE.md) — reproducible workloads, environments and allocation counts. / 可复现的基准工作负载、运行环境与分配数据。
+- [Releasing](RELEASING.md) — release gates, version synchronization and consumer verification. / 发布门槛、版本同步与外部消费者验证。
 
 Use the root architecture document and package guides above as the reference for the current implementation.
 

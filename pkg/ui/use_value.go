@@ -16,8 +16,8 @@ type observedValue[T any] struct {
 // branches, or custom component logic depend on the value; Text and BindInput
 // bind directly and do not need to rerender the component.
 func UseValue[T any](source values.Value[T]) T {
-	f, g := currentFiber, activeGame
-	if f == nil || g == nil {
+	f := currentFiber
+	if f == nil || f.game == nil {
 		panic("ui.UseValue: call inside a component render")
 	}
 	_, raw := nextHook(f, func() any {
@@ -43,7 +43,7 @@ func UseValue[T any](source values.Value[T]) T {
 				return
 			}
 			h.last = next
-			g.markDirty(f)
+			f.game.markDirty(f)
 		})
 	}
 	h.last = source.Get()

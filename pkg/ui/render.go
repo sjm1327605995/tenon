@@ -12,8 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode/utf8"
 
+	"gioui.org/io/event"
 	"github.com/sjm1327605995/tenon/yoga"
 )
 
@@ -50,9 +50,15 @@ type renderNode struct {
 	// box / input
 	bg          Color
 	hasGradient bool
+	gradRadial  bool
 	gradFrom    Color
 	gradTo      Color
 	gradAngle   float32
+	radialImg   bitmap
+	radialW     int
+	radialH     int
+	radialFrom  Color
+	radialTo    Color
 	radius      float32
 	borderW     float32
 	borderColor Color
@@ -64,6 +70,9 @@ type renderNode struct {
 	runsRev    int       // 富文本解析版本（resolveRuns 改动字体时自增），用于排版缓存失效
 	wc         wrapCache // 折行缓存（纯文本）
 	rc         richCache // 排版缓存（富文本）
+	bidiText   string
+	bidiVisual string
+	bidiValid  bool
 	face       fontFace
 	color      Color
 	lineH      float64
@@ -108,24 +117,31 @@ type renderNode struct {
 
 	// 输入法组字区间（字节偏移）。gio 的模型里组字文本已经写进 value，这里只标出范围
 	// 用于画预编辑下划线；composeHi<=composeLo 表示当前没在组字。
-	composeLo     int
-	composeHi     int
-	onHover       func(bool)
-	onPress       func(bool)
-	onDrag        func(dx, dy float32)
-	onContextMenu func(x, y float32)
-	measure       *measureHook
-	scrollRef     *scrollHook // UseScroll：写回滚动状态
-	focusable     bool
-	disabled      bool
-	navGroup      bool // ArrowNav：本节点是方向键导航组
-	navOrient     NavOrient
+	composeLo                int
+	composeHi                int
+	onHover                  func(bool)
+	onPress                  func(bool)
+	onDrag                   func(dx, dy float32)
+	onContextMenu            func(x, y float32)
+	measure                  *measureHook
+	scrollRef                *scrollHook // UseScroll：写回滚动状态
+	focusable                bool
+	disabled                 bool
+	accessibilityLabel       string
+	accessibilityRole        AccessibilityRole
+	accessibilitySelected    bool
+	accessibilitySelectedSet bool
+	accessibilityTag         event.Tag
+	navGroup                 bool // ArrowNav：本节点是方向键导航组
+	navOrient                NavOrient
 
 	// image
 	imgSrc    string
 	planeImg  image.Image // PlaneImage：非空则作为场景地板精确预变形（见 plane_image.go）
 	img       bitmap
 	objectFit ObjectFit
+	imgBlur   float32
+	imgGray   float32
 
 	// icon（SVG）/ vector（原始像素路径）
 	iconPath    string
@@ -475,8 +491,8 @@ func (rn *renderNode) setText(s string, st StyleProps, runs []textRun) {
 
 // 图片缓存见 imgcache.go（按字节预算的 LRU）。
 var (
-	imgLoading = map[string]bool{}          // 正在后台加载的 src
-	imgWaiters = map[string][]*renderNode{} // 等待同一 src 完成的节点
+	imgLoading = map[string]bool{}          // 正在后台加载的内容键
+	imgWaiters = map[string][]*renderNode{} // 等待同一内容键完成的节点
 )
 
 // imgHTTPClient 带超时，避免后台加载 goroutine 因网络挂起而永久泄漏。
@@ -486,49 +502,54 @@ var imgHTTPClient = &http.Client{Timeout: 15 * time.Second}
 // 绕后台 goroutine 与 Post，直接同步建位图 —— 当帧即可见，不会先闪一帧空白。
 // 仍进同一份 LRU：同一 key 的多个节点共用一张位图。
 func (rn *renderNode) setImage(img image.Image) {
-	if b, ok := lookupImage(rn.imgSrc); ok {
+	key := rn.imageKey()
+	if b, ok := lookupImage(key); ok {
 		rn.img = b
 		return
 	}
-	b := backendNewBitmap(img)
-	storeImage(rn.imgSrc, b)
+	b := backendNewBitmap(processImage(img, rn.imgBlur, rn.imgGray))
+	storeImage(key, b)
 	rn.img = b
 }
 
-// loadImage 异步加载图片：命中缓存立即返回；否则在后台 goroutine 解码，完成后经
-// Post 回到渲染线程安装缓存并触发重绘。imgCache/imgLoading/imgWaiters 仅在渲染线程
-// （reconcile 与 drainPosts）访问，故无需加锁；后台 goroutine 只做 IO/解码。
+// loadImage 异步加载图片：命中缓存立即返回；否则在后台 goroutine 解码并应用滤镜，
+// 完成后经 Post 回到渲染线程安装缓存并触发重绘。imgCache/imgLoading/imgWaiters 仅在
+// 渲染线程（reconcile 与 drainPosts）访问，故无需加锁。
 func (rn *renderNode) loadImage() {
-	if img, ok := lookupImage(rn.imgSrc); ok {
+	key := rn.imageKey()
+	if img, ok := lookupImage(key); ok {
 		rn.img = img
 		return
 	}
 	rn.img = nil // 加载完成前不显示旧图
-	src := rn.imgSrc
-	imgWaiters[src] = append(imgWaiters[src], rn)
-	if imgLoading[src] {
+	src, blur, gray := rn.imgSrc, rn.imgBlur, rn.imgGray
+	imgWaiters[key] = append(imgWaiters[key], rn)
+	if imgLoading[key] {
 		return // 已在加载，完成时统一通知全部等待者
 	}
-	imgLoading[src] = true
+	imgLoading[key] = true
 	go func() {
 		img, err := decodeImageSource(src)
+		if err == nil && img != nil {
+			img = processImage(img, blur, gray)
+		}
 		Post(func() {
-			delete(imgLoading, src)
-			waiters := imgWaiters[src]
-			delete(imgWaiters, src)
+			delete(imgLoading, key)
+			waiters := imgWaiters[key]
+			delete(imgWaiters, key)
 			if err != nil || img == nil {
 				return // 失败：保持未加载（不缓存失败），src 再次设置时会重试
 			}
 			ei := backendNewBitmap(img)
-			storeImage(src, ei)
+			storeImage(key, ei)
 			for _, w := range waiters {
-				if w.imgSrc == src { // 期间 src 可能已改，仅回填仍需要它的节点
+				if w.imageKey() == key { // 期间 src 或滤镜可能已改，仅回填仍需要它的节点
 					w.img = ei
 					w.yn.MarkDirty()
+					if g := w.ownerGame(); g != nil {
+						g.needsLayout = true
+					}
 				}
-			}
-			if activeGame != nil {
-				activeGame.needsLayout = true
 			}
 		})
 	}()
@@ -562,9 +583,9 @@ func applyHostProps(f *Fiber, rn *renderNode, hp *hostProps) {
 	syncYoga(rn, hp.style)
 	wasDisabled := rn.disabled
 	rn.disabled = hp.disabled
-	if rn.disabled && !wasDisabled && activeGame != nil {
+	if rn.disabled && !wasDisabled && f.game != nil {
 		// 用旧回调结束按压/悬停，再安装本轮属性，避免重新启用后残留交互态。
-		activeGame.clearDisabledInteractions()
+		f.game.clearDisabledInteractions()
 	}
 	rn.onClick = hp.onClick
 	rn.onHover = hp.onHover
@@ -573,9 +594,16 @@ func applyHostProps(f *Fiber, rn *renderNode, hp *hostProps) {
 	rn.onContextMenu = hp.onContextMenu
 	rn.measure = hp.measure
 	rn.scrollRef = hp.scrollRef
+	rn.accessibilityLabel = hp.accessibilityLabel
+	rn.accessibilityRole = hp.accessibilityRole
+	rn.accessibilitySelected = hp.accessibilitySelected
+	rn.accessibilitySelectedSet = hp.accessibilitySelectedSet
 	rn.navGroup = hp.navGroup
 	rn.navOrient = hp.navOrient
 	rn.focusable = !rn.disabled && (rn.kind == rnInput || hp.onClick != nil)
+	if hp.focusableSet {
+		rn.focusable = !rn.disabled && hp.focusableValue
+	}
 	switch rn.kind {
 	case rnInput:
 		rn.applyTextStyle(hp.style)
@@ -611,9 +639,13 @@ func applyHostProps(f *Fiber, rn *renderNode, hp *hostProps) {
 	case rnImage:
 		rn.objectFit = hp.objectFit
 		rn.planeImg = hp.planeImg
-		if hp.src != "" && rn.imgSrc != hp.src {
+		if rn.imgSrc != hp.src || rn.imgBlur != hp.style.imgBlur || rn.imgGray != hp.style.imgGray {
 			rn.imgSrc = hp.src
-			if hp.imgData != nil {
+			rn.imgBlur = hp.style.imgBlur
+			rn.imgGray = hp.style.imgGray
+			if hp.src == "" {
+				rn.img = nil
+			} else if hp.imgData != nil {
 				rn.setImage(hp.imgData)
 			} else {
 				rn.loadImage()
@@ -721,6 +753,7 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	rn.bg = s.bg
 	rn.hasGradient = s.hasGradient
 	rn.gradFrom, rn.gradTo, rn.gradAngle = s.gradFrom, s.gradTo, s.gradAngle
+	rn.gradRadial = s.gradRadial
 	rn.radius = s.radius * k
 	rn.borderW = s.borderW * k
 	rn.borderColor = s.borderColor
@@ -761,8 +794,8 @@ func syncYoga(rn *renderNode, s StyleProps) {
 	}
 
 	rn.animatedLayout = s.animateLayout
-	if s.animateLayout && activeGame != nil {
-		activeGame.hasLayoutAnim = true
+	if s.animateLayout && rn.ownerGame() != nil {
+		rn.ownerGame().hasLayoutAnim = true
 	}
 }
 
@@ -941,7 +974,7 @@ func paintProjectedLayer(p painter, rn *renderNode, t layerTransform) {
 	// Scene3D 里的 Img 子元素、倾斜的照片卡）。
 	if projExactImage(rn) {
 		d0, d1, d2, d3 := projCorners(t)
-		p.ProjectedImage(rn.img, [4]pt{d0, d1, d2, d3}, 1, rn.imgSrc, nil, 0)
+		p.ProjectedImage(rn.img, [4]pt{d0, d1, d2, d3}, 1, rn.imageKey(), nil, 0)
 	} else {
 		p.BeginProjectedElement(b)
 		paintSelf(p, rn)
@@ -964,7 +997,7 @@ func paintProjectedLayer(p painter, rn *renderNode, t layerTransform) {
 			et.cy = c.bounds.Y + c.bounds.H/2
 			et.w, et.h = c.bounds.W, c.bounds.H
 			d0, d1, d2, d3 := projCorners(et)
-			p.ProjectedImage(c.img, [4]pt{d0, d1, d2, d3}, c.opacity, c.imgSrc, layerClip, rn.radius)
+			p.ProjectedImage(c.img, [4]pt{d0, d1, d2, d3}, c.opacity, c.imageKey(), layerClip, rn.radius)
 			continue
 		}
 		p.BeginProjectedElement(c.bounds)
@@ -1000,6 +1033,13 @@ func projExactImage(c *renderNode) bool {
 }
 
 func paintNode(p painter, rn *renderNode, cam *camera3D) {
+	var semanticPainter AccessibilityPainter
+	if current, ok := p.(AccessibilityPainter); ok {
+		if node, present := accessibilityFor(rn); present {
+			current.PushAccessibility(node)
+			semanticPainter = current
+		}
+	}
 	paintSelf(p, rn)
 	b := rn.bounds
 
@@ -1024,6 +1064,9 @@ func paintNode(p painter, rn *renderNode, cam *camera3D) {
 	if rn.focusable && isFocused(rn) {
 		p.StrokeRect(b.X-2, b.Y-2, b.W+4, b.H+4, rn.radius+2, 2, Hex("#60a5fa"))
 	}
+	if semanticPainter != nil {
+		semanticPainter.PopAccessibility()
+	}
 }
 
 // paintSelf 只画元素自身（阴影/背景/边框/文字/图片/图标），不含子节点。
@@ -1036,7 +1079,9 @@ func paintSelf(p painter, rn *renderNode) {
 	}
 	switch rn.kind {
 	case rnBox, rnScroll:
-		if rn.hasGradient {
+		if rn.hasGradient && rn.gradRadial {
+			rn.paintRadialGradient(p, o)
+		} else if rn.hasGradient {
 			p.FillGradient(b.X, b.Y, b.W, b.H, rn.radius, rn.gradFrom.Alpha(o), rn.gradTo.Alpha(o), rn.gradAngle)
 		} else {
 			p.FillRect(b.X, b.Y, b.W, b.H, rn.radius, rn.bg.Alpha(o))
@@ -1053,7 +1098,7 @@ func paintSelf(p painter, rn *renderNode) {
 		}
 		lines, _ := rn.wrapped(b.W)
 		for i, ln := range lines {
-			p.DrawText(ln, rn.face, rn.color.Alpha(o), b.X, b.Y+float32(i)*float32(rn.lineH), rn.fauxBold, rn.fauxItalic)
+			p.DrawText(rn.displayText(ln), rn.face, rn.color.Alpha(o), b.X, b.Y+float32(i)*float32(rn.lineH), rn.fauxBold, rn.fauxItalic)
 		}
 	case rnImage:
 		if rn.img != nil {
@@ -1125,7 +1170,7 @@ func paintInput(p painter, rn *renderNode) {
 		avail := b.W - padL*2
 		if usePlaceholder {
 			for i, sp := range wrapSpans(rn.placeholder, rn.face, rn.lineH, avail) {
-				p.DrawText(sp.text, rn.face, Gray, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
+				p.DrawText(rn.displayText(sp.text), rn.face, Gray, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
 			}
 			return
 		}
@@ -1137,7 +1182,7 @@ func paintInput(p painter, rn *renderNode) {
 			paintSpanRange(p, spans, preLo, preHi, rn.face, rn.lineH, tx, ty, lineH, true)
 		}
 		for i, sp := range spans {
-			p.DrawText(sp.text, rn.face, rn.color, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
+			p.DrawText(rn.displayText(sp.text), rn.face, rn.color, tx, ty+float32(i)*lineH, rn.fauxBold, rn.fauxItalic)
 		}
 		if isFocused(rn) && caretVisible() {
 			for i, sp := range spans {
@@ -1155,26 +1200,23 @@ func paintInput(p painter, rn *renderNode) {
 	ty := b.Y + (b.H-lineH)/2
 
 	if hasSel && rn.face != nil {
-		wa := measureW(val[:selLo], rn.face, rn.lineH)
-		wc := measureW(val[:selHi], rn.face, rn.lineH)
-		p.FillRect(tx+wa, ty, wc-wa, lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
+		for _, span := range bidiRangeX(val, selLo, selHi, rn.face, rn.lineH, tx) {
+			p.FillRect(span[0], ty, span[1]-span[0], lineH, 0, Color{R: 59, G: 130, B: 246, A: 90})
+		}
 	}
 	if preLo >= 0 && rn.face != nil { // 预编辑下划线
-		wa := measureW(val[:preLo], rn.face, rn.lineH)
-		wc := measureW(val[:preHi], rn.face, rn.lineH)
-		p.Line(tx+wa, ty+lineH-1, tx+wc, ty+lineH-1, rn.color)
+		for _, span := range bidiRangeX(val, preLo, preHi, rn.face, rn.lineH, tx) {
+			p.Line(span[0], ty+lineH-1, span[1], ty+lineH-1, rn.color)
+		}
 	}
 
 	if usePlaceholder {
-		p.DrawText(rn.placeholder, rn.face, Gray, tx, ty, rn.fauxBold, rn.fauxItalic)
+		p.DrawText(rn.displayText(rn.placeholder), rn.face, Gray, tx, ty, rn.fauxBold, rn.fauxItalic)
 	} else {
-		p.DrawText(val, rn.face, rn.color, tx, ty, rn.fauxBold, rn.fauxItalic)
+		p.DrawText(rn.displayText(val), rn.face, rn.color, tx, ty, rn.fauxBold, rn.fauxItalic)
 	}
 	if isFocused(rn) && caretVisible() {
-		cx := tx
-		if rn.face != nil && caret > 0 {
-			cx += measureW(val[:caret], rn.face, rn.lineH)
-		}
+		cx := bidiCaretX(val, caret, rn.face, rn.lineH, tx)
 		p.Line(cx, ty, cx, ty+lineH, rn.color)
 	}
 }
@@ -1186,13 +1228,13 @@ func paintSpanRange(p painter, spans []wrapSpan, lo, hi int, face fontFace, line
 		if a >= c {
 			continue
 		}
-		x0 := sp.xInSpan(a, face, lineH, tx)
-		x1 := sp.xInSpan(c, face, lineH, tx)
 		y := ty + float32(i)*lh
-		if underline {
-			p.Line(x0, y+lh-1, x1, y+lh-1, Color{R: 30, G: 30, B: 30, A: 255})
-		} else {
-			p.FillRect(x0, y, x1-x0, lh, 0, Color{R: 59, G: 130, B: 246, A: 90})
+		for _, span := range bidiRangeX(sp.text, a-sp.start, c-sp.start, face, lineH, tx) {
+			if underline {
+				p.Line(span[0], y+lh-1, span[1], y+lh-1, Color{R: 30, G: 30, B: 30, A: 255})
+			} else {
+				p.FillRect(span[0], y, span[1]-span[0], lh, 0, Color{R: 59, G: 130, B: 246, A: 90})
+			}
 		}
 	}
 }
@@ -1215,25 +1257,7 @@ func (rn *renderNode) caretFromX(px float32) int {
 		return 0
 	}
 	padL := rn.yn.LayoutPadding(yoga.EdgeLeft)
-	rel := px - (rn.bounds.X + padL)
-	if rel <= 0 {
-		return 0
-	}
-	prevIdx, prevW := 0, float32(0)
-	for i := 1; i <= len(rn.value); i++ {
-		if i < len(rn.value) && !utf8.RuneStart(rn.value[i]) {
-			continue
-		}
-		w := measureW(rn.value[:i], rn.face, rn.lineH)
-		if w >= rel {
-			if w-rel < rel-prevW {
-				return i
-			}
-			return prevIdx
-		}
-		prevIdx, prevW = i, w
-	}
-	return len(rn.value)
+	return bidiOffset(rn.value, px-(rn.bounds.X+padL), rn.face, rn.lineH)
 }
 
 // caretFromPoint 把绝对屏幕点映射到多行输入内的字节偏移。
@@ -1273,10 +1297,7 @@ func (rn *renderNode) caretRect(caret int) image.Rectangle {
 			}
 		}
 	} else {
-		cx = b.X + padL
-		if rn.face != nil && caret > 0 {
-			cx += measureW(rn.value[:caret], rn.face, rn.lineH)
-		}
+		cx = bidiCaretX(rn.value, caret, rn.face, rn.lineH, b.X+padL)
 		cy = b.Y + (b.H-lineH)/2
 	}
 	return image.Rect(int(cx), int(cy), int(cx)+1, int(cy+lineH))
@@ -1290,8 +1311,16 @@ func (rn *renderNode) caretAt(px, py float32) int {
 	return rn.caretFromX(px)
 }
 
+func (rn *renderNode) ownerGame() *game {
+	if rn == nil || rn.owner == nil {
+		return nil
+	}
+	return rn.owner.game
+}
+
 func isFocused(rn *renderNode) bool {
-	return activeGame != nil && activeGame.focusedFiber != nil && activeGame.focusedFiber.rnode == rn && !rn.isDisabled()
+	g := rn.ownerGame()
+	return g != nil && g.focusedFiber != nil && g.focusedFiber.rnode == rn && !rn.isDisabled()
 }
 
 // hitTest 返回命中点最深、且带 onClick 的处理器（兼容旧调用）。

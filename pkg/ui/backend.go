@@ -51,19 +51,45 @@ type Backend interface {
 	Run(root *Node, cfg WindowConfig)
 }
 
+// BackendCapabilities reports complete feature support, not merely the presence
+// of a primitive that may degrade or ignore the feature.
+type BackendCapabilities struct {
+	SVGPaths        bool
+	RoundedClipping bool
+	LayerTransforms bool
+	ExactProjection bool
+	Accessibility   bool
+}
+
+// BackendCapabilityProvider is an optional backend extension.
+type BackendCapabilityProvider interface {
+	Capabilities() BackendCapabilities
+}
+
 // SetBackend 设置后续 Run 使用的渲染后端。须在启动窗口前调用，不是并发切换 API。
 func SetBackend(backend Backend) {
 	if backend == nil {
 		panic("ui: cannot use a nil render backend")
 	}
+	activeBackend = backend
 	backendNewFont = backend.NewFont
 	backendNewBitmap = backend.NewBitmap
 	backendNewVecPath = backend.NewVecPath
 	backendRun = backend.Run
 }
 
+// CurrentBackendCapabilities returns the active backend's declared capabilities.
+// Backends without BackendCapabilityProvider conservatively report no advanced features.
+func CurrentBackendCapabilities() BackendCapabilities {
+	if provider, ok := activeBackend.(BackendCapabilityProvider); ok {
+		return provider.Capabilities()
+	}
+	return BackendCapabilities{}
+}
+
 // 后端构造钩子：由当前激活的渲染后端登记。引擎在需要新建句柄/启动窗口时经此调用。
 var (
+	activeBackend     Backend
 	backendNewFont    func(px float32, weight int, italic bool) fontFace
 	backendNewBitmap  func(img image.Image) bitmap
 	backendNewVecPath func(svgPath string, scale float32) vecPath
@@ -72,11 +98,19 @@ var (
 
 // BackendRuntime 向后端暴露引擎帧驱动能力，而不公开 Fiber/renderNode 的内部结构。
 // 后端在自己的窗口循环中依次调用 Resize、Frame 和 Paint，退出时调用 Close。
+// Close 是终态：关闭后所有帧驱动方法保持惰性，复用界面必须创建新实例。
+// 每个实例保存独立输入源和设备缩放，Frame/Paint 可交错驱动多个实例，但不支持并发调用。
 type BackendRuntime struct {
-	g             *game
-	previousInput InputSource
-	closed        bool
+	g               *game
+	input           InputSource
+	scale           float32
+	previousInput   InputSource
+	previousScale   float32
+	previousRuntime *BackendRuntime
+	closed          bool
 }
+
+var activeBackendRuntime *BackendRuntime
 
 // NewBackendRuntime 创建一棵由外部后端驱动的 UI 运行时。input 不得为 nil。
 func NewBackendRuntime(root *Node, cfg WindowConfig, input InputSource) *BackendRuntime {
@@ -92,9 +126,28 @@ func NewBackendRuntime(root *Node, cfg WindowConfig, input InputSource) *Backend
 	}
 	enableYogaLayoutDebug()
 	g := &game{root: root, w: cfg.w, h: cfg.h}
+	previousScale := uiScale
 	activeGame = g
+	uiScale = 1
 	previous := setGlobalInput(input)
-	return &BackendRuntime{g: g, previousInput: previous}
+	runtime := &BackendRuntime{
+		g: g, input: input, scale: 1,
+		previousInput: previous, previousScale: previousScale,
+		previousRuntime: activeBackendRuntime,
+	}
+	activeBackendRuntime = runtime
+	return runtime
+}
+
+func (r *BackendRuntime) activate() func() {
+	previousGame, previousInput, previousScale := activeGame, input, uiScale
+	previousRuntime := activeBackendRuntime
+	activeGame, input, uiScale = r.g, r.input, r.scale
+	activeBackendRuntime = r
+	return func() {
+		activeGame, input, uiScale = previousGame, previousInput, previousScale
+		activeBackendRuntime = previousRuntime
+	}
 }
 
 // Resize 更新窗口的物理像素尺寸和设备缩放。scale 小于 1 时按 1 处理。
@@ -105,8 +158,11 @@ func (r *BackendRuntime) Resize(w, h int, scale float32) {
 	if scale < 1 {
 		scale = 1
 	}
-	if w > 0 && (w != r.g.w || h != r.g.h || scale != uiScale) {
-		uiScale = scale
+	if w > 0 && (w != r.g.w || h != r.g.h || scale != r.scale) {
+		r.scale = scale
+		if activeGame == r.g {
+			uiScale = scale
+		}
 		r.g.w, r.g.h = w, h
 		r.g.needsLayout = true
 	}
@@ -117,6 +173,7 @@ func (r *BackendRuntime) Frame(dtMs float32) bool {
 	if r == nil || r.closed {
 		return false
 	}
+	defer r.activate()()
 	return gioFrame(r.g, dtMs)
 }
 
@@ -134,6 +191,7 @@ func (r *BackendRuntime) Paint(p Painter) {
 	if r == nil || r.closed {
 		return
 	}
+	defer r.activate()()
 	if r.g.rootRN != nil {
 		paint(p, r.g.rootRN)
 	}
@@ -173,15 +231,39 @@ func (r *BackendRuntime) PointerInteractive(x, y float32) bool {
 	return false
 }
 
-// Close 幂等卸载组件、释放订阅，并恢复此前输入源。
+// Close 幂等卸载组件、释放订阅，并恢复最近的有效后端或此前输入源。
 func (r *BackendRuntime) Close() {
 	if r == nil || r.closed {
 		return
 	}
 	r.closed = true
-	wasActive := activeGame == r.g
+	wasActive := activeBackendRuntime == r
+	wasActiveGame := activeGame == r.g
 	r.g.dispose()
-	if wasActive {
-		input = r.previousInput
+	if !wasActive {
+		return
+	}
+
+	previous := r.previousRuntime
+	for previous != nil && previous.closed {
+		previous = previous.previousRuntime
+	}
+	if previous != nil {
+		input, uiScale = previous.input, previous.scale
+		activeBackendRuntime = previous
+		if wasActiveGame {
+			activeGame = previous.g
+		}
+		return
+	}
+
+	fallback := r
+	for fallback.previousRuntime != nil {
+		fallback = fallback.previousRuntime
+	}
+	input, uiScale = fallback.previousInput, fallback.previousScale
+	activeBackendRuntime = nil
+	if wasActiveGame {
+		activeGame = nil
 	}
 }

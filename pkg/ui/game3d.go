@@ -86,16 +86,19 @@ const (
 	Game3DPoint
 	Game3DDirectional
 	Game3DNative
+	Game3DPlugin
 )
 
 // GameNode3D is an immutable scene declaration. Native is an advanced escape
 // hatch for backend-specific components; ordinary game code uses the Props above.
 type GameNode3D struct {
-	Kind   Game3DNodeKind
-	Mesh   *Mesh3DProps
-	Camera *Camera3DProps
-	Light  *Light3DProps
-	Native any
+	Kind          Game3DNodeKind
+	Mesh          *Mesh3DProps
+	Camera        *Camera3DProps
+	Light         *Light3DProps
+	Native        any
+	PluginName    string
+	PluginVersion int
 }
 
 func Mesh3D(props Mesh3DProps) *GameNode3D {
@@ -120,6 +123,21 @@ func DirectionalLight3D(props Light3DProps) *GameNode3D {
 
 func Native3D(component any) *GameNode3D {
 	return &GameNode3D{Kind: Game3DNative, Native: component}
+}
+
+// Plugin3D declares an unversioned backend extension resolved by name through a
+// Scene3DPluginRegistry. The payload is interpreted only by that plugin.
+func Plugin3D(name string, payload any) *GameNode3D {
+	return &GameNode3D{Kind: Game3DPlugin, PluginName: name, Native: payload}
+}
+
+// Plugin3DVersion declares an extension that requires the same positive adapter
+// version at build time. Versioned nodes do not fall back to unversioned plugins.
+func Plugin3DVersion(name string, version int, payload any) *GameNode3D {
+	if version <= 0 {
+		panic("ui: 3D plugin version must be positive")
+	}
+	return &GameNode3D{Kind: Game3DPlugin, PluginName: name, PluginVersion: version, Native: payload}
 }
 
 // NativeScene3D groups declarations for a native backend scene.

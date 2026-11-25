@@ -19,16 +19,19 @@ import (
 var gioTag = new(int)
 
 type gioInput struct {
-	curX, curY     float32 // 光标位置，原样保留 gio 给的亚像素精度
-	wheelX, wheelY float32
-	btnDown        [2]bool // btnLeft/btnRight 当前按住
-	btnJust        [2]bool // 本帧刚按下
-	keyDown        [inKeyCount]bool
-	keyJust        [inKeyCount]bool
-	mods           key.Modifiers
-	typed          []rune
-	focused        bool       // gio 是否已把键盘焦点给了 gioTag
-	snippetReq     *key.Range // 本帧输入法索要的上下文范围（SnippetEvent）
+	tag               event.Tag
+	clip              *gioClipboardState
+	accessibilityTags []event.Tag
+	curX, curY        float32 // 光标位置，原样保留 gio 给的亚像素精度
+	wheelX, wheelY    float32
+	btnDown           [2]bool // btnLeft/btnRight 当前按住
+	btnJust           [2]bool // 本帧刚按下
+	keyDown           [inKeyCount]bool
+	keyJust           [inKeyCount]bool
+	mods              key.Modifiers
+	typed             []rune
+	focused           bool       // gio 是否已把键盘焦点给了 gioTag
+	snippetReq        *key.Range // 本帧输入法索要的上下文范围（SnippetEvent）
 
 	// 输入法编辑：EditEvent 是「替换某 rune 区间」，不是「在光标处追加」。
 	edits      []gioEdit  // 本帧的替换（组字更新与提交都走这里）
@@ -42,7 +45,7 @@ type gioEdit struct {
 	text string
 }
 
-var gioIn = &gioInput{}
+var gioIn = &gioInput{tag: gioTag, clip: &gioClip}
 
 func (g *gioInput) Cursor() (float32, float32) { return g.curX, g.curY }
 
@@ -97,25 +100,30 @@ var gioKeyName = map[key.Name]inKey{
 //
 // 少了它，就会既打不了字，又陷入「每帧请求焦点→每帧被撤销」的抖动。
 // 注意 key.Filter 不会设置 focusable，两者都要注册。
-func gioInputFilters() []event.Filter {
+func (g *gioInput) filters() []event.Filter {
 	sc := pointer.ScrollRange{Min: -100000, Max: 100000}
 	navOpt := key.ModShift | key.ModShortcut | key.ModShortcutAlt
 	fs := []event.Filter{
-		pointer.Filter{Target: gioTag, Kinds: pointer.Press | pointer.Release | pointer.Move | pointer.Drag | pointer.Scroll, ScrollX: sc, ScrollY: sc},
-		key.FocusFilter{Target: gioTag},
+		pointer.Filter{Target: g.tag, Kinds: pointer.Press | pointer.Release | pointer.Move | pointer.Drag | pointer.Scroll, ScrollX: sc, ScrollY: sc},
+		key.FocusFilter{Target: g.tag},
+	}
+	for _, tag := range g.accessibilityTags {
+		if tag != nil && tag != g.tag {
+			fs = append(fs, pointer.Filter{Target: tag, Kinds: pointer.Press | pointer.Release})
+		}
 	}
 	for _, n := range []key.Name{
 		key.NameTab, key.NameEscape, key.NameReturn, key.NameEnter,
 		key.NameLeftArrow, key.NameRightArrow, key.NameUpArrow, key.NameDownArrow,
 		key.NameDeleteBackward, key.NameDeleteForward, key.NameHome, key.NameEnd, key.NameSpace, "F12",
 	} {
-		fs = append(fs, key.Filter{Focus: gioTag, Name: n, Optional: navOpt})
+		fs = append(fs, key.Filter{Focus: g.tag, Name: n, Optional: navOpt})
 	}
 	for _, n := range []key.Name{"A", "C", "X", "V"} { // 选中/复制/剪切/粘贴（需快捷修饰键）
-		fs = append(fs, key.Filter{Focus: gioTag, Name: n, Required: key.ModShortcut, Optional: key.ModShift})
+		fs = append(fs, key.Filter{Focus: g.tag, Name: n, Required: key.ModShortcut, Optional: key.ModShift})
 	}
 	// 系统剪贴板读回的数据（Ctrl+V 发出 ReadCmd 后经此送达）。
-	fs = append(fs, transfer.TargetFilter{Target: gioTag, Type: gioClipMime})
+	fs = append(fs, transfer.TargetFilter{Target: g.tag, Type: gioClipMime})
 	return fs
 }
 
@@ -124,7 +132,7 @@ func (g *gioInput) process(src interface {
 	Event(...event.Filter) (event.Event, bool)
 }) bool {
 	changed := false
-	filters := gioInputFilters()
+	filters := g.filters()
 	for {
 		ev, ok := src.Event(filters...)
 		if !ok {
@@ -161,7 +169,7 @@ func (g *gioInput) process(src interface {
 			case !ok:
 			case k == keyV && ev.State == key.Press && ev.Modifiers.Contain(key.ModShortcut):
 				// 粘贴由后端接管：系统剪贴板是异步读的，让引擎同步读缓存会粘到过期内容。
-				gioClip.pasteRequested = true
+				g.clip.pasteRequested = true
 			case ev.State == key.Press:
 				if !g.keyDown[k] {
 					g.keyJust[k] = true
@@ -192,7 +200,7 @@ func (g *gioInput) process(src interface {
 					rc.Close()
 					if err == nil {
 						s := string(b)
-						gioClip.pastedText = &s
+						g.clip.pastedText = &s
 					}
 				}
 			}
@@ -203,20 +211,19 @@ func (g *gioInput) process(src interface {
 
 // gioCursor 按光标下的元素挑选系统指针形状：文本框用 I 型、可点击元素用手型。
 // 从命中节点向上冒泡，最内层的语义优先（输入框套在可点击容器里时应显示 I 型）。
-func gioCursor(g *game) pointer.Cursor {
+func gioCursor(g *game, in *gioInput) pointer.Cursor {
 	if g.rootRN == nil {
 		return pointer.CursorDefault
 	}
-	x, y := gioIn.Cursor()
-	for c := g.interactiveHit(x, y); c != nil; c = c.parent {
-		switch {
-		case c.kind == rnInput:
-			return pointer.CursorText
-		case c.onClick != nil:
-			return pointer.CursorPointer
-		}
+	x, y := in.Cursor()
+	switch (&BackendRuntime{g: g}).PointerCursor(x, y) {
+	case CursorText:
+		return pointer.CursorText
+	case CursorPointer:
+		return pointer.CursorPointer
+	default:
+		return pointer.CursorDefault
 	}
-	return pointer.CursorDefault
 }
 
 func (g *gioInput) setButtons(b pointer.Buttons) {

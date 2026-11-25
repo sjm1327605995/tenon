@@ -2379,11 +2379,6 @@ func calculateLayoutInternal(
 		layout.setMeasuredDimension(DimensionWidth, cachedResults.computedWidth)
 		layout.setMeasuredDimension(DimensionHeight, cachedResults.computedHeight)
 
-		if performLayout {
-			layoutMarkerData.cachedLayouts += 1
-		} else {
-			layoutMarkerData.cachedMeasures += 1
-		}
 		if gPrintChanges && gPrintSkips {
 			vlog(nil, node, LogLevelVerbose, "%s%d.{[skipped] ", spacerWithLength(depth), depth)
 			node.print()

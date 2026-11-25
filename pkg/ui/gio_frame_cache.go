@@ -34,6 +34,7 @@ func (c *gioFrameCache) Add(g *game, ops *op.Ops, version uint64) {
 	gpaint.ColorOp{Color: nrgba(Color{247, 248, 250, 255})}.Add(cachedOps)
 	gpaint.PaintOp{}.Add(cachedOps)
 	painter := newGioPainter(cachedOps, g.w, g.h)
+	g.inputTags = painter.accessibilityTags
 	if g.rootRN != nil {
 		paint(painter, g.rootRN)
 	}

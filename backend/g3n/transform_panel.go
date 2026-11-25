@@ -17,6 +17,7 @@ type transformedPanel struct {
 func withTransforms(panel gui.IPanel) *transformedPanel {
 	wrapped := &transformedPanel{IPanel: panel}
 	wrapped.uniModel.Init("ModelMatrix")
+	panel.GetGraphic().SetIGraphic(wrapped)
 	return wrapped
 }
 

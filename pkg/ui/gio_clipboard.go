@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	"gioui.org/io/clipboard"
+	"gioui.org/io/event"
 	gioinput "gioui.org/io/input"
+	"sync"
 )
 
 // ---- gio 后端：系统剪贴板 ----
@@ -25,18 +27,47 @@ import (
 const gioClipMime = "application/text"
 
 type gioClipboardState struct {
+	tag            event.Tag
 	pendingWrite   *string // 待写入系统剪贴板的文本（复制/剪切）
 	pasteRequested bool    // 本帧按下了 Ctrl+V，待发 ReadCmd
 	pastedText     *string // 系统剪贴板回来的文本，待落到输入框
 }
 
-var gioClip gioClipboardState
+var gioClip = gioClipboardState{tag: gioTag}
+
+var gioClipboardStates = struct {
+	sync.Mutex
+	items map[*game]*gioClipboardState
+}{items: make(map[*game]*gioClipboardState)}
+
+func registerGioClipboard(g *game, clipboard *gioClipboardState) {
+	gioClipboardStates.Lock()
+	gioClipboardStates.items[g] = clipboard
+	gioClipboardStates.Unlock()
+}
+
+func unregisterGioClipboard(g *game) {
+	gioClipboardStates.Lock()
+	delete(gioClipboardStates.items, g)
+	gioClipboardStates.Unlock()
+}
+
+func gioClipboardFor(g *game) *gioClipboardState {
+	gioClipboardStates.Lock()
+	clipboard := gioClipboardStates.items[g]
+	gioClipboardStates.Unlock()
+	return clipboard
+}
 
 func init() {
 	// 复制/剪切：登记到默认 provider 的后端钩子上，排队写入系统剪贴板。
 	backendWriteClipboard = func(s string) {
 		t := s
-		gioClip.pendingWrite = &t
+		clipboard := gioClipboardFor(activeGame)
+		if clipboard == nil {
+			clipboard = &gioClip
+		}
+		clipboard.pendingWrite = &t
 		if backendWake != nil {
 			backendWake() // 可能发生在静止帧里，需要叫醒循环去执行 WriteCmd
 		}
@@ -54,7 +85,7 @@ func (c *gioClipboardState) flush(src gioinput.Source, g *game) {
 	}
 	if c.pasteRequested {
 		c.pasteRequested = false
-		src.Execute(clipboard.ReadCmd{Tag: gioTag})
+		src.Execute(clipboard.ReadCmd{Tag: c.tag})
 	}
 	if t := c.pastedText; t != nil {
 		c.pastedText = nil

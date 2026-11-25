@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/g3n/engine/core"
+	"github.com/g3n/engine/gui"
 	"github.com/sjm1327605995/tenon/pkg/ui"
 )
 
@@ -93,5 +94,16 @@ func TestApplyLayerScalesAndFadesPanels(t *testing.T) {
 	}
 	if got := panel.Color4().A; got != 0.5 {
 		t.Fatalf("opacity = %v, want 0.5", got)
+	}
+}
+
+func TestWithTransformsOwnsGraphicRenderSetup(t *testing.T) {
+	panel := withTransforms(gui.NewPanel(10, 10))
+	materials := panel.GetGraphic().Materials()
+	if len(materials) == 0 {
+		t.Fatal("transformed panel has no graphic material")
+	}
+	if owner := materials[0].IGraphic(); owner != panel {
+		t.Fatal("graphic material does not point to the transformed panel")
 	}
 }

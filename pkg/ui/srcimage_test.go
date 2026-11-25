@@ -101,3 +101,40 @@ func TestSrcImageKeyChangeSwapsBitmap(t *testing.T) {
 		t.Errorf("key 从 v1 换到 v2 后位图宽 = %d, 期望 16 —— 同一节点没有换图", w)
 	}
 }
+
+func TestSrcImageCanBeClearedAndReadded(t *testing.T) {
+	resetImageCache(t)
+	img := solidImage(4, 4, color.RGBA{0, 0, 255, 255})
+	app := func(_ struct{}) *Node {
+		phase, setPhase := UseState(0)
+		imageNode := Img()
+		switch phase {
+		case 0:
+			imageNode = Img(SrcImage("mem:clearable", img), Style(ImageBlur(1), ImageGrayscale(1)))
+		case 2:
+			imageNode = Img(SrcImage("mem:clearable", img))
+		}
+		return Div(Style(Width(100), Height(100)),
+			imageNode,
+			Button(Style(Width(40), Height(20)), Text("next"), OnClick(func() { setPhase((phase + 1) % 3) })),
+		)
+	}
+	h := Mount(Use(app, struct{}{}), 100, 100)
+	image := func() *renderNode { return h.Root().ByKind("image").rn }
+	if image().img == nil || image().imgBlur != 1 || image().imgGray != 1 {
+		t.Fatal("initial filtered image was not installed")
+	}
+
+	next := func() {
+		bounds := h.Root().ByText("next").Bounds()
+		h.ClickAt(bounds.X+bounds.W/2, bounds.Y+bounds.H/2)
+	}
+	next()
+	if image().img != nil || image().imgSrc != "" || image().imgBlur != 0 || image().imgGray != 0 {
+		t.Fatalf("empty source retained image state: src=%q blur=%v gray=%v img=%v", image().imgSrc, image().imgBlur, image().imgGray, image().img != nil)
+	}
+	next()
+	if image().img == nil || image().imgSrc != "mem:clearable" || image().imgBlur != 0 || image().imgGray != 0 {
+		t.Fatal("re-added image did not use its new unfiltered attributes")
+	}
+}

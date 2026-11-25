@@ -293,6 +293,16 @@ func (c *CameraComponent) Mount(ctx *SceneContext) error {
 	return nil
 }
 
+func (c *CameraComponent) Close() {
+	for _, unsubscribe := range c.unsubs {
+		unsubscribe()
+	}
+	c.unsubs = nil
+	c.spin = nil
+	c.node = nil
+	c.Native = nil
+}
+
 // LightProps configures ambient, point, or directional lighting.
 type LightProps struct {
 	Color     value.Value[Color]
@@ -351,4 +361,12 @@ func (c *LightComponent) Mount(ctx *SceneContext) error {
 	watch(&c.unsubs, c.props.Color, func(v Color) { native.SetColor(&v) })
 	watch(&c.unsubs, c.props.Intensity, native.SetIntensity)
 	return nil
+}
+
+func (c *LightComponent) Close() {
+	c.nodeComponent.Close()
+	if c.Native != nil {
+		c.Native.Dispose()
+		c.Native = nil
+	}
 }

@@ -30,7 +30,7 @@ func (g *Game) HandlePointer(event PointerEvent) {
 		if scene.root == nil || !scene.root.Visible() {
 			continue
 		}
-		for _, child := range scene.children {
+		for _, child := range scene.Components() {
 			if handler, ok := child.(PointerHandler); ok {
 				handler.HandlePointer(event)
 			}

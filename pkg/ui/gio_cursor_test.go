@@ -30,7 +30,7 @@ func TestCursorShapeFollowsElement(t *testing.T) {
 	}
 	for _, c := range cases {
 		gioIn.setCursor(c.x, c.y)
-		if got := gioCursor(g); got != c.want {
+		if got := gioCursor(g, gioIn); got != c.want {
 			t.Errorf("%s(%v,%v): cursor=%v want %v —— %s", c.name, c.x, c.y, got, c.want, c.reason)
 		}
 	}
@@ -45,7 +45,7 @@ func TestCursorInnermostWins(t *testing.T) {
 	}
 	h := Mount(Use(app, struct{}{}), 200, 100)
 	gioIn.setCursor(50, 25)
-	if got := gioCursor(h.g); got != pointer.CursorText {
+	if got := gioCursor(h.g, gioIn); got != pointer.CursorText {
 		t.Fatalf("cursor=%v want CursorText（输入框在可点击容器内，最内层应优先）", got)
 	}
 }

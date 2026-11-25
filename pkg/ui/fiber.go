@@ -10,6 +10,7 @@ type Fiber struct {
 
 	parent   *Fiber
 	children []*Fiber
+	game     *game
 	level    int
 
 	// component
@@ -53,10 +54,10 @@ type Fiber struct {
 func (f *Fiber) addCleanup(fn func()) { f.cleanups = append(f.cleanups, fn) }
 
 // 只有结构变化才需要重走 Fiber 树同步 Yoga 链接和收集 Portal。
-func markStructureDirty() {
-	if activeGame != nil {
-		activeGame.structureClean = false
-		activeGame.portalsClean = false
+func markStructureDirty(g *game) {
+	if g != nil {
+		g.structureClean = false
+		g.portalsClean = false
 	}
 }
 
@@ -109,8 +110,12 @@ func reconcile(parent, old *Fiber, n *Node) *Fiber {
 }
 
 func mountFiber(parent *Fiber, n *Node) *Fiber {
-	markStructureDirty()
-	f := &Fiber{typ: n.typ, key: n.key, parent: parent}
+	g := activeGame
+	if parent != nil {
+		g = parent.game
+	}
+	markStructureDirty(g)
+	f := &Fiber{typ: n.typ, key: n.key, parent: parent, game: g}
 	if parent != nil {
 		f.level = parent.level + 1
 	}
@@ -190,8 +195,8 @@ func updateFiber(f *Fiber, n *Node) {
 			subs := f.subscribers
 			f.subscribers = nil
 			for s := range subs {
-				if !s.unmounted && activeGame != nil {
-					activeGame.markDirty(s)
+				if !s.unmounted && s.game != nil {
+					s.game.markDirty(s)
 				}
 			}
 		}
@@ -235,8 +240,8 @@ func renderComponent(f *Fiber) {
 					panic(r) // 无边界可兜 -> 继续抛出
 				}
 				b.caughtErr = r
-				if activeGame != nil {
-					activeGame.markDirty(b)
+				if b.game != nil {
+					b.game.markDirty(b)
 				}
 			}
 		}()
@@ -254,7 +259,7 @@ func renderComponent(f *Fiber) {
 }
 
 func unmount(f *Fiber) {
-	markStructureDirty()
+	markStructureDirty(f.game)
 	f.unmounted = true
 	if f.renderContext != nil {
 		f.renderContext.cancel()
@@ -267,7 +272,7 @@ func unmount(f *Fiber) {
 		delete(p.subscribers, f)
 	}
 	f.providerSubs = nil
-	if g := activeGame; g != nil {
+	if g := f.game; g != nil {
 		delete(g.viewportReaders, f)
 		if g.focusedFiber == f {
 			g.focusedFiber = nil
@@ -351,11 +356,11 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 		return out
 	}
 
-	keyed := make(map[string]*Fiber)
+	keyed := make(map[string][]*Fiber)
 	var unkeyed []*Fiber
 	for _, c := range old {
 		if c.key != "" {
-			keyed[c.key] = c
+			keyed[c.key] = append(keyed[c.key], c)
 		} else {
 			unkeyed = append(unkeyed, c)
 		}
@@ -370,9 +375,20 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 		}
 		var match *Fiber
 		if nd.key != "" {
-			if m, ok := keyed[nd.key]; ok && sameType(m, nd) {
-				match = m
+			remaining := keyed[nd.key]
+			for len(remaining) > 0 {
+				candidate := remaining[0]
+				remaining = remaining[1:]
+				if sameType(candidate, nd) {
+					match = candidate
+					break
+				}
+				unmount(candidate)
+			}
+			if len(remaining) == 0 {
 				delete(keyed, nd.key)
+			} else {
+				keyed[nd.key] = remaining
 			}
 		} else if uidx < len(unkeyed) {
 			if sameType(unkeyed[uidx], nd) {
@@ -399,13 +415,15 @@ func reconcileList(parent *Fiber, old []*Fiber, nodes []*Node) []*Fiber {
 	}
 
 	if orderChanged || len(out) != len(old) {
-		markStructureDirty()
+		markStructureDirty(parent.game)
 	}
 	for _, c := range unkeyed[min(uidx, len(unkeyed)):] {
 		unmount(c)
 	}
-	for _, c := range keyed {
-		unmount(c)
+	for _, remaining := range keyed {
+		for _, c := range remaining {
+			unmount(c)
+		}
 	}
 	return out
 }
@@ -451,13 +469,13 @@ func collectPortals(f *Fiber, out *[]*Fiber) {
 	}
 }
 
-func attachRenderChild(parent, child *renderNode, index uint32) {
+func attachRenderChild(parent, child *renderNode, index uint32, g *game) {
 	child.parent = parent
 	child.index = index
 	child.level = parent.level + 1
 	parent.markInheritedDirty()
-	if activeGame != nil && child.level > activeGame.maxLevel {
-		activeGame.maxLevel = child.level
+	if g != nil && child.level > g.maxLevel {
+		g.maxLevel = child.level
 	}
 	parent.yn.InsertChild(child.yn, index)
 }
@@ -473,7 +491,7 @@ func relink(f *Fiber) {
 			f.rnode.yn.RemoveAllChildren()
 			f.rnode.children = kids
 			for i, k := range kids {
-				attachRenderChild(f.rnode, k, uint32(i))
+				attachRenderChild(f.rnode, k, uint32(i), f.game)
 			}
 		}
 	}

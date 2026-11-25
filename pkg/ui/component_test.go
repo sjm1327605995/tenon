@@ -66,7 +66,7 @@ func TestObjectContextCancelsBeforeCleanupAndIgnoresLateWork(t *testing.T) {
 	ctx.Post(func() { p.value = "late post" })
 	drainPosts()
 	if p.value != "mounted" {
-		t.Fatal("unmounted component executed a late mutation")
+		t.Fatalf("unmounted component executed a late mutation: %q", p.value)
 	}
 }
 

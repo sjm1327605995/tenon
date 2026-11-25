@@ -41,9 +41,15 @@ func main() { ui.Run(ui.View(Counter)) }
 
 `ui.Run(root *Node)` opens the window and drives the frame loop. Mount no-props functions with `View(...)`, or typed props with `Use(fn, props)`.
 
+`ui.RunWindows(rootA, rootB)` opens one Gio window per root and blocks until all windows close. Each window has independent input, IME, clipboard and runtime lifecycle. Frame submission remains serialized because component rendering is single-threaded; this API requires Gio and does not claim concurrent rendering.
+
+External backends drive `BackendRuntime` through `Resize`, `Frame` and `Paint`. Its `Close` is terminal: create a new instance for a later UI tree. This deliberately differs from the reactivatable `Scene3DRuntime`; see the [runtime lifecycle contract](../../docs/RUNTIME_LIFECYCLE.md).
+
 ---
 
 ## Components
+
+For application pages and components that need object fields or lifecycle state, prefer an object component. Use function components and Hooks for reusable components without object fields; struct declarations remain optional syntax.
 
 An object component embeds `Component`, implements `Render() NodeSource`, and mounts through `Render(instance)`. Its `Context()` provides theme, viewport, effects, and UI scheduling. The context is available after mounting and canceled on unmount; see the [complete example](../../example/component).
 
@@ -68,7 +74,7 @@ ui.Memo(Card, CardProps{Title: "Hello", OnPick: pick})  // bails out if props ar
 | `Div`, `Span`, `Button` | boxes; `Button` is focusable/clickable |
 | `Text(s, ...StyleOpt)` | text node; wraps when width-constrained; inherits color/size |
 | `Input(...)` | controlled text field: `Value`, `OnChange`, `Placeholder` |
-| `Img(Src(path))` | image (PNG/JPEG), cached |
+| `Img(Src(path))` | image (PNG/JPEG/WebP), cached; `SrcImage(key, img)` accepts in-memory images |
 | `ScrollView(...)` | clips overflow, mouse-wheel scroll, scrollbar |
 | `Fragment(...)` | groups children without a box |
 | `Portal(...)` | renders to a top-level overlay (modals, tooltips) |
@@ -109,13 +115,15 @@ Prefer struct literals? The optional [`pkg/decl`](../decl/README.md) provides `C
 - **Size**: `Width`, `Height`, `MinWidth/Height`, `MaxWidth/Height`, `WidthPct`/`HeightPct` (% of parent/viewport), `Fill` (100%×100%, window-adaptive)
 - **Spacing**: `Padding(v)`, `PaddingXY(h,v)`, `Margin`, `MarginXY`, `Gap`
 - **Flex**: `Row`, `Column`, `Grow`, `Shrink`, `ItemsStart/Center/End`, `JustifyStart/Center/End/Between`
-- **Appearance**: `Bg(Color)`, `Radius`, `Border(w, Color)`, `Opacity`, `Clip`
+- **Appearance**: `Bg(Color)`, `LinearGradient(from,to,angle)`, `RadialGradient(from,to)`, `ImageBlur(radius)`, `ImageGrayscale(amount)`, `Radius`, `Border(w, Color)`, `Opacity`, `Clip`
 - **Position**: `Absolute`, `Top/Right/Bottom/Left`
 - **Transform** (around center): `Scale`, `Rotate(deg)`, `TranslateXY`
 - **Text** (inherited by descendants): `TextColor(Color)`, `FontSize`, `FontWeight(int)` / `Bold` / `Semibold` / `Medium`, `Italic`. Only one face ships (OPPOSans Medium), so bold and italic are **synthesized** — bold by stroking the glyph outline, italic by shearing it. That makes weight effectively binary: `Semibold` (600) and above look the same, and 400/500 look the same.
 - **Animation**: `Animated` (FLIP — slides to new position when its layout moves)
 
 Colors: `Hex("#rrggbb"|"#rrggbbaa")`, `Color{R,G,B,A}`, `c.Alpha(f)`, plus `White/Black/Red/Green/Blue/Gray/...`.
+
+`ImageBlur(radius)` applies a two-pass box blur to an `Img`; non-positive values disable it. `ImageGrayscale(amount)` blends toward Rec.709 luminance over `[0,1]` and preserves alpha. Original and filtered variants occupy separate LRU entries keyed by source, blur radius and grayscale amount. File/network images are decoded and processed on a worker, and stale asynchronous results cannot replace newer filter parameters.
 
 ## Hooks
 
@@ -127,6 +135,10 @@ v := ui.UseMemo(func() T { ... }, deps...)                 // memoized value
 cb := ui.UseCallback(fn, deps...)                          // memoized callback
 ref := ui.UseRef(initial)                                  // stable *T across renders
 ```
+
+Call Hooks unconditionally in the same order on every render, not inside branches or loops. Give stateful list rows unique, stable keys; duplicate keys are cleaned up safely but do not provide meaningful reorder identity. State, reducer, memo and store selections preserve nil interface values. Setters and dispatch belong to the runtime that mounted the component and ignore updates after unmount.
+
+UI state is confined to the UI thread. Schedule background changes with `ui.Post` or an object component's `Context().Post`; do not mutate Hook or Store state directly from worker goroutines.
 
 Setters/dispatch return the same function value across renders. Go function values are not comparable, though: `Memo` conservatively treats non-nil function props as changed, and effect dependency comparison does the same. Don't rely on callbacks to suppress memoized renders or effect reruns.
 
@@ -162,11 +174,21 @@ Easings: `Linear`, `EaseIn`, `EaseOut`, `EaseInOut`. Layout (FLIP) animation is 
 
 Click, hover, drag, wheel, and keyboard are all **transform-aware** (scaled/rotated/translated elements are hit at their visual position).
 
-Keyboard: **Tab/Shift-Tab** cycles focus (inputs + clickable elements), **Enter/Space** activates the focused control, **Esc** blurs; the focused element shows a ring. Clicking button text or an icon focuses its control. Keyboard and programmatic focus automatically scroll the target into view, including nested scroll areas and Portal overlays. Tab into an input places the caret at the end without selecting its existing value.
+Keyboard: **Tab/Shift-Tab** cycles focus (inputs + clickable elements), **Enter/Space** activates the focused control, **Esc** blurs; the focused element shows a ring. `ui.Focusable(false)` excludes pointer-only overlay wrappers from keyboard focus without changing click behavior. Clicking button text or an icon focuses its control. Keyboard and programmatic focus automatically scroll the target into view, including nested scroll areas and Portal overlays. Tab into an input places the caret at the end without selecting its existing value.
 
 `ui.Disabled(true)` prevents focus, editing, activation, and dragging on an element and its rendered descendants. Disabled controls still occupy space and block clicks from reaching underlying or enclosing controls. Disabling a focused or pressed control clears its interaction state; external value or Signal updates still render. A surrounding Tooltip can still respond to hover. Apply the desired disabled appearance with `Style`; `pkg/shadcn` controls already apply reduced opacity.
 
 Text inputs support **selection** (Shift+arrows/Home/End, drag, Ctrl+A) and **cut/copy/paste** (Ctrl+X/C/V) with a rendered highlight. The clipboard is in-app by default; plug the OS clipboard via `ui.SetClipboardProvider(get, set)`.
+
+Plain text and single/multiline inputs use `x/text/unicode/bidi` for mixed-direction visual runs. Logical UTF-8 offsets drive editing, while the same mapping positions visual text, caret hit-testing and per-run selection rectangles. RichText records logical byte ranges for every styled segment, then renders those segments in visual order without losing run styles or baseline alignment. Extended Arabic/Hebrew platform workflows remain open, and glyph coverage depends on the selected font.
+
+## Accessibility
+
+Gio emits basic semantic nodes for static text, clickable buttons and text inputs. Labels come from text content or input placeholders; inputs also expose their current value and all semantic controls include enabled state. Use `AccessibilityLabel("Close")` when an icon-only or custom control needs an explicit accessible name.
+
+`AccessibilityRoleOf` supports checkbox, switch and radio-button roles, while `AccessibilitySelected` reports their state. shadcn Checkbox, Switch and RadioGroup provide these semantics automatically, including disabled controls without click handlers. Tabs and ToggleGroup use radio-button semantics, while Toggle uses checkbox semantics. Custom composite controls can use the same attributes.
+
+`Harness.AccessibilitySnapshot()` and `BackendRuntime.AccessibilitySnapshot()` return the same backend-neutral tree for tests and alternative backends. Nodes include role, label, value, enabled/focused/selected state, physical bounds and parent index. G3N does not currently emit platform semantics. This is a foundation, not complete screen-reader support for every composite shadcn widget or platform workflow.
 
 ## Component kit
 
@@ -221,6 +243,8 @@ Run with `go run ./example/<name>`:
 | `accordion` | shadcn-style docs site with interactive previews and light/dark themes |
 | `card3d` | shared-camera pseudo-3D scene and projected images |
 | `component` | object components, lifecycle context, and value binding |
+| `gradient` | gradients, image blur and grayscale |
+| `plugin` | backend-neutral versioned plugin validation and lifecycle |
 | `router` | stack navigation with push, pop, and replace |
 | `simple` | compact fluent syntax, controlled input, and lists |
 | `struct` | struct declarations and automatic component conversion |
@@ -242,7 +266,7 @@ if !h.Root().ByText("1").Exists() {   // re-query after state changes the tree
 `Mount` returns a `*Harness`; `Root()` (and `Overlays()` for `Portal` content) return a `*Query` you traverse and drive:
 
 - **Find** — `ByText`, `AllByText`, `ByKind`, `ByPlaceholder`, `Clickables`, or `Find`/`FindAll(pred)`. A miss returns an empty `Query`; read/action methods on it are safe no-ops, so chains never panic (guard with `Exists()`).
-- **Read** — `Text`, `AllText`, `Value`, `Placeholder`, `Kind`, `Bounds`, `Focusable`, `Clickable`, `IsFocused`, `Children`.
+- **Read** — `Text`, `AllText`, `Value`, `Placeholder`, `Kind`, `Bounds`, `VisualBounds` (transforms/projection included), `ScrollOffset`, `Focusable`, `Clickable`, `IsFocused`, `Children`.
 - **Drive a node** (each settles the tree) — `Click`, `Hover(bool)`, `Press(bool)`, `Drag(dx,dy)`, `ScrollBy(dy)`, `Focus().Type("…")`, `Backspace(n)`, `Clear`, `SetValue`.
 - **Drive the app** — `Harness.ClickAt(x,y)`; `MoveTo(x,y)` drives real hit-tested hover enter/leave events, including across Portal boundaries. Keyboard: `Tab`/`ShiftTab` (returns the newly `Focused()` node), `Enter` (activate focused), `Escape` (topmost `UseEscape` or clear focus); `Resize`; and `Step(dtMs)` to advance `UseTween`/`UseTransition`/`UseElapsed`. `Overlays()` returns `Portal` content (dialogs, popovers, tooltips) for querying and driving. Components that read `Viewport()` during rendering automatically rerender on window resize.
 
@@ -254,4 +278,4 @@ if !h.Root().ByText("1").Exists() {   // re-query after state changes the tree
 - **Crisp edges**: Gio rasterizes vector paths on the GPU with built-in antialiasing, so rounded corners, circles, and borders are smooth at any scale — there is no supersampling knob to tune. Author everything in logical pixels; the engine scales layout, fonts, and pointer deltas by the display's density.
 - Rendering runs on Gio's single-threaded frame loop. Call state setters from callbacks/effects (the render goroutine). **From other goroutines** (network callbacks, timers) wrap updates in `ui.Post(func(){ ... })` — it queues the closure to run on the render goroutine before the next frame, so `setState` inside it is safe.
 - Per-node `Opacity` on a container becomes a **group** opacity (composited via an offscreen layer); transforms also use a layer.
-- Not yet implemented: horizontal scroll; loading additional font families at runtime (one CJK face is embedded; see the note on synthesized bold/italic above); drag-and-drop drop targets; an accessibility tree; multi-window.
+- Not yet implemented: horizontal scroll; loading additional font families at runtime (one CJK face is embedded; see the note on synthesized bold/italic above); drag-and-drop drop targets. Accessibility is foundational rather than complete screen-reader support, and multi-window is currently Gio-only.
