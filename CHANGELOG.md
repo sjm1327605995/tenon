@@ -63,6 +63,7 @@ All notable changes to Tenon are documented here. The project is pre-1.0; public
 - Added curated Yoga 3.2.1 upstream fixtures.
 - Added external consumer, hot-reload, lifecycle, accessibility, BiDi and real Gio window tests.
 - Added an external versioned-plugin consumer that executes payload validation and close/reactivate lifecycle checks in the release script; equivalent CI coverage is configured.
+- Regenerated hot-reload symbols and added interpreted execution coverage for SVG parsing, icons, image blur and grayscale.
 - Completed the Phase 6 performance baseline with a full documented UI/Yoga benchmark run, lifecycle cleanup and memory-trend verification.
 - Completed the Phase 4 local rendering/text/platform baseline, including shared Gio/G3N UI parity and native button, Tab-focus, selection and Chinese-input smoke.
 - Configured Linux, Windows, macOS and separate G3N CI jobs, including gradient/image-filter and tilted 3D-card window captures and artifacts; see `docs/PLATFORM_SUPPORT.md` for executed versus configured checks. Remote Ubuntu build-test/race passed at `f30269f`, while current jobs still require a new run.
