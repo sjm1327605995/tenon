@@ -651,6 +651,7 @@ ui: func View(fn func() *Node) *Node
 ui: func ViewSource[V NodeSource](fn func() V) *Node
 ui: func Viewport() Rect
 ui: func VirtualList(p VirtualListProps) *Node
+ui: func WarpImageToQuad(source image.Image, quad [4]Point) (image.Image, Rect)
 ui: func Width(v float32) StyleOpt
 ui: func WidthPct(v float32) StyleOpt
 ui: func WindowFullscreen(on bool)

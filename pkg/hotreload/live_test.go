@@ -155,10 +155,15 @@ func View() *ui.Node {
 	if s.calls == 0 {
 		return ui.Text("missing")
 	}
+	warped, _ := ui.WarpImageToQuad(image.NewNRGBA(image.Rect(0, 0, 1, 1)),
+		[4]ui.Point{{X: 0, Y: 0}, {X: 10, Y: 0}, {X: 0, Y: 10}, {X: 10, Y: 10}})
+	if warped == nil {
+		return ui.Text("missing")
+	}
 	return ui.VStack(8,
 		ui.Text("recent"),
 		ui.Icon(ui.IconCheck, 16),
-		ui.Img(ui.SrcImage("hot-recent", image.NewNRGBA(image.Rect(0, 0, 1, 1))),
+		ui.Img(ui.SrcImage("hot-recent", warped),
 			ui.Style(ui.ImageBlur(1), ui.ImageGrayscale(1))),
 	)
 }

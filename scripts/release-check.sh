@@ -65,10 +65,12 @@ if [ "$(go env CGO_ENABLED)" = "1" ]; then
                 run env TENON_SMOKE_FRAMES=3 xvfb-run -a go run ./example/plugin
                 run env TENON_SMOKE_FRAMES=12 xvfb-run -a go run ./example/lifecycle
                 run env TENON_UI_SMOKE=1 TENON_SMOKE_FRAMES=120 xvfb-run -a go run ./example/uiparity
+                run env TENON_SMOKE_FRAMES=3 xvfb-run -a go run ./example/projectedparity
             else
                 run env TENON_SMOKE_FRAMES=3 go run ./example/plugin
                 run env TENON_SMOKE_FRAMES=12 go run ./example/lifecycle
                 run env TENON_UI_SMOKE=1 TENON_SMOKE_FRAMES=120 go run ./example/uiparity
+                run env TENON_SMOKE_FRAMES=3 go run ./example/projectedparity
             fi
         fi
     )
@@ -110,6 +112,7 @@ if [ "${TENON_RELEASE_WINDOW:-auto}" != "0" ]; then
     capture_window catalog
     capture_window gradient
     capture_window card3d
+    capture_window projectedparity
 fi
 
 echo "Release checks finished. Any SKIP above is not 1.0 release evidence."

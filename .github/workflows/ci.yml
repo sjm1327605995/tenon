@@ -273,3 +273,17 @@ jobs:
           name: tenon-g3n-uiparity-linux
           path: ${{ runner.temp }}/tenon-g3n-uiparity.png
           if-no-files-found: error
+      - name: Real G3N projected-image smoke
+        working-directory: backend/g3n
+        env:
+          TENON_CAPTURE: ${{ runner.temp }}/tenon-g3n-projected.png
+          TENON_CAPTURE_FRAMES: "3"
+        run: |
+          xvfb-run -a go run ./example/projectedparity
+          test -s "$TENON_CAPTURE"
+      - name: Upload G3N projected-image screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-g3n-projected-linux
+          path: ${{ runner.temp }}/tenon-g3n-projected.png
+          if-no-files-found: error

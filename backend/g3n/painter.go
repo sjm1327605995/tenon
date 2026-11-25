@@ -207,14 +207,8 @@ func (p *painter) EndProjected() {
 	p.hasProjection = false
 }
 
-func (p *painter) ProjectedImage(img ui.Bitmap, quad [4]ui.Point, opacity float32, _ string, _ *ui.Rect, _ float32) {
-	minX, minY := quad[0].X, quad[0].Y
-	maxX, maxY := minX, minY
-	for _, point := range quad[1:] {
-		minX, minY = min(minX, point.X), min(minY, point.Y)
-		maxX, maxY = max(maxX, point.X), max(maxY, point.Y)
-	}
-	p.DrawImage(img, ui.Rect{X: minX, Y: minY, W: maxX - minX, H: maxY - minY}, opacity)
+func (p *painter) ProjectedImage(img ui.Bitmap, quad [4]ui.Point, opacity float32, cacheKey string, _ *ui.Rect, _ float32) {
+	p.projectedImage(img, quad, opacity, cacheKey)
 }
 
 var _ ui.Painter = (*painter)(nil)

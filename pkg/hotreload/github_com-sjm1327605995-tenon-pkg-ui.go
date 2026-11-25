@@ -254,6 +254,7 @@ func init() {
 		"View":                       reflect.ValueOf(ui.View),
 		"Viewport":                   reflect.ValueOf(ui.Viewport),
 		"VirtualList":                reflect.ValueOf(ui.VirtualList),
+		"WarpImageToQuad":            reflect.ValueOf(ui.WarpImageToQuad),
 		"White":                      reflect.ValueOf(&ui.White).Elem(),
 		"Width":                      reflect.ValueOf(ui.Width),
 		"WidthPct":                   reflect.ValueOf(ui.WidthPct),

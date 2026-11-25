@@ -27,7 +27,7 @@ This matrix distinguishes implementation, configured CI and executed verificatio
 | `SVGPaths` | Yes | Yes | Both backends share SVG parsing; G3N uses cached antialiased CPU rasterization |
 | `RoundedClipping` | Yes | No | G3N currently degrades or ignores advanced clipping |
 | `LayerTransforms` | Yes | Yes | G3N supports 2D scale, shared-center rotation, translation and group opacity with geometry tests |
-| `ExactProjection` | Yes | No | G3N pseudo-3D projection is not yet equivalent |
+| `ExactProjection` | Yes | Partial | Pure projected images share homography and cached warps with Gio; complete 3D layer projection is not equivalent |
 | `Accessibility` | Basic | No | Gio v0.10.1 exposes five classes—button, editor, checkbox, switch and radio—all mapped by Tenon, while static text uses labels rather than a class; shadcn Tabs, Toggle and ToggleGroup use interactive roles automatically, while richer composite classes and full screen-reader workflows remain incomplete |
 | Backend-neutral 3D declarations | N/A | Yes | Mesh, camera, light, material and transform props |
 | Versioned 3D plugins | N/A | Public API tested | Native plugin execution requires the G3N environment |

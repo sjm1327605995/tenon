@@ -10,7 +10,7 @@ Run the consolidated development check:
 make release-check
 ```
 
-The script checks formatting, root build/vet/tests, interaction bounds, independent quick-start and versioned-plugin consumers (including invalid payload rejection and close/remount execution), race when CGO is available, G3N when available, and real BiDi, multiwindow, interactive-catalog, gradient and tilted 3D-card captures when a display is available. `REQUIRE_WINDOW=1` also runs the native G3N plugin smoke when CGO/G3N are enabled. Every `SKIP` is explicitly not 1.0 release evidence.
+The script checks formatting, root build/vet/tests, interaction bounds, independent quick-start and versioned-plugin consumers (including invalid payload rejection and close/remount execution), race when CGO is available, G3N when available, and real BiDi, multiwindow, interactive-catalog, gradient, tilted 3D-card and projected-image captures when a display is available. `REQUIRE_WINDOW=1` also runs native G3N plugin, lifecycle, UI interaction and projected-image smokes when CGO/G3N are enabled. Every `SKIP` is explicitly not 1.0 release evidence.
 
 For a release candidate, require every applicable gate:
 
