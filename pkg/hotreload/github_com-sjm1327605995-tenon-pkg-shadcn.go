@@ -158,6 +158,7 @@ func init() {
 		"PieSlice":          reflect.ValueOf((*shadcn.PieSlice)(nil)),
 		"RadioGroupProps":   reflect.ValueOf((*shadcn.RadioGroupProps)(nil)),
 		"ResizableProps":    reflect.ValueOf((*shadcn.ResizableProps)(nil)),
+		"SelectOption":      reflect.ValueOf((*shadcn.SelectOption)(nil)),
 		"SelectProps":       reflect.ValueOf((*shadcn.SelectProps)(nil)),
 		"SeparatorProps":    reflect.ValueOf((*shadcn.SeparatorProps)(nil)),
 		"SheetProps":        reflect.ValueOf((*shadcn.SheetProps)(nil)),

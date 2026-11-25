@@ -6,215 +6,426 @@ import (
 	"github.com/sjm1327605995/tenon/pkg/ui"
 	"go/constant"
 	"go/token"
+	"image"
 	"reflect"
+	"time"
 )
 
 func init() {
 	Symbols["github.com/sjm1327605995/tenon/pkg/ui/ui"] = map[string]reflect.Value{
 		// function, constant and variable definitions
-		"Absolute":             reflect.ValueOf(ui.Absolute),
-		"Animated":             reflect.ValueOf(ui.Animated),
-		"ArrowNav":             reflect.ValueOf(ui.ArrowNav),
-		"Attrs":                reflect.ValueOf(ui.Attrs),
-		"Bg":                   reflect.ValueOf(ui.Bg),
-		"BindInput":            reflect.ValueOf(ui.BindInput),
-		"Black":                reflect.ValueOf(&ui.Black).Elem(),
-		"Blue":                 reflect.ValueOf(&ui.Blue).Elem(),
-		"Bold":                 reflect.ValueOf(ui.Bold),
-		"Border":               reflect.ValueOf(ui.Border),
-		"Bottom":               reflect.ValueOf(ui.Bottom),
-		"Box":                  reflect.ValueOf(ui.Box),
-		"Button":               reflect.ValueOf(ui.Button),
-		"Center":               reflect.ValueOf(ui.Center),
-		"Class":                reflect.ValueOf(ui.Class),
-		"Clip":                 reflect.ValueOf(ui.Clip),
-		"Clipboard":            reflect.ValueOf(ui.Clipboard),
-		"Column":               reflect.ValueOf(ui.Column),
-		"ContentAround":        reflect.ValueOf(ui.ContentAround),
-		"ContentBetween":       reflect.ValueOf(ui.ContentBetween),
-		"ContentCenter":        reflect.ValueOf(ui.ContentCenter),
-		"ContentEnd":           reflect.ValueOf(ui.ContentEnd),
-		"ContentStart":         reflect.ValueOf(ui.ContentStart),
-		"ContentStretch":       reflect.ValueOf(ui.ContentStretch),
-		"DarkGray":             reflect.ValueOf(&ui.DarkGray).Elem(),
-		"DarkTheme":            reflect.ValueOf(&ui.DarkTheme).Elem(),
-		"Disabled":             reflect.ValueOf(ui.Disabled),
-		"Div":                  reflect.ValueOf(ui.Div),
-		"EaseIn":               reflect.ValueOf(ui.EaseIn),
-		"EaseInOut":            reflect.ValueOf(ui.EaseInOut),
-		"EaseOut":              reflect.ValueOf(ui.EaseOut),
-		"ErrText":              reflect.ValueOf(ui.ErrText),
-		"ErrorBoundary":        reflect.ValueOf(ui.ErrorBoundary),
-		"Fill":                 reflect.ValueOf(ui.Fill),
-		"Fit":                  reflect.ValueOf(ui.Fit),
-		"FitContain":           reflect.ValueOf(ui.FitContain),
-		"FitCover":             reflect.ValueOf(ui.FitCover),
-		"FitFill":              reflect.ValueOf(ui.FitFill),
-		"FontSize":             reflect.ValueOf(ui.FontSize),
-		"FontWeight":           reflect.ValueOf(ui.FontWeight),
-		"Fragment":             reflect.ValueOf(ui.Fragment),
-		"FrameSync":            reflect.ValueOf(&ui.FrameSync).Elem(),
-		"Gap":                  reflect.ValueOf(ui.Gap),
-		"Gray":                 reflect.ValueOf(&ui.Gray).Elem(),
-		"Green":                reflect.ValueOf(&ui.Green).Elem(),
-		"Grow":                 reflect.ValueOf(ui.Grow),
-		"HSpace":               reflect.ValueOf(ui.HSpace),
-		"HStack":               reflect.ValueOf(ui.HStack),
-		"Height":               reflect.ValueOf(ui.Height),
-		"HeightPct":            reflect.ValueOf(ui.HeightPct),
-		"Hex":                  reflect.ValueOf(ui.Hex),
-		"Icon":                 reflect.ValueOf(ui.Icon),
-		"IconArrowRight":       reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14M12 5l7 7-7 7\"", token.STRING, 0)),
-		"IconCheck":            reflect.ValueOf(constant.MakeFromLiteral("\"M20 6 9 17l-5-5\"", token.STRING, 0)),
-		"IconChevronDown":      reflect.ValueOf(constant.MakeFromLiteral("\"m6 9 6 6 6-6\"", token.STRING, 0)),
-		"IconChevronLeft":      reflect.ValueOf(constant.MakeFromLiteral("\"m15 18-6-6 6-6\"", token.STRING, 0)),
-		"IconChevronRight":     reflect.ValueOf(constant.MakeFromLiteral("\"m9 18 6-6-6-6\"", token.STRING, 0)),
-		"IconChevronUp":        reflect.ValueOf(constant.MakeFromLiteral("\"m18 15-6-6-6 6\"", token.STRING, 0)),
-		"IconFill":             reflect.ValueOf(ui.IconFill),
-		"IconMinus":            reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14\"", token.STRING, 0)),
-		"IconPlus":             reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14M12 5v14\"", token.STRING, 0)),
-		"IconSearch":           reflect.ValueOf(constant.MakeFromLiteral("\"M21 21l-4.3-4.3M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12\"", token.STRING, 0)),
-		"IconTrash":            reflect.ValueOf(constant.MakeFromLiteral("\"M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14\"", token.STRING, 0)),
-		"IconX":                reflect.ValueOf(constant.MakeFromLiteral("\"M18 6 6 18M6 6l12 12\"", token.STRING, 0)),
-		"Id":                   reflect.ValueOf(ui.Id),
-		"If":                   reflect.ValueOf(ui.If),
-		"ImageCacheBudget":     reflect.ValueOf(ui.ImageCacheBudget),
-		"ImageCacheStats":      reflect.ValueOf(ui.ImageCacheStats),
-		"Img":                  reflect.ValueOf(ui.Img),
-		"Input":                reflect.ValueOf(ui.Input),
-		"Italic":               reflect.ValueOf(ui.Italic),
-		"ItemsCenter":          reflect.ValueOf(ui.ItemsCenter),
-		"ItemsEnd":             reflect.ValueOf(ui.ItemsEnd),
-		"ItemsStart":           reflect.ValueOf(ui.ItemsStart),
-		"JustifyBetween":       reflect.ValueOf(ui.JustifyBetween),
-		"JustifyCenter":        reflect.ValueOf(ui.JustifyCenter),
-		"JustifyEnd":           reflect.ValueOf(ui.JustifyEnd),
-		"JustifyStart":         reflect.ValueOf(ui.JustifyStart),
-		"Key":                  reflect.ValueOf(ui.Key),
-		"Keyed":                reflect.ValueOf(ui.Keyed),
-		"Left":                 reflect.ValueOf(ui.Left),
-		"LightGray":            reflect.ValueOf(&ui.LightGray).Elem(),
-		"LightTheme":           reflect.ValueOf(&ui.LightTheme).Elem(),
-		"Linear":               reflect.ValueOf(ui.Linear),
-		"LinearGradient":       reflect.ValueOf(ui.LinearGradient),
-		"Margin":               reflect.ValueOf(ui.Margin),
-		"MarginXY":             reflect.ValueOf(ui.MarginXY),
-		"MaxHeight":            reflect.ValueOf(ui.MaxHeight),
-		"MaxWidth":             reflect.ValueOf(ui.MaxWidth),
-		"Medium":               reflect.ValueOf(ui.Medium),
-		"MinHeight":            reflect.ValueOf(ui.MinHeight),
-		"MinWidth":             reflect.ValueOf(ui.MinWidth),
-		"Mix":                  reflect.ValueOf(ui.Mix),
-		"Mount":                reflect.ValueOf(ui.Mount),
-		"MountDefault":         reflect.ValueOf(ui.MountDefault),
-		"Multiline":            reflect.ValueOf(ui.Multiline),
-		"NavBoth":              reflect.ValueOf(ui.NavBoth),
-		"NavHorizontal":        reflect.ValueOf(ui.NavHorizontal),
-		"NavVertical":          reflect.ValueOf(ui.NavVertical),
-		"NoWrap":               reflect.ValueOf(ui.NoWrap),
-		"OnChange":             reflect.ValueOf(ui.OnChange),
-		"OnClick":              reflect.ValueOf(ui.OnClick),
-		"OnContextMenu":        reflect.ValueOf(ui.OnContextMenu),
-		"OnDrag":               reflect.ValueOf(ui.OnDrag),
-		"OnHover":              reflect.ValueOf(ui.OnHover),
-		"OnPress":              reflect.ValueOf(ui.OnPress),
-		"OnSubmit":             reflect.ValueOf(ui.OnSubmit),
-		"Opacity":              reflect.ValueOf(ui.Opacity),
-		"Padding":              reflect.ValueOf(ui.Padding),
-		"PaddingXY":            reflect.ValueOf(ui.PaddingXY),
-		"Perspective":          reflect.ValueOf(ui.Perspective),
-		"Placeholder":          reflect.ValueOf(ui.Placeholder),
-		"PlaneImage":           reflect.ValueOf(ui.PlaneImage),
-		"Portal":               reflect.ValueOf(ui.Portal),
-		"Post":                 reflect.ValueOf(ui.Post),
-		"Radius":               reflect.ValueOf(ui.Radius),
-		"Red":                  reflect.ValueOf(&ui.Red).Elem(),
-		"Render":               reflect.ValueOf(ui.Render),
-		"RichText":             reflect.ValueOf(ui.RichText),
-		"Right":                reflect.ValueOf(ui.Right),
-		"Rotate":               reflect.ValueOf(ui.Rotate),
-		"RotateX":              reflect.ValueOf(ui.RotateX),
-		"RotateY":              reflect.ValueOf(ui.RotateY),
-		"Row":                  reflect.ValueOf(ui.Row),
-		"Run":                  reflect.ValueOf(ui.Run),
-		"Scale":                reflect.ValueOf(ui.Scale),
-		"Scene3D":              reflect.ValueOf(ui.Scene3D),
-		"Screenshot":           reflect.ValueOf(ui.Screenshot),
-		"ScrollView":           reflect.ValueOf(ui.ScrollView),
-		"Semibold":             reflect.ValueOf(ui.Semibold),
-		"SetClipboardProvider": reflect.ValueOf(ui.SetClipboardProvider),
-		"SetClipboardText":     reflect.ValueOf(ui.SetClipboardText),
-		"Shadow":               reflect.ValueOf(ui.Shadow),
-		"Shrink":               reflect.ValueOf(ui.Shrink),
-		"Spacer":               reflect.ValueOf(ui.Spacer),
-		"Span":                 reflect.ValueOf(ui.Span),
-		"Src":                  reflect.ValueOf(ui.Src),
-		"SrcImage":             reflect.ValueOf(ui.SrcImage),
-		"Style":                reflect.ValueOf(ui.Style),
-		"StyleIf":              reflect.ValueOf(ui.StyleIf),
-		"Styles":               reflect.ValueOf(ui.Styles),
-		"Text":                 reflect.ValueOf(ui.Text),
-		"TextColor":            reflect.ValueOf(ui.TextColor),
-		"ThemeProvider":        reflect.ValueOf(ui.ThemeProvider),
-		"Top":                  reflect.ValueOf(ui.Top),
-		"TranslateXY":          reflect.ValueOf(ui.TranslateXY),
-		"TranslateZ":           reflect.ValueOf(ui.TranslateZ),
-		"Transparent":          reflect.ValueOf(&ui.Transparent).Elem(),
-		"TrapFocus":            reflect.ValueOf(ui.TrapFocus),
-		"UseEffect":            reflect.ValueOf(ui.UseEffect),
-		"UseElapsed":           reflect.ValueOf(ui.UseElapsed),
-		"UseEscape":            reflect.ValueOf(ui.UseEscape),
-		"UseInteraction":       reflect.ValueOf(ui.UseInteraction),
-		"UseMeasure":           reflect.ValueOf(ui.UseMeasure),
-		"UseScroll":            reflect.ValueOf(ui.UseScroll),
-		"UseTheme":             reflect.ValueOf(ui.UseTheme),
-		"UseTransition":        reflect.ValueOf(ui.UseTransition),
-		"UseTween":             reflect.ValueOf(ui.UseTween),
-		"VSpace":               reflect.ValueOf(ui.VSpace),
-		"VStack":               reflect.ValueOf(ui.VStack),
-		"Value":                reflect.ValueOf(ui.Value),
-		"Vector":               reflect.ValueOf(ui.Vector),
-		"View":                 reflect.ValueOf(ui.View),
-		"Viewport":             reflect.ValueOf(ui.Viewport),
-		"VirtualList":          reflect.ValueOf(ui.VirtualList),
-		"White":                reflect.ValueOf(&ui.White).Elem(),
-		"Width":                reflect.ValueOf(ui.Width),
-		"WidthPct":             reflect.ValueOf(ui.WidthPct),
-		"WindowFullscreen":     reflect.ValueOf(ui.WindowFullscreen),
-		"WindowMaxSize":        reflect.ValueOf(ui.WindowMaxSize),
-		"WindowMinSize":        reflect.ValueOf(ui.WindowMinSize),
-		"WindowSize":           reflect.ValueOf(ui.WindowSize),
-		"WindowTitle":          reflect.ValueOf(ui.WindowTitle),
-		"Wrap":                 reflect.ValueOf(ui.Wrap),
-		"WrapReverse":          reflect.ValueOf(ui.WrapReverse),
-		"ZIndex":               reflect.ValueOf(ui.ZIndex),
+		"Absolute":                   reflect.ValueOf(ui.Absolute),
+		"AccessibilityButton":        reflect.ValueOf(ui.AccessibilityButton),
+		"AccessibilityCheckbox":      reflect.ValueOf(ui.AccessibilityCheckbox),
+		"AccessibilityLabel":         reflect.ValueOf(ui.AccessibilityLabel),
+		"AccessibilityRadioButton":   reflect.ValueOf(ui.AccessibilityRadioButton),
+		"AccessibilityRoleOf":        reflect.ValueOf(ui.AccessibilityRoleOf),
+		"AccessibilitySelected":      reflect.ValueOf(ui.AccessibilitySelected),
+		"AccessibilityStaticText":    reflect.ValueOf(ui.AccessibilityStaticText),
+		"AccessibilitySwitch":        reflect.ValueOf(ui.AccessibilitySwitch),
+		"AccessibilityTextInput":     reflect.ValueOf(ui.AccessibilityTextInput),
+		"AmbientLight3D":             reflect.ValueOf(ui.AmbientLight3D),
+		"Animated":                   reflect.ValueOf(ui.Animated),
+		"ArrowNav":                   reflect.ValueOf(ui.ArrowNav),
+		"Attrs":                      reflect.ValueOf(ui.Attrs),
+		"Bg":                         reflect.ValueOf(ui.Bg),
+		"BindInput":                  reflect.ValueOf(ui.BindInput),
+		"Black":                      reflect.ValueOf(&ui.Black).Elem(),
+		"Blue":                       reflect.ValueOf(&ui.Blue).Elem(),
+		"Bold":                       reflect.ValueOf(ui.Bold),
+		"Border":                     reflect.ValueOf(ui.Border),
+		"Bottom":                     reflect.ValueOf(ui.Bottom),
+		"Box":                        reflect.ValueOf(ui.Box),
+		"Button":                     reflect.ValueOf(ui.Button),
+		"Capture":                    reflect.ValueOf(ui.Capture),
+		"Center":                     reflect.ValueOf(ui.Center),
+		"Class":                      reflect.ValueOf(ui.Class),
+		"Clip":                       reflect.ValueOf(ui.Clip),
+		"Clipboard":                  reflect.ValueOf(ui.Clipboard),
+		"Column":                     reflect.ValueOf(ui.Column),
+		"ContentAround":              reflect.ValueOf(ui.ContentAround),
+		"ContentBetween":             reflect.ValueOf(ui.ContentBetween),
+		"ContentCenter":              reflect.ValueOf(ui.ContentCenter),
+		"ContentEnd":                 reflect.ValueOf(ui.ContentEnd),
+		"ContentStart":               reflect.ValueOf(ui.ContentStart),
+		"ContentStretch":             reflect.ValueOf(ui.ContentStretch),
+		"Cube3D":                     reflect.ValueOf(ui.Cube3D),
+		"CurrentBackendCapabilities": reflect.ValueOf(ui.CurrentBackendCapabilities),
+		"CursorDefault":              reflect.ValueOf(ui.CursorDefault),
+		"CursorPointer":              reflect.ValueOf(ui.CursorPointer),
+		"CursorText":                 reflect.ValueOf(ui.CursorText),
+		"Custom3D":                   reflect.ValueOf(ui.Custom3D),
+		"CutCorner":                  reflect.ValueOf(ui.CutCorner),
+		"DarkGray":                   reflect.ValueOf(&ui.DarkGray).Elem(),
+		"DarkTheme":                  reflect.ValueOf(&ui.DarkTheme).Elem(),
+		"DefaultFontData":            reflect.ValueOf(ui.DefaultFontData),
+		"DirectionalLight3D":         reflect.ValueOf(ui.DirectionalLight3D),
+		"Disabled":                   reflect.ValueOf(ui.Disabled),
+		"Div":                        reflect.ValueOf(ui.Div),
+		"EaseIn":                     reflect.ValueOf(ui.EaseIn),
+		"EaseInOut":                  reflect.ValueOf(ui.EaseInOut),
+		"EaseOut":                    reflect.ValueOf(ui.EaseOut),
+		"EaseOutQuad":                reflect.ValueOf(ui.EaseOutQuad),
+		"ErrText":                    reflect.ValueOf(ui.ErrText),
+		"ErrorBoundary":              reflect.ValueOf(ui.ErrorBoundary),
+		"Fill":                       reflect.ValueOf(ui.Fill),
+		"Fit":                        reflect.ValueOf(ui.Fit),
+		"FitContain":                 reflect.ValueOf(ui.FitContain),
+		"FitCover":                   reflect.ValueOf(ui.FitCover),
+		"FitFill":                    reflect.ValueOf(ui.FitFill),
+		"Focusable":                  reflect.ValueOf(ui.Focusable),
+		"FontSize":                   reflect.ValueOf(ui.FontSize),
+		"FontWeight":                 reflect.ValueOf(ui.FontWeight),
+		"Fragment":                   reflect.ValueOf(ui.Fragment),
+		"FrameSync":                  reflect.ValueOf(&ui.FrameSync).Elem(),
+		"Game3DAmbient":              reflect.ValueOf(ui.Game3DAmbient),
+		"Game3DCamera":               reflect.ValueOf(ui.Game3DCamera),
+		"Game3DDirectional":          reflect.ValueOf(ui.Game3DDirectional),
+		"Game3DMesh":                 reflect.ValueOf(ui.Game3DMesh),
+		"Game3DNative":               reflect.ValueOf(ui.Game3DNative),
+		"Game3DPlugin":               reflect.ValueOf(ui.Game3DPlugin),
+		"Game3DPoint":                reflect.ValueOf(ui.Game3DPoint),
+		"GameScene3D":                reflect.ValueOf(ui.GameScene3D),
+		"Gap":                        reflect.ValueOf(ui.Gap),
+		"Gray":                       reflect.ValueOf(&ui.Gray).Elem(),
+		"Green":                      reflect.ValueOf(&ui.Green).Elem(),
+		"Grow":                       reflect.ValueOf(ui.Grow),
+		"HSpace":                     reflect.ValueOf(ui.HSpace),
+		"HStack":                     reflect.ValueOf(ui.HStack),
+		"Height":                     reflect.ValueOf(ui.Height),
+		"HeightPct":                  reflect.ValueOf(ui.HeightPct),
+		"Hex":                        reflect.ValueOf(ui.Hex),
+		"Icon":                       reflect.ValueOf(ui.Icon),
+		"IconArrowRight":             reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14M12 5l7 7-7 7\"", token.STRING, 0)),
+		"IconCheck":                  reflect.ValueOf(constant.MakeFromLiteral("\"M20 6 9 17l-5-5\"", token.STRING, 0)),
+		"IconChevronDown":            reflect.ValueOf(constant.MakeFromLiteral("\"m6 9 6 6 6-6\"", token.STRING, 0)),
+		"IconChevronLeft":            reflect.ValueOf(constant.MakeFromLiteral("\"m15 18-6-6 6-6\"", token.STRING, 0)),
+		"IconChevronRight":           reflect.ValueOf(constant.MakeFromLiteral("\"m9 18 6-6-6-6\"", token.STRING, 0)),
+		"IconChevronUp":              reflect.ValueOf(constant.MakeFromLiteral("\"m18 15-6-6-6 6\"", token.STRING, 0)),
+		"IconFill":                   reflect.ValueOf(ui.IconFill),
+		"IconMinus":                  reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14\"", token.STRING, 0)),
+		"IconPlus":                   reflect.ValueOf(constant.MakeFromLiteral("\"M5 12h14M12 5v14\"", token.STRING, 0)),
+		"IconSearch":                 reflect.ValueOf(constant.MakeFromLiteral("\"M21 21l-4.3-4.3M11 5a6 6 0 1 0 0 12 6 6 0 0 0 0-12\"", token.STRING, 0)),
+		"IconTrash":                  reflect.ValueOf(constant.MakeFromLiteral("\"M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14\"", token.STRING, 0)),
+		"IconX":                      reflect.ValueOf(constant.MakeFromLiteral("\"M18 6 6 18M6 6l12 12\"", token.STRING, 0)),
+		"Id":                         reflect.ValueOf(ui.Id),
+		"If":                         reflect.ValueOf(ui.If),
+		"ImageBlur":                  reflect.ValueOf(ui.ImageBlur),
+		"ImageCacheBudget":           reflect.ValueOf(ui.ImageCacheBudget),
+		"ImageCacheStats":            reflect.ValueOf(ui.ImageCacheStats),
+		"ImageGrayscale":             reflect.ValueOf(ui.ImageGrayscale),
+		"Img":                        reflect.ValueOf(ui.Img),
+		"Input":                      reflect.ValueOf(ui.Input),
+		"Italic":                     reflect.ValueOf(ui.Italic),
+		"ItemsCenter":                reflect.ValueOf(ui.ItemsCenter),
+		"ItemsEnd":                   reflect.ValueOf(ui.ItemsEnd),
+		"ItemsStart":                 reflect.ValueOf(ui.ItemsStart),
+		"JustifyBetween":             reflect.ValueOf(ui.JustifyBetween),
+		"JustifyCenter":              reflect.ValueOf(ui.JustifyCenter),
+		"JustifyEnd":                 reflect.ValueOf(ui.JustifyEnd),
+		"JustifyStart":               reflect.ValueOf(ui.JustifyStart),
+		"Key":                        reflect.ValueOf(ui.Key),
+		"KeyA":                       reflect.ValueOf(ui.KeyA),
+		"KeyBackspace":               reflect.ValueOf(ui.KeyBackspace),
+		"KeyC":                       reflect.ValueOf(ui.KeyC),
+		"KeyCtrl":                    reflect.ValueOf(ui.KeyCtrl),
+		"KeyDelete":                  reflect.ValueOf(ui.KeyDelete),
+		"KeyDown":                    reflect.ValueOf(ui.KeyDown),
+		"KeyEnd":                     reflect.ValueOf(ui.KeyEnd),
+		"KeyEnter":                   reflect.ValueOf(ui.KeyEnter),
+		"KeyEscape":                  reflect.ValueOf(ui.KeyEscape),
+		"KeyF12":                     reflect.ValueOf(ui.KeyF12),
+		"KeyHome":                    reflect.ValueOf(ui.KeyHome),
+		"KeyLeft":                    reflect.ValueOf(ui.KeyLeft),
+		"KeyMeta":                    reflect.ValueOf(ui.KeyMeta),
+		"KeyRight":                   reflect.ValueOf(ui.KeyRight),
+		"KeyShift":                   reflect.ValueOf(ui.KeyShift),
+		"KeySpace":                   reflect.ValueOf(ui.KeySpace),
+		"KeyTab":                     reflect.ValueOf(ui.KeyTab),
+		"KeyUp":                      reflect.ValueOf(ui.KeyUp),
+		"KeyV":                       reflect.ValueOf(ui.KeyV),
+		"KeyX":                       reflect.ValueOf(ui.KeyX),
+		"Keyed":                      reflect.ValueOf(ui.Keyed),
+		"Left":                       reflect.ValueOf(ui.Left),
+		"LightGray":                  reflect.ValueOf(&ui.LightGray).Elem(),
+		"LightTheme":                 reflect.ValueOf(&ui.LightTheme).Elem(),
+		"Linear":                     reflect.ValueOf(ui.Linear),
+		"LinearGradient":             reflect.ValueOf(ui.LinearGradient),
+		"Margin":                     reflect.ValueOf(ui.Margin),
+		"MarginXY":                   reflect.ValueOf(ui.MarginXY),
+		"MaxHeight":                  reflect.ValueOf(ui.MaxHeight),
+		"MaxWidth":                   reflect.ValueOf(ui.MaxWidth),
+		"Medium":                     reflect.ValueOf(ui.Medium),
+		"Mesh3D":                     reflect.ValueOf(ui.Mesh3D),
+		"MinHeight":                  reflect.ValueOf(ui.MinHeight),
+		"MinWidth":                   reflect.ValueOf(ui.MinWidth),
+		"Mix":                        reflect.ValueOf(ui.Mix),
+		"Mount":                      reflect.ValueOf(ui.Mount),
+		"MountDefault":               reflect.ValueOf(ui.MountDefault),
+		"MouseLeft":                  reflect.ValueOf(ui.MouseLeft),
+		"MouseRight":                 reflect.ValueOf(ui.MouseRight),
+		"Multiline":                  reflect.ValueOf(ui.Multiline),
+		"Native3D":                   reflect.ValueOf(ui.Native3D),
+		"NavBoth":                    reflect.ValueOf(ui.NavBoth),
+		"NavHorizontal":              reflect.ValueOf(ui.NavHorizontal),
+		"NavVertical":                reflect.ValueOf(ui.NavVertical),
+		"NewBackendRuntime":          reflect.ValueOf(ui.NewBackendRuntime),
+		"NewScene3DPluginRegistry":   reflect.ValueOf(ui.NewScene3DPluginRegistry),
+		"NewScene3DRuntime":          reflect.ValueOf(ui.NewScene3DRuntime),
+		"NoWrap":                     reflect.ValueOf(ui.NoWrap),
+		"OnChange":                   reflect.ValueOf(ui.OnChange),
+		"OnClick":                    reflect.ValueOf(ui.OnClick),
+		"OnContextMenu":              reflect.ValueOf(ui.OnContextMenu),
+		"OnDrag":                     reflect.ValueOf(ui.OnDrag),
+		"OnHover":                    reflect.ValueOf(ui.OnHover),
+		"OnPress":                    reflect.ValueOf(ui.OnPress),
+		"OnSubmit":                   reflect.ValueOf(ui.OnSubmit),
+		"Opacity":                    reflect.ValueOf(ui.Opacity),
+		"Padding":                    reflect.ValueOf(ui.Padding),
+		"PaddingXY":                  reflect.ValueOf(ui.PaddingXY),
+		"ParseSVGPath":               reflect.ValueOf(ui.ParseSVGPath),
+		"Perspective":                reflect.ValueOf(ui.Perspective),
+		"PerspectiveCamera3D":        reflect.ValueOf(ui.PerspectiveCamera3D),
+		"Placeholder":                reflect.ValueOf(ui.Placeholder),
+		"PlaneImage":                 reflect.ValueOf(ui.PlaneImage),
+		"Plugin3D":                   reflect.ValueOf(ui.Plugin3D),
+		"Plugin3DVersion":            reflect.ValueOf(ui.Plugin3DVersion),
+		"PointLight3D":               reflect.ValueOf(ui.PointLight3D),
+		"Portal":                     reflect.ValueOf(ui.Portal),
+		"Post":                       reflect.ValueOf(ui.Post),
+		"RadialGradient":             reflect.ValueOf(ui.RadialGradient),
+		"Radius":                     reflect.ValueOf(ui.Radius),
+		"Red":                        reflect.ValueOf(&ui.Red).Elem(),
+		"Render":                     reflect.ValueOf(ui.Render),
+		"RichText":                   reflect.ValueOf(ui.RichText),
+		"Right":                      reflect.ValueOf(ui.Right),
+		"Rotate":                     reflect.ValueOf(ui.Rotate),
+		"RotateX":                    reflect.ValueOf(ui.RotateX),
+		"RotateY":                    reflect.ValueOf(ui.RotateY),
+		"Row":                        reflect.ValueOf(ui.Row),
+		"Run":                        reflect.ValueOf(ui.Run),
+		"RunWindows":                 reflect.ValueOf(ui.RunWindows),
+		"Scale":                      reflect.ValueOf(ui.Scale),
+		"ScaleXY":                    reflect.ValueOf(ui.ScaleXY),
+		"Scene3D":                    reflect.ValueOf(ui.Scene3D),
+		"Screenshot":                 reflect.ValueOf(ui.Screenshot),
+		"ScrollView":                 reflect.ValueOf(ui.ScrollView),
+		"Semibold":                   reflect.ValueOf(ui.Semibold),
+		"SetBackend":                 reflect.ValueOf(ui.SetBackend),
+		"SetClipboardProvider":       reflect.ValueOf(ui.SetClipboardProvider),
+		"SetClipboardText":           reflect.ValueOf(ui.SetClipboardText),
+		"Shadow":                     reflect.ValueOf(ui.Shadow),
+		"Shape3DCube":                reflect.ValueOf(ui.Shape3DCube),
+		"Shape3DCustom":              reflect.ValueOf(ui.Shape3DCustom),
+		"Shape3DSphere":              reflect.ValueOf(ui.Shape3DSphere),
+		"Shrink":                     reflect.ValueOf(ui.Shrink),
+		"Spacer":                     reflect.ValueOf(ui.Spacer),
+		"Span":                       reflect.ValueOf(ui.Span),
+		"Sphere3D":                   reflect.ValueOf(ui.Sphere3D),
+		"Src":                        reflect.ValueOf(ui.Src),
+		"SrcImage":                   reflect.ValueOf(ui.SrcImage),
+		"Style":                      reflect.ValueOf(ui.Style),
+		"StyleIf":                    reflect.ValueOf(ui.StyleIf),
+		"Styles":                     reflect.ValueOf(ui.Styles),
+		"Text":                       reflect.ValueOf(ui.Text),
+		"TextColor":                  reflect.ValueOf(ui.TextColor),
+		"ThemeProvider":              reflect.ValueOf(ui.ThemeProvider),
+		"Top":                        reflect.ValueOf(ui.Top),
+		"TranslateXY":                reflect.ValueOf(ui.TranslateXY),
+		"TranslateZ":                 reflect.ValueOf(ui.TranslateZ),
+		"Transparent":                reflect.ValueOf(&ui.Transparent).Elem(),
+		"TrapFocus":                  reflect.ValueOf(ui.TrapFocus),
+		"UseEffect":                  reflect.ValueOf(ui.UseEffect),
+		"UseElapsed":                 reflect.ValueOf(ui.UseElapsed),
+		"UseElapsedActive":           reflect.ValueOf(ui.UseElapsedActive),
+		"UseEnterTransition":         reflect.ValueOf(ui.UseEnterTransition),
+		"UseEscape":                  reflect.ValueOf(ui.UseEscape),
+		"UseInteraction":             reflect.ValueOf(ui.UseInteraction),
+		"UseMeasure":                 reflect.ValueOf(ui.UseMeasure),
+		"UseScroll":                  reflect.ValueOf(ui.UseScroll),
+		"UseTheme":                   reflect.ValueOf(ui.UseTheme),
+		"UseTransition":              reflect.ValueOf(ui.UseTransition),
+		"UseTween":                   reflect.ValueOf(ui.UseTween),
+		"V3":                         reflect.ValueOf(ui.V3),
+		"VSpace":                     reflect.ValueOf(ui.VSpace),
+		"VStack":                     reflect.ValueOf(ui.VStack),
+		"Value":                      reflect.ValueOf(ui.Value),
+		"Vector":                     reflect.ValueOf(ui.Vector),
+		"View":                       reflect.ValueOf(ui.View),
+		"Viewport":                   reflect.ValueOf(ui.Viewport),
+		"VirtualList":                reflect.ValueOf(ui.VirtualList),
+		"White":                      reflect.ValueOf(&ui.White).Elem(),
+		"Width":                      reflect.ValueOf(ui.Width),
+		"WidthPct":                   reflect.ValueOf(ui.WidthPct),
+		"WindowFullscreen":           reflect.ValueOf(ui.WindowFullscreen),
+		"WindowMaxSize":              reflect.ValueOf(ui.WindowMaxSize),
+		"WindowMinSize":              reflect.ValueOf(ui.WindowMinSize),
+		"WindowSize":                 reflect.ValueOf(ui.WindowSize),
+		"WindowTitle":                reflect.ValueOf(ui.WindowTitle),
+		"Wrap":                       reflect.ValueOf(ui.Wrap),
+		"WrapReverse":                reflect.ValueOf(ui.WrapReverse),
+		"ZIndex":                     reflect.ValueOf(ui.ZIndex),
 
 		// type definitions
-		"Cleanup":          reflect.ValueOf((*ui.Cleanup)(nil)),
-		"Color":            reflect.ValueOf((*ui.Color)(nil)),
-		"Component":        reflect.ValueOf((*ui.Component)(nil)),
-		"Easing":           reflect.ValueOf((*ui.Easing)(nil)),
-		"Fiber":            reflect.ValueOf((*ui.Fiber)(nil)),
-		"Harness":          reflect.ValueOf((*ui.Harness)(nil)),
-		"IComponent":       reflect.ValueOf((*ui.IComponent)(nil)),
-		"NavOrient":        reflect.ValueOf((*ui.NavOrient)(nil)),
-		"Node":             reflect.ValueOf((*ui.Node)(nil)),
-		"NodeSource":       reflect.ValueOf((*ui.NodeSource)(nil)),
-		"ObjectFit":        reflect.ValueOf((*ui.ObjectFit)(nil)),
-		"PaintOp":          reflect.ValueOf((*ui.PaintOp)(nil)),
-		"Query":            reflect.ValueOf((*ui.Query)(nil)),
-		"Rect":             reflect.ValueOf((*ui.Rect)(nil)),
-		"RenderContext":    reflect.ValueOf((*ui.RenderContext)(nil)),
-		"ScrollInfo":       reflect.ValueOf((*ui.ScrollInfo)(nil)),
-		"StyleOpt":         reflect.ValueOf((*ui.StyleOpt)(nil)),
-		"StyleProps":       reflect.ValueOf((*ui.StyleProps)(nil)),
-		"Theme":            reflect.ValueOf((*ui.Theme)(nil)),
-		"VirtualListProps": reflect.ValueOf((*ui.VirtualListProps)(nil)),
+		"AccessibilityNode":         reflect.ValueOf((*ui.AccessibilityNode)(nil)),
+		"AccessibilityPainter":      reflect.ValueOf((*ui.AccessibilityPainter)(nil)),
+		"AccessibilityRole":         reflect.ValueOf((*ui.AccessibilityRole)(nil)),
+		"Backend":                   reflect.ValueOf((*ui.Backend)(nil)),
+		"BackendCapabilities":       reflect.ValueOf((*ui.BackendCapabilities)(nil)),
+		"BackendCapabilityProvider": reflect.ValueOf((*ui.BackendCapabilityProvider)(nil)),
+		"BackendRuntime":            reflect.ValueOf((*ui.BackendRuntime)(nil)),
+		"Bitmap":                    reflect.ValueOf((*ui.Bitmap)(nil)),
+		"Camera3DProps":             reflect.ValueOf((*ui.Camera3DProps)(nil)),
+		"Cleanup":                   reflect.ValueOf((*ui.Cleanup)(nil)),
+		"Color":                     reflect.ValueOf((*ui.Color)(nil)),
+		"Component":                 reflect.ValueOf((*ui.Component)(nil)),
+		"CursorRole":                reflect.ValueOf((*ui.CursorRole)(nil)),
+		"Easing":                    reflect.ValueOf((*ui.Easing)(nil)),
+		"Fiber":                     reflect.ValueOf((*ui.Fiber)(nil)),
+		"FontFace":                  reflect.ValueOf((*ui.FontFace)(nil)),
+		"Game3DComponent":           reflect.ValueOf((*ui.Game3DComponent)(nil)),
+		"Game3DNodeKind":            reflect.ValueOf((*ui.Game3DNodeKind)(nil)),
+		"GameNode3D":                reflect.ValueOf((*ui.GameNode3D)(nil)),
+		"Geometry3D":                reflect.ValueOf((*ui.Geometry3D)(nil)),
+		"Harness":                   reflect.ValueOf((*ui.Harness)(nil)),
+		"IComponent":                reflect.ValueOf((*ui.IComponent)(nil)),
+		"InputKey":                  reflect.ValueOf((*ui.InputKey)(nil)),
+		"InputSource":               reflect.ValueOf((*ui.InputSource)(nil)),
+		"Layer":                     reflect.ValueOf((*ui.Layer)(nil)),
+		"LayerTransform":            reflect.ValueOf((*ui.LayerTransform)(nil)),
+		"Light3DProps":              reflect.ValueOf((*ui.Light3DProps)(nil)),
+		"Material3DProps":           reflect.ValueOf((*ui.Material3DProps)(nil)),
+		"Mesh3DProps":               reflect.ValueOf((*ui.Mesh3DProps)(nil)),
+		"MouseButton":               reflect.ValueOf((*ui.MouseButton)(nil)),
+		"NativeScene3D":             reflect.ValueOf((*ui.NativeScene3D)(nil)),
+		"NavOrient":                 reflect.ValueOf((*ui.NavOrient)(nil)),
+		"Node":                      reflect.ValueOf((*ui.Node)(nil)),
+		"NodeSource":                reflect.ValueOf((*ui.NodeSource)(nil)),
+		"ObjectFit":                 reflect.ValueOf((*ui.ObjectFit)(nil)),
+		"PaintOp":                   reflect.ValueOf((*ui.PaintOp)(nil)),
+		"Painter":                   reflect.ValueOf((*ui.Painter)(nil)),
+		"Point":                     reflect.ValueOf((*ui.Point)(nil)),
+		"Query":                     reflect.ValueOf((*ui.Query)(nil)),
+		"Rect":                      reflect.ValueOf((*ui.Rect)(nil)),
+		"RenderContext":             reflect.ValueOf((*ui.RenderContext)(nil)),
+		"SVGPathSink":               reflect.ValueOf((*ui.SVGPathSink)(nil)),
+		"Scene3DAdapter":            reflect.ValueOf((*ui.Scene3DAdapter)(nil)),
+		"Scene3DAdapterFunc":        reflect.ValueOf((*ui.Scene3DAdapterFunc)(nil)),
+		"Scene3DPluginRegistry":     reflect.ValueOf((*ui.Scene3DPluginRegistry)(nil)),
+		"Scene3DRuntime":            reflect.ValueOf((*ui.Scene3DRuntime)(nil)),
+		"Scene3DValidator":          reflect.ValueOf((*ui.Scene3DValidator)(nil)),
+		"ScrollInfo":                reflect.ValueOf((*ui.ScrollInfo)(nil)),
+		"Shape3D":                   reflect.ValueOf((*ui.Shape3D)(nil)),
+		"Shape3DKind":               reflect.ValueOf((*ui.Shape3DKind)(nil)),
+		"StyleOpt":                  reflect.ValueOf((*ui.StyleOpt)(nil)),
+		"StyleProps":                reflect.ValueOf((*ui.StyleProps)(nil)),
+		"Theme":                     reflect.ValueOf((*ui.Theme)(nil)),
+		"Transform3DProps":          reflect.ValueOf((*ui.Transform3DProps)(nil)),
+		"Vec3":                      reflect.ValueOf((*ui.Vec3)(nil)),
+		"VecPath":                   reflect.ValueOf((*ui.VecPath)(nil)),
+		"VirtualListProps":          reflect.ValueOf((*ui.VirtualListProps)(nil)),
+		"WindowConfig":              reflect.ValueOf((*ui.WindowConfig)(nil)),
 
 		// interface wrapper definitions
-		"_IComponent": reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_IComponent)(nil)),
-		"_NodeSource": reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_NodeSource)(nil)),
+		"_AccessibilityPainter":      reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_AccessibilityPainter)(nil)),
+		"_Backend":                   reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Backend)(nil)),
+		"_BackendCapabilityProvider": reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_BackendCapabilityProvider)(nil)),
+		"_Bitmap":                    reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Bitmap)(nil)),
+		"_FontFace":                  reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_FontFace)(nil)),
+		"_Game3DComponent":           reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Game3DComponent)(nil)),
+		"_IComponent":                reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_IComponent)(nil)),
+		"_InputSource":               reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_InputSource)(nil)),
+		"_NodeSource":                reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_NodeSource)(nil)),
+		"_Painter":                   reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Painter)(nil)),
+		"_SVGPathSink":               reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink)(nil)),
+		"_Scene3DAdapter":            reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Scene3DAdapter)(nil)),
+		"_Scene3DValidator":          reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_Scene3DValidator)(nil)),
+		"_VecPath":                   reflect.ValueOf((*_github_com_sjm1327605995_tenon_pkg_ui_VecPath)(nil)),
 	}
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_AccessibilityPainter is an interface wrapper for AccessibilityPainter type
+type _github_com_sjm1327605995_tenon_pkg_ui_AccessibilityPainter struct {
+	IValue             interface{}
+	WPopAccessibility  func()
+	WPushAccessibility func(a0 ui.AccessibilityNode)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_AccessibilityPainter) PopAccessibility() {
+	W.WPopAccessibility()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_AccessibilityPainter) PushAccessibility(a0 ui.AccessibilityNode) {
+	W.WPushAccessibility(a0)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Backend is an interface wrapper for Backend type
+type _github_com_sjm1327605995_tenon_pkg_ui_Backend struct {
+	IValue      interface{}
+	WNewBitmap  func(img image.Image) ui.Bitmap
+	WNewFont    func(px float32, weight int, italic bool) ui.FontFace
+	WNewVecPath func(svgPath string, scale float32) ui.VecPath
+	WRun        func(root *ui.Node, cfg ui.WindowConfig)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Backend) NewBitmap(img image.Image) ui.Bitmap {
+	return W.WNewBitmap(img)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Backend) NewFont(px float32, weight int, italic bool) ui.FontFace {
+	return W.WNewFont(px, weight, italic)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Backend) NewVecPath(svgPath string, scale float32) ui.VecPath {
+	return W.WNewVecPath(svgPath, scale)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Backend) Run(root *ui.Node, cfg ui.WindowConfig) {
+	W.WRun(root, cfg)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_BackendCapabilityProvider is an interface wrapper for BackendCapabilityProvider type
+type _github_com_sjm1327605995_tenon_pkg_ui_BackendCapabilityProvider struct {
+	IValue        interface{}
+	WCapabilities func() ui.BackendCapabilities
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_BackendCapabilityProvider) Capabilities() ui.BackendCapabilities {
+	return W.WCapabilities()
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Bitmap is an interface wrapper for Bitmap type
+type _github_com_sjm1327605995_tenon_pkg_ui_Bitmap struct {
+	IValue interface{}
+	WSize  func() (w int, h int)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Bitmap) Size() (w int, h int) {
+	return W.WSize()
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_FontFace is an interface wrapper for FontFace type
+type _github_com_sjm1327605995_tenon_pkg_ui_FontFace struct {
+	IValue   interface{}
+	WMeasure func(s string, lineH float64) float32
+	WMetrics func() (ascent float32, fauxBold bool, fauxItalic bool)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_FontFace) Measure(s string, lineH float64) float32 {
+	return W.WMeasure(s, lineH)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_FontFace) Metrics() (ascent float32, fauxBold bool, fauxItalic bool) {
+	return W.WMetrics()
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Game3DComponent is an interface wrapper for Game3DComponent type
+type _github_com_sjm1327605995_tenon_pkg_ui_Game3DComponent struct {
+	IValue  interface{}
+	WClose  func()
+	WUpdate func(a0 time.Duration)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Game3DComponent) Close() {
+	W.WClose()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Game3DComponent) Update(a0 time.Duration) {
+	W.WUpdate(a0)
 }
 
 // _github_com_sjm1327605995_tenon_pkg_ui_IComponent is an interface wrapper for IComponent type
@@ -239,6 +450,40 @@ func (W _github_com_sjm1327605995_tenon_pkg_ui_IComponent) Render() ui.NodeSourc
 	return W.WRender()
 }
 
+// _github_com_sjm1327605995_tenon_pkg_ui_InputSource is an interface wrapper for InputSource type
+type _github_com_sjm1327605995_tenon_pkg_ui_InputSource struct {
+	IValue            interface{}
+	WCursor           func() (float32, float32)
+	WKeyJustPressed   func(a0 ui.InputKey) bool
+	WKeyPressed       func(a0 ui.InputKey) bool
+	WMouseJustPressed func(a0 ui.MouseButton) bool
+	WMousePressed     func(a0 ui.MouseButton) bool
+	WTypedChars       func() []rune
+	WWheel            func() (float32, float32)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) Cursor() (float32, float32) {
+	return W.WCursor()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) KeyJustPressed(a0 ui.InputKey) bool {
+	return W.WKeyJustPressed(a0)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) KeyPressed(a0 ui.InputKey) bool {
+	return W.WKeyPressed(a0)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) MouseJustPressed(a0 ui.MouseButton) bool {
+	return W.WMouseJustPressed(a0)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) MousePressed(a0 ui.MouseButton) bool {
+	return W.WMousePressed(a0)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) TypedChars() []rune {
+	return W.WTypedChars()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_InputSource) Wheel() (float32, float32) {
+	return W.WWheel()
+}
+
 // _github_com_sjm1327605995_tenon_pkg_ui_NodeSource is an interface wrapper for NodeSource type
 type _github_com_sjm1327605995_tenon_pkg_ui_NodeSource struct {
 	IValue interface{}
@@ -247,4 +492,138 @@ type _github_com_sjm1327605995_tenon_pkg_ui_NodeSource struct {
 
 func (W _github_com_sjm1327605995_tenon_pkg_ui_NodeSource) Build() *ui.Node {
 	return W.WBuild()
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Painter is an interface wrapper for Painter type
+type _github_com_sjm1327605995_tenon_pkg_ui_Painter struct {
+	IValue                 interface{}
+	WBeginLayer            func()
+	WBeginProjected        func(t ui.LayerTransform)
+	WBeginProjectedElement func(r ui.Rect)
+	WDrawImage             func(img ui.Bitmap, dst ui.Rect, opacity float32)
+	WDrawText              func(s string, face ui.FontFace, c ui.Color, x float32, y float32, fauxBold bool, fauxItalic bool)
+	WEndLayer              func(t ui.LayerTransform)
+	WEndProjected          func()
+	WEndProjectedElement   func()
+	WFillGradient          func(x float32, y float32, w float32, h float32, r float32, from ui.Color, to ui.Color, angle float32)
+	WFillPath              func(path ui.VecPath, x float32, y float32, c ui.Color)
+	WFillRect              func(x float32, y float32, w float32, h float32, r float32, c ui.Color)
+	WLine                  func(x0 float32, y0 float32, x1 float32, y1 float32, c ui.Color)
+	WPopClip               func()
+	WProjectedImage        func(img ui.Bitmap, quad [4]ui.Point, opacity float32, cacheKey string, clip *ui.Rect, clipR float32)
+	WPushClip              func(r ui.Rect, radius float32)
+	WShadow                func(x float32, y float32, w float32, h float32, r float32, offX float32, offY float32, blur float32, spread float32, c ui.Color)
+	WStrokePath            func(path ui.VecPath, x float32, y float32, width float32, c ui.Color)
+	WStrokeRect            func(x float32, y float32, w float32, h float32, r float32, width float32, c ui.Color)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) BeginLayer() {
+	W.WBeginLayer()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) BeginProjected(t ui.LayerTransform) {
+	W.WBeginProjected(t)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) BeginProjectedElement(r ui.Rect) {
+	W.WBeginProjectedElement(r)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) DrawImage(img ui.Bitmap, dst ui.Rect, opacity float32) {
+	W.WDrawImage(img, dst, opacity)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) DrawText(s string, face ui.FontFace, c ui.Color, x float32, y float32, fauxBold bool, fauxItalic bool) {
+	W.WDrawText(s, face, c, x, y, fauxBold, fauxItalic)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) EndLayer(t ui.LayerTransform) {
+	W.WEndLayer(t)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) EndProjected() {
+	W.WEndProjected()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) EndProjectedElement() {
+	W.WEndProjectedElement()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) FillGradient(x float32, y float32, w float32, h float32, r float32, from ui.Color, to ui.Color, angle float32) {
+	W.WFillGradient(x, y, w, h, r, from, to, angle)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) FillPath(path ui.VecPath, x float32, y float32, c ui.Color) {
+	W.WFillPath(path, x, y, c)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) FillRect(x float32, y float32, w float32, h float32, r float32, c ui.Color) {
+	W.WFillRect(x, y, w, h, r, c)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) Line(x0 float32, y0 float32, x1 float32, y1 float32, c ui.Color) {
+	W.WLine(x0, y0, x1, y1, c)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) PopClip() {
+	W.WPopClip()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) ProjectedImage(img ui.Bitmap, quad [4]ui.Point, opacity float32, cacheKey string, clip *ui.Rect, clipR float32) {
+	W.WProjectedImage(img, quad, opacity, cacheKey, clip, clipR)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) PushClip(r ui.Rect, radius float32) {
+	W.WPushClip(r, radius)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) Shadow(x float32, y float32, w float32, h float32, r float32, offX float32, offY float32, blur float32, spread float32, c ui.Color) {
+	W.WShadow(x, y, w, h, r, offX, offY, blur, spread, c)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) StrokePath(path ui.VecPath, x float32, y float32, width float32, c ui.Color) {
+	W.WStrokePath(path, x, y, width, c)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Painter) StrokeRect(x float32, y float32, w float32, h float32, r float32, width float32, c ui.Color) {
+	W.WStrokeRect(x, y, w, h, r, width, c)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink is an interface wrapper for SVGPathSink type
+type _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink struct {
+	IValue     interface{}
+	WClosePath func()
+	WCubeTo    func(x1 float32, y1 float32, x2 float32, y2 float32, x float32, y float32)
+	WLineTo    func(x float32, y float32)
+	WMoveTo    func(x float32, y float32)
+	WQuadTo    func(x1 float32, y1 float32, x float32, y float32)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink) ClosePath() {
+	W.WClosePath()
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink) CubeTo(x1 float32, y1 float32, x2 float32, y2 float32, x float32, y float32) {
+	W.WCubeTo(x1, y1, x2, y2, x, y)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink) LineTo(x float32, y float32) {
+	W.WLineTo(x, y)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink) MoveTo(x float32, y float32) {
+	W.WMoveTo(x, y)
+}
+func (W _github_com_sjm1327605995_tenon_pkg_ui_SVGPathSink) QuadTo(x1 float32, y1 float32, x float32, y float32) {
+	W.WQuadTo(x1, y1, x, y)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Scene3DAdapter is an interface wrapper for Scene3DAdapter type
+type _github_com_sjm1327605995_tenon_pkg_ui_Scene3DAdapter struct {
+	IValue   interface{}
+	WAdapt3D func(a0 *ui.GameNode3D) (ui.Game3DComponent, error)
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Scene3DAdapter) Adapt3D(a0 *ui.GameNode3D) (ui.Game3DComponent, error) {
+	return W.WAdapt3D(a0)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_Scene3DValidator is an interface wrapper for Scene3DValidator type
+type _github_com_sjm1327605995_tenon_pkg_ui_Scene3DValidator struct {
+	IValue      interface{}
+	WValidate3D func(a0 *ui.GameNode3D) error
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_Scene3DValidator) Validate3D(a0 *ui.GameNode3D) error {
+	return W.WValidate3D(a0)
+}
+
+// _github_com_sjm1327605995_tenon_pkg_ui_VecPath is an interface wrapper for VecPath type
+type _github_com_sjm1327605995_tenon_pkg_ui_VecPath struct {
+	IValue     interface{}
+	WIsVecPath func()
+}
+
+func (W _github_com_sjm1327605995_tenon_pkg_ui_VecPath) IsVecPath() {
+	W.WIsVecPath()
 }

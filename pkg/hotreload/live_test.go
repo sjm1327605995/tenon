@@ -135,3 +135,56 @@ func View() *ui.Node {
 		t.Fatal("interpreted compact form did not render correctly")
 	}
 }
+
+func TestInterpretedRecentUIAPIs(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "recent.go")
+	src := `package view
+import (
+	"image"
+	ui "github.com/sjm1327605995/tenon/pkg/ui"
+)
+type sink struct{ calls float32 }
+func (s *sink) MoveTo(float32, float32) { s.calls++ }
+func (s *sink) LineTo(float32, float32) { s.calls++ }
+func (s *sink) CubeTo(float32, float32, float32, float32, float32, float32) { s.calls++ }
+func (s *sink) QuadTo(float32, float32, float32, float32) { s.calls++ }
+func (s *sink) ClosePath() {}
+func View() *ui.Node {
+	s := &sink{}
+	ui.ParseSVGPath(ui.IconCheck, float32(1), s)
+	if s.calls == 0 {
+		return ui.Text("missing")
+	}
+	return ui.VStack(8,
+		ui.Text("recent"),
+		ui.Icon(ui.IconCheck, 16),
+		ui.Img(ui.SrcImage("hot-recent", image.NewNRGBA(image.Rect(0, 0, 1, 1))),
+			ui.Style(ui.ImageBlur(1), ui.ImageGrayscale(1))),
+	)
+}
+`
+	if err := os.WriteFile(f, []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	node, err := Interpret(f)
+	if err != nil {
+		t.Fatalf("interpret recent APIs: %v", err)
+	}
+	h := ui.MountDefault(node)
+	defer h.Close()
+	if !h.Root().ByText("recent").Exists() || h.Root().ByText("missing").Exists() {
+		t.Fatalf("ParseSVGPath was not callable: texts=%v", h.Root().Texts())
+	}
+	if !h.Root().ByKind("image").Exists() {
+		t.Fatal("recent filtered image did not render")
+	}
+	foundVector := false
+	for _, op := range h.Paint() {
+		if op.Kind == "strokepath" || op.Kind == "fillpath" {
+			foundVector = true
+		}
+	}
+	if !foundVector {
+		t.Fatal("recent SVG icon did not render")
+	}
+}
