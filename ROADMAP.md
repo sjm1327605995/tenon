@@ -140,7 +140,7 @@ The phases are dependency-ordered rather than date-based. **Done** requires code
 
 **Before a stable 1.0:** freeze the supported API, synchronize root and backend module versions, add changelog/migration notes, pass race-enabled root tests and native G3N tests, verify packages from an external consumer module, and complete the relevant real-window smoke tests. Pre-1.0 tags may be used earlier with explicit instability notes.
 
-**Acceptance:** a clean checkout on each supported OS can build, test and run the documented examples without repository-local replace directives or undocumented native setup. The published pseudo-version G3N consumer exposed root/backend API version skew (`ui.MouseButton`, `ui.InputKey`, `ui.Layer`, `ui.FontFace` and related types missing). The workspace now requires the matching root pseudo-version, but a new commit and external consumer run are required before claiming this gate.
+**Acceptance:** a clean checkout on each supported OS can build, test and run the documented examples without repository-local replace directives or undocumented native setup. The published pseudo-version G3N consumer exposed root/backend API version skew (`ui.MouseButton`, `ui.InputKey`, `ui.Layer`, `ui.FontFace` and related types missing). The workspace now requires the matching root pseudo-version and keeps local replacement only in ignored `go.work`; a new push and external consumer run are required before claiming this gate.
 
 ### Immediate execution queue
 

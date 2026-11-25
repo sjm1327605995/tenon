@@ -38,7 +38,7 @@ All notable changes to Tenon are documented here. The project is pre-1.0; public
 - RTL hit-testing now maps coordinates to logical offsets without incorrectly subtracting the visual run origin; mixed-script interior mappings are regression-tested.
 - Image cache and projected-texture keys now include the blur radius, and late asynchronous results cannot overwrite a newer radius on the same node.
 - Removing an image source now clears the existing bitmap and filter state; re-adding it uses the new attributes instead of retaining stale visuals. A delayed HTTP test also confirms that pending results cannot resurrect a cleared image.
-- Updated G3N v0.2 window/scene API usage and root-module version requirements, made native Mount optional as documented, fixed pointer dispatch, and repaired native plugin payload adaptation.
+- Updated G3N v0.2 window/scene API usage and root-module version requirements, moved local replacement out of `go.mod` into ignored `go.work`, made native Mount optional as documented, fixed pointer dispatch, and repaired native plugin payload adaptation.
 - G3N light objects are now recreated on remount, while closing a declarative scene no longer detaches the shared game camera.
 - G3N now honors synthetic bold and italic text styles with Gio's thresholds, including correct fixed-point baseline conversion and pixel regressions.
 - Declared G3N 2D layer transforms after verifying scale, shared-center rotation, translation and group opacity with geometry tests.

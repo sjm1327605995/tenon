@@ -30,7 +30,7 @@ func main() {
 
 导入模块后由 G3N 接管 `ui.Run`。游戏场景和 Tenon UI 使用独立场景根，刷新 UI 不会删除游戏对象。字体复用 Tenon 内置 OPPOSans。
 
-本仓库已配置 Go workspace，可直接运行：
+本仓库使用被 `.gitignore` 排除的 `go.work` 管理本地双模块开发，`go.mod` 不包含 `replace`。workspace 中只对当前伪版本做本地替换，发布时继续使用同步版本号。可直接运行：
 
 ```sh
 cd backend/g3n
