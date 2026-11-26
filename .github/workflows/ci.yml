@@ -282,7 +282,16 @@ jobs:
         env:
           GOWORK: "off"
           GOPROXY: "https://proxy.golang.org,direct"
-        run: go build ./...
+        run: |
+          set -o pipefail
+          go build ./... 2>&1 | tee "${{ runner.temp }}/g3n-build.log"
+      - name: Upload G3N build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tenon-g3n-build-log
+          path: ${{ runner.temp }}/g3n-build.log
+          if-no-files-found: error
       - name: go test
         working-directory: backend/g3n
         env:
