@@ -15,7 +15,7 @@ This matrix distinguishes implementation, configured CI and executed verificatio
 
 ## Remote CI evidence
 
-[CI run 45042687522](https://github.com/sjm1327605995/tenon/actions/runs/45042687522) completed successfully for commit `f30269f`: Ubuntu `build-test`, including `go test -race ./...`, passed. That run predates the current desktop and G3N jobs. Those jobs and current local commits require a push and new workflow run; no current remote success is inferred from the older run.
+[CI run 45042687522](https://github.com/sjm1327605995/tenon/actions/runs/45042687522) completed successfully for commit `f30269f`: Ubuntu `build-test`, including `go test -race ./...`, passed. [CI run 45792815811](https://github.com/sjm1327605995/tenon/actions/runs/45792815811) is the current run: its Gio desktop jobs and artifacts pass, but `build-test-g3n` fails at `go build`. The job log and artifact downloads require an authenticated GitHub session, so no G3N remote success is claimed and the exact compiler error still needs inspection.
 
 ## Rendering capabilities
 
