@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/g3n/engine v0.2.0
-	github.com/sjm1327605995/tenon v0.0.0-20261125015340-7c92de1
+	github.com/sjm1327605995/tenon v0.0.0-20261125015340-7c92de137c89
 	golang.org/x/image v0.31.0
 )
 

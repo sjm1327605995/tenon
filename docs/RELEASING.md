@@ -40,7 +40,7 @@ When a public API change is intentional, run `make api-update`, review `docs/pub
 
 ## Versioning
 
-Keep the root module and optional backend tags synchronized. Backend consumers should be able to select a single Tenon version without replacing it with a checkout path. During development, an ignored `go.work` maps the current pseudo-version to the local checkout; `backend/g3n/go.mod` itself contains no `replace` directive. Release metadata keeps synchronized versions instead of development-only replacements.
+Keep the root module and optional backend tags synchronized. Backend consumers should be able to select a single Tenon version without replacing it with a checkout path. Development pseudo-versions must use the canonical 12-character revision hash and have matching `go.sum` entries; short hashes are not valid for external consumers. During development, an ignored `go.work` maps the current pseudo-version to the local checkout; `backend/g3n/go.mod` itself contains no `replace` directive. Release metadata keeps synchronized versions instead of development-only replacements.
 
 After tagging, verify both module paths from an external module:
 
