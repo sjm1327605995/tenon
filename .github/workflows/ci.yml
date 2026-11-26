@@ -271,11 +271,23 @@ jobs:
         run: |
           fmt=$(gofmt -l .)
           if [ -n "$fmt" ]; then echo "Not gofmt'd:"; echo "$fmt"; exit 1; fi
+      - name: Resolve G3N module metadata
+        working-directory: backend/g3n
+        env:
+          GOWORK: "off"
+          GOPROXY: "https://proxy.golang.org,direct"
+        run: go mod download
       - name: go build
         working-directory: backend/g3n
+        env:
+          GOWORK: "off"
+          GOPROXY: "https://proxy.golang.org,direct"
         run: go build ./...
       - name: go test
         working-directory: backend/g3n
+        env:
+          GOWORK: "off"
+          GOPROXY: "https://proxy.golang.org,direct"
         run: go test ./...
       - name: Real G3N plugin window smoke
         working-directory: backend/g3n
